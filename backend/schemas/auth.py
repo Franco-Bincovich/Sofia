@@ -7,15 +7,17 @@ from pydantic import BaseModel
 
 
 class LoginRequest(BaseModel):
-    email: str
+    username: str
     password: str
 
 
 class UserInfo(BaseModel):
     id: UUID
     email: str
+    username: str
     rol: str
     nombre: str
+    apellido: str
 
 
 class LoginResponse(BaseModel):

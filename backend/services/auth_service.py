@@ -8,57 +8,64 @@ from utils.logger import logger
 
 
 class AuthService:
-    def login(self, email: str, password: str) -> LoginResponse:
+    def login(self, username: str, password: str) -> LoginResponse:
         """
-        Autentica al usuario con email y contraseña usando Supabase Auth.
+        Autentica al usuario con username y contraseña.
 
-        Verifica las credenciales, luego obtiene el perfil desde public.users
-        usando el cliente admin (bypasea RLS) porque el token aún no está en contexto.
+        Primero resuelve el username (case-insensitive) a un email buscando en
+        public.users con el cliente admin (bypasea RLS, el token aún no existe).
+        Luego usa ese email para autenticar contra Supabase Auth.
+
+        El mensaje de error es genérico en ambos casos de fallo para no revelar
+        si el username existe o no en el sistema.
 
         Args:
-            email: Email del usuario registrado en el sistema.
-            password: Contraseña en texto plano (solo viaja sobre HTTPS).
+            username: Nombre de usuario registrado (case-insensitive).
+            password: Contraseña en texto plano (case-sensitive, Supabase Auth la valida).
 
         Returns:
             LoginResponse con access_token, refresh_token y datos del usuario.
 
         Raises:
-            AppError: INVALID_CREDENTIALS (401) si las credenciales son incorrectas.
-            AppError: USER_NOT_FOUND (404) si el perfil no existe en public.users.
+            AppError: INVALID_CREDENTIALS (401) si el username no existe o la contraseña es incorrecta.
         """
+        # Paso 1: resolver username → perfil completo (case-insensitive via ilike sin wildcards)
         try:
-            auth_resp = supabase_client.auth.sign_in_with_password(
-                {"email": email, "password": password}
-            )
-        except Exception:
-            logger.warning("Login fallido", extra={"email": email})
-            raise AppError("Credenciales inválidas", "INVALID_CREDENTIALS", 401)
-
-        session = auth_resp.session
-        auth_user = auth_resp.user
-
-        try:
-            result = (
+            profile_result = (
                 supabase_admin.table("users")
-                .select("id, email, nombre, rol")
-                .eq("id", str(auth_user.id))
+                .select("id, email, username, nombre, apellido, rol")
+                .ilike("username", username)
                 .single()
                 .execute()
             )
         except Exception:
-            raise AppError("Usuario no encontrado en el sistema", "USER_NOT_FOUND", 404)
+            logger.warning("Login fallido — username no encontrado", extra={"username": username})
+            raise AppError("Usuario o contraseña incorrectos", "INVALID_CREDENTIALS", 401)
 
-        data = result.data
-        logger.info("Login exitoso", extra={"user_id": str(auth_user.id)})
+        profile = profile_result.data
+
+        # Paso 2: autenticar contra Supabase Auth usando el email resuelto
+        try:
+            auth_resp = supabase_client.auth.sign_in_with_password(
+                {"email": profile["email"], "password": password}
+            )
+        except Exception:
+            logger.warning("Login fallido — contraseña incorrecta", extra={"username": username})
+            raise AppError("Usuario o contraseña incorrectos", "INVALID_CREDENTIALS", 401)
+
+        session = auth_resp.session
+        logger.info("Login exitoso", extra={"user_id": profile["id"], "username": username})
 
         return LoginResponse(
             access_token=session.access_token,
             refresh_token=session.refresh_token,
             user=UserInfo(
-                id=data["id"],
-                email=data["email"],
-                rol=data["rol"],
-                nombre=data["nombre"],
+                id=profile["id"],
+                email=profile["email"],
+                username=profile["username"],
+                rol=profile["rol"],
+                nombre=profile["nombre"],
+                apellido=profile["apellido"],
             ),
         )
 

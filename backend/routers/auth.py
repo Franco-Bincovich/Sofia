@@ -28,7 +28,7 @@ async def login(
     body: LoginRequest,
     service: AuthService = Depends(AuthService),
 ) -> LoginResponse:
-    return service.login(body.email, body.password)
+    return service.login(body.username, body.password)
 
 
 @router.post("/logout", status_code=204)

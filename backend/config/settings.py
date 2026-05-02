@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     resend_from_email: str = "noreply@hrkarstec.com"
 
     # CORS
-    allowed_origins: str = "http://localhost:3000"
+    allowed_origins: str = "http://localhost:3000,http://localhost:3001"
 
     @property
     def allowed_origins_list(self) -> list[str]:

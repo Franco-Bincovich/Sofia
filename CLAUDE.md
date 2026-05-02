@@ -100,21 +100,21 @@ Sofia/
 | `empleado` | Acceso mínimo. Solo puede ver su propio perfil y sus propias evaluaciones. |
 
 ## Estado actual del proyecto
-- [ ] S1: Setup y arquitectura base (EN CURSO)
-- [ ] S2: Diseño de base de datos — migraciones SQL
-- [ ] S3: Autenticación y sistema de roles
-- [ ] S4: Design system y componentes base
-- [ ] S5: Módulo de Empleados
-- [ ] S6: Organigrama
-- [ ] S7: Dashboard Ejecutivo
-- [ ] S8: Onboarding y Offboarding
-- [ ] S9: Vacantes y Pipeline
-- [ ] S10: Costos de Personal
-- [ ] S11: Sucesión y Planes de Carrera
-- [ ] S12: Assessment Engine (Self AI replicado)
-- [ ] S13: Motor de IA — AI HR Karstec
-- [ ] S14: Reportes y Exportaciones
-- [ ] S15: Seguridad, Testing y Deploy
+- [x] S1: Setup y arquitectura base
+- [x] S2: Diseño de base de datos — migraciones SQL
+- [x] S3: Autenticación y sistema de roles
+- [x] S4: Design system y componentes base
+- [x] S5: Módulo de Empleados
+- [x] S6: Organigrama
+- [x] S7: Dashboard Ejecutivo
+- [x] S8: Onboarding y Offboarding
+- [x] S9: Vacantes y Pipeline
+- [x] S10: Costos de Personal
+- [x] S11: Sucesión y Planes de Carrera
+- [x] S12: Assessment Engine (Self AI replicado)
+- [x] S13: Motor de IA — AI HR Karstec
+- [x] S14: Reportes y Exportaciones
+- [ ] S15: Seguridad, Testing y Deploy (EN CURSO)
 
 ## Deuda técnica conocida
 _(vacío al inicio del proyecto — se completa a medida que avanza)_
