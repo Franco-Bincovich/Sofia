@@ -14,6 +14,7 @@ from middleware.error_handler import global_error_handler
 from middleware.security_headers import SecurityHeadersMiddleware
 from routers.areas import router as areas_router
 from routers.auth import limiter, router as auth_router
+from routers.costos import router as costos_router
 from routers.empleados import router as empleados_router
 from routers.offboarding import router as offboarding_router
 from routers.onboarding import router as onboarding_router
@@ -55,3 +56,4 @@ app.include_router(vacantes_router, prefix="/api/vacantes", tags=["vacantes"])
 app.include_router(candidatos_router, prefix="/api/candidatos", tags=["candidatos"])
 app.include_router(onboarding_router, prefix="/api/onboarding", tags=["onboarding"])
 app.include_router(offboarding_router, prefix="/api/offboarding", tags=["offboarding"])
+app.include_router(costos_router, prefix="/api/costos", tags=["costos"])
