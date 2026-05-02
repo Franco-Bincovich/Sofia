@@ -49,6 +49,7 @@ class EmpleadoResponse(BaseModel):
     apellido: str
     email_corporativo: str
     area_id: str
+    area_nombre: Optional[str] = None
     cargo: str
     modalidad_trabajo: str
     tipo_contrato: str

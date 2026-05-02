@@ -1,14 +1,16 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Plus, Search, Users } from "lucide-react"
 
 import { PageHeader } from "@/components/layout/PageHeader"
 import { EmptyState } from "@/components/ui/EmptyState"
+import { ErrorState } from "@/components/ui/ErrorState"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Table,
   TableBody,
@@ -17,26 +19,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-
-interface Empleado {
-  id: string
-  nombre: string
-  apellido: string
-  area: string
-  cargo: string
-  modalidad: "presencial" | "remoto" | "hibrido"
-  estado: "activo" | "baja" | "licencia"
-}
-
-const MOCK: Empleado[] = [
-  { id: "1", nombre: "Ana",     apellido: "García",    area: "Tecnología",  cargo: "Desarrolladora Senior", modalidad: "hibrido",     estado: "activo"   },
-  { id: "2", nombre: "Carlos",  apellido: "López",     area: "Producto",    cargo: "Product Manager",       modalidad: "remoto",      estado: "activo"   },
-  { id: "3", nombre: "María",   apellido: "Fernández", area: "Tecnología",  cargo: "UX Designer",           modalidad: "presencial",  estado: "licencia" },
-  { id: "4", nombre: "Lucía",   apellido: "Morales",   area: "Finanzas",    cargo: "Analista Contable",     modalidad: "hibrido",     estado: "activo"   },
-  { id: "5", nombre: "Martín",  apellido: "Díaz",      area: "RRHH",        cargo: "HR Business Partner",   modalidad: "presencial",  estado: "activo"   },
-  { id: "6", nombre: "Sofía",   apellido: "Ruiz",      area: "Ventas",      cargo: "Account Executive",     modalidad: "remoto",      estado: "baja"     },
-  { id: "7", nombre: "Diego",   apellido: "Torres",    area: "Tecnología",  cargo: "DevOps Engineer",       modalidad: "remoto",      estado: "activo"   },
-]
+import { EmpleadoModal } from "@/components/features/empleados/EmpleadoModal"
+import { fetchEmpleados } from "@/services/empleados"
+import type { Empleado, EmpleadoListResponse } from "@/types/empleado"
 
 const ESTADO_LABELS: Record<string, string> = {
   activo: "Activo",
@@ -52,28 +37,43 @@ const ESTADO_VARIANTS: Record<string, "default" | "destructive" | "secondary"> =
 
 const PAGE_SIZE = 20
 
+function TableSkeleton() {
+  return (
+    <div className="space-y-2">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <Skeleton key={i} className="h-12 w-full rounded-lg" />
+      ))}
+    </div>
+  )
+}
+
 export default function EmpleadosPage() {
   const router = useRouter()
+
+  const [data, setData] = useState<EmpleadoListResponse | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
   const [search, setSearch] = useState("")
   const [estado, setEstado] = useState("")
   const [page, setPage] = useState(1)
+  const [newOpen, setNewOpen] = useState(false)
 
-  const filtered = useMemo(() => {
-    let rows = MOCK
-    if (search.trim()) {
-      const q = search.trim().toLowerCase()
-      rows = rows.filter(
-        (e) => e.nombre.toLowerCase().includes(q) || e.apellido.toLowerCase().includes(q),
-      )
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError(false)
+    try {
+      const result = await fetchEmpleados(page, PAGE_SIZE, search || undefined, estado || undefined)
+      setData(result)
+    } catch {
+      setError(true)
+    } finally {
+      setLoading(false)
     }
-    if (estado) {
-      rows = rows.filter((e) => e.estado === estado)
-    }
-    return rows
-  }, [search, estado])
+  }, [page, search, estado])
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
-  const visible = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  useEffect(() => {
+    load()
+  }, [load])
 
   function handleSearch(value: string) {
     setSearch(value)
@@ -85,13 +85,17 @@ export default function EmpleadosPage() {
     setPage(1)
   }
 
+  const items: Empleado[] = data?.items ?? []
+  const total = data?.total ?? 0
+  const totalPages = data?.total_pages ?? 0
+
   return (
     <div>
       <PageHeader
         title="Empleados"
-        description={`${filtered.length} colaboradores`}
+        description={loading ? "Cargando..." : `${total} colaboradores`}
         action={
-          <Button className="min-h-11">
+          <Button className="min-h-11" onClick={() => setNewOpen(true)}>
             <Plus />
             Nuevo empleado
           </Button>
@@ -121,13 +125,21 @@ export default function EmpleadosPage() {
         </select>
       </div>
 
-      {visible.length === 0 ? (
+      {loading && <TableSkeleton />}
+
+      {!loading && error && (
+        <ErrorState action={load} />
+      )}
+
+      {!loading && !error && items.length === 0 && (
         <EmptyState
           icon={<Users />}
           title="Sin resultados"
           description="No hay empleados que coincidan con los filtros aplicados."
         />
-      ) : (
+      )}
+
+      {!loading && !error && items.length > 0 && (
         <Table>
           <TableHeader>
             <TableRow>
@@ -139,7 +151,7 @@ export default function EmpleadosPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {visible.map((emp) => (
+            {items.map((emp) => (
               <TableRow
                 key={emp.id}
                 className="cursor-pointer"
@@ -148,12 +160,12 @@ export default function EmpleadosPage() {
                 <TableCell className="font-medium">
                   {emp.nombre} {emp.apellido}
                 </TableCell>
-                <TableCell className="text-muted-foreground">{emp.area}</TableCell>
+                <TableCell className="text-muted-foreground">{emp.area_nombre ?? "—"}</TableCell>
                 <TableCell>{emp.cargo}</TableCell>
-                <TableCell className="capitalize">{emp.modalidad}</TableCell>
+                <TableCell className="capitalize">{emp.modalidad_trabajo}</TableCell>
                 <TableCell>
-                  <Badge variant={ESTADO_VARIANTS[emp.estado]}>
-                    {ESTADO_LABELS[emp.estado]}
+                  <Badge variant={ESTADO_VARIANTS[emp.estado] ?? "secondary"}>
+                    {ESTADO_LABELS[emp.estado] ?? emp.estado}
                   </Badge>
                 </TableCell>
               </TableRow>
@@ -162,7 +174,7 @@ export default function EmpleadosPage() {
         </Table>
       )}
 
-      {totalPages > 1 && (
+      {!loading && !error && totalPages > 1 && (
         <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
           <span>Página {page} de {totalPages}</span>
           <div className="flex gap-2">
@@ -187,6 +199,15 @@ export default function EmpleadosPage() {
           </div>
         </div>
       )}
+
+      <EmpleadoModal
+        open={newOpen}
+        onClose={() => setNewOpen(false)}
+        onSuccess={() => {
+          setNewOpen(false)
+          load()
+        }}
+      />
     </div>
   )
 }

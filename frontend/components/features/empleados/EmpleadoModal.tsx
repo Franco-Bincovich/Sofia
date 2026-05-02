@@ -13,7 +13,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { createEmpleado, updateEmpleado } from "@/services/empleados"
+import { fetchAreas } from "@/services/areas"
 import type { Empleado, EmpleadoCreate } from "@/types/empleado"
+import type { Area } from "@/types/area"
 
 interface EmpleadoModalProps {
   open: boolean
@@ -45,8 +47,8 @@ const EMPTY: FormData = {
   email_corporativo: "",
   area_id: "",
   cargo: "",
-  modalidad_trabajo: "hibrido",
-  tipo_contrato: "indefinido",
+  modalidad_trabajo: "presencial",
+  tipo_contrato: "efectivo",
   fecha_ingreso: "",
   telefono: "",
   fecha_nacimiento: "",
@@ -63,7 +65,6 @@ const TEXT_FIELDS: Array<{
   { field: "nombre", label: "Nombre", required: true },
   { field: "apellido", label: "Apellido", required: true },
   { field: "email_corporativo", label: "Email corporativo", required: true, type: "email" },
-  { field: "area_id", label: "ID de área", required: true },
   { field: "cargo", label: "Cargo", required: true },
   { field: "fecha_ingreso", label: "Fecha de ingreso", required: true, type: "date" },
   { field: "telefono", label: "Teléfono", type: "tel" },
@@ -71,6 +72,9 @@ const TEXT_FIELDS: Array<{
   { field: "cuil", label: "CUIL" },
   { field: "legajo", label: "Legajo" },
 ]
+
+const SELECT_CLASS =
+  "h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
 
 function validate(form: FormData): FormErrors {
   const errors: FormErrors = {}
@@ -81,7 +85,7 @@ function validate(form: FormData): FormErrors {
   } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email_corporativo)) {
     errors.email_corporativo = "El email no es válido"
   }
-  if (!form.area_id.trim()) errors.area_id = "El área es requerida"
+  if (!form.area_id) errors.area_id = "El área es requerida"
   if (!form.cargo.trim()) errors.cargo = "El cargo es requerido"
   if (!form.fecha_ingreso) errors.fecha_ingreso = "La fecha de ingreso es requerida"
   return errors
@@ -93,6 +97,17 @@ export function EmpleadoModal({ open, onClose, onSuccess, empleado }: EmpleadoMo
   const [errors, setErrors] = useState<FormErrors>({})
   const [submitting, setSubmitting] = useState(false)
   const [serverError, setServerError] = useState("")
+  const [areas, setAreas] = useState<Area[]>([])
+  const [areasLoading, setAreasLoading] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    setAreasLoading(true)
+    fetchAreas()
+      .then(setAreas)
+      .catch(() => setAreas([]))
+      .finally(() => setAreasLoading(false))
+  }, [open])
 
   useEffect(() => {
     if (empleado) {
@@ -191,10 +206,40 @@ export function EmpleadoModal({ open, onClose, onSuccess, empleado }: EmpleadoMo
             ))}
 
             <div className="flex flex-col gap-1.5">
+              <Label htmlFor="area_id">
+                Área
+                <span className="ml-0.5 text-destructive" aria-hidden>*</span>
+              </Label>
+              <select
+                id="area_id"
+                className={SELECT_CLASS}
+                value={form.area_id}
+                onChange={field("area_id")}
+                disabled={areasLoading}
+                aria-invalid={Boolean(errors.area_id)}
+                aria-required
+              >
+                <option value="">
+                  {areasLoading ? "Cargando áreas..." : "Seleccionar área"}
+                </option>
+                {areas.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.nombre}
+                  </option>
+                ))}
+              </select>
+              {errors.area_id && (
+                <p className="text-xs text-destructive" role="alert">
+                  {errors.area_id}
+                </p>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-1.5">
               <Label htmlFor="modalidad_trabajo">Modalidad de trabajo</Label>
               <select
                 id="modalidad_trabajo"
-                className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                className={SELECT_CLASS}
                 value={form.modalidad_trabajo}
                 onChange={field("modalidad_trabajo")}
               >
@@ -208,13 +253,14 @@ export function EmpleadoModal({ open, onClose, onSuccess, empleado }: EmpleadoMo
               <Label htmlFor="tipo_contrato">Tipo de contrato</Label>
               <select
                 id="tipo_contrato"
-                className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                className={SELECT_CLASS}
                 value={form.tipo_contrato}
                 onChange={field("tipo_contrato")}
               >
-                <option value="indefinido">Indefinido</option>
+                <option value="efectivo">Relación de dependencia</option>
                 <option value="plazo_fijo">Plazo fijo</option>
-                <option value="honorarios">Honorarios</option>
+                <option value="contratado">Contratado</option>
+                <option value="pasantia">Pasantía</option>
               </select>
             </div>
           </div>

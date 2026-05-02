@@ -12,10 +12,11 @@ _EMPLEADOS_TABLE = "empleados"
 
 
 def _counts_by_area() -> dict[str, int]:
+    # Excluye solo 'baja': licencia sigue siendo headcount del área
     res = (
         supabase_admin.table(_EMPLEADOS_TABLE)
-        .select("area_id", count="exact")
-        .eq("estado", "activo")
+        .select("area_id")
+        .neq("estado", "baja")
         .execute()
     )
     counts: dict[str, int] = {}

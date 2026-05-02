@@ -1,23 +1,26 @@
 """
-Repositorio de empleados. Datos mock — reemplazar por Supabase cuando el auth esté completo.
+Repositorio de empleados — queries reales a Supabase.
 Interfaz pública: find_all · find_by_id · save · update · soft_delete
 """
-from copy import deepcopy
-from datetime import datetime, timezone
 from typing import List, Optional, Tuple
-from uuid import uuid4
 
+from integrations.supabase_client import supabase_admin
 from schemas.empleado import EmpleadoCreate, EmpleadoResponse, EmpleadoUpdate
+from utils.errors import AppError
+from utils.logger import logger
 
-_DB: List[dict] = [
-    {"id": "11111111-1111-1111-1111-111111111111", "nombre": "Ana", "apellido": "García", "email_corporativo": "ana.garcia@karstec.com", "area_id": "aaaaaaaa-0000-0000-0000-000000000001", "cargo": "Desarrolladora Senior", "modalidad_trabajo": "hibrido", "tipo_contrato": "indefinido", "fecha_ingreso": "2022-03-01", "telefono": None, "fecha_nacimiento": None, "cuil": "20-30000001-1", "legajo": "001", "estado": "activo", "created_at": "2022-03-01T00:00:00+00:00"},
-    {"id": "22222222-2222-2222-2222-222222222222", "nombre": "Carlos", "apellido": "López", "email_corporativo": "carlos.lopez@karstec.com", "area_id": "aaaaaaaa-0000-0000-0000-000000000002", "cargo": "Product Manager", "modalidad_trabajo": "remoto", "tipo_contrato": "indefinido", "fecha_ingreso": "2021-07-15", "telefono": None, "fecha_nacimiento": None, "cuil": "20-30000002-2", "legajo": "002", "estado": "activo", "created_at": "2021-07-15T00:00:00+00:00"},
-    {"id": "33333333-3333-3333-3333-333333333333", "nombre": "María", "apellido": "Fernández", "email_corporativo": "maria.fernandez@karstec.com", "area_id": "aaaaaaaa-0000-0000-0000-000000000001", "cargo": "UX Designer", "modalidad_trabajo": "presencial", "tipo_contrato": "plazo_fijo", "fecha_ingreso": "2023-01-10", "telefono": None, "fecha_nacimiento": None, "cuil": "27-30000003-3", "legajo": "003", "estado": "licencia", "created_at": "2023-01-10T00:00:00+00:00"},
-]
+_TABLE = "empleados"
 
 
 def _row(r: dict) -> EmpleadoResponse:
-    return EmpleadoResponse.model_validate(r)
+    """Convierte un dict de Supabase en EmpleadoResponse.
+    Si el dict incluye la clave 'areas' (join con tabla areas), extrae area_nombre."""
+    area_info = r.get("areas")
+    data = {
+        **{k: v for k, v in r.items() if k != "areas"},
+        "area_nombre": area_info["nombre"] if isinstance(area_info, dict) else None,
+    }
+    return EmpleadoResponse.model_validate(data)
 
 
 class EmpleadoRepo:
@@ -29,44 +32,67 @@ class EmpleadoRepo:
         estado: Optional[str] = None,
         search: Optional[str] = None,
     ) -> Tuple[List[EmpleadoResponse], int]:
-        rows = deepcopy(_DB)
-        if area_id:
-            rows = [r for r in rows if r["area_id"] == area_id]
-        if estado:
-            rows = [r for r in rows if r["estado"] == estado]
-        if search:
-            s = search.lower()
-            rows = [r for r in rows if s in r["nombre"].lower() or s in r["apellido"].lower()]
-        total = len(rows)
+        """Retorna la página de empleados con area_nombre resuelto y el total sin paginar."""
         start = (page - 1) * page_size
-        return [_row(r) for r in rows[start: start + page_size]], total
+        end = start + page_size - 1
+
+        query = supabase_admin.table(_TABLE).select("*, areas!empleados_area_id_fkey(nombre)", count="exact")
+
+        if area_id:
+            query = query.eq("area_id", area_id)
+        if estado:
+            query = query.eq("estado", estado)
+        if search:
+            query = query.or_(
+                f"nombre.ilike.%{search}%,apellido.ilike.%{search}%"
+            )
+
+        result = query.range(start, end).execute()
+
+        total = result.count if result.count is not None else 0
+        return [_row(r) for r in result.data], total
 
     def find_by_id(self, id: str) -> Optional[EmpleadoResponse]:
-        row = next((r for r in _DB if r["id"] == id), None)
-        return _row(deepcopy(row)) if row else None
+        """Busca un empleado por UUID. Devuelve None si no existe."""
+        result = supabase_admin.table(_TABLE).select("*").eq("id", id).maybe_single().execute()
+        if not result.data:
+            return None
+        return _row(result.data)
 
     def save(self, data: EmpleadoCreate) -> EmpleadoResponse:
-        row = data.model_dump()
-        row["id"] = str(uuid4())
-        row["area_id"] = str(row["area_id"])
-        row["estado"] = "activo"
-        row["created_at"] = datetime.now(timezone.utc)
-        _DB.append(row)
-        return _row(row)
+        """Inserta un nuevo empleado y devuelve el registro creado."""
+        payload = data.model_dump()
+        payload["area_id"] = str(payload["area_id"])
+        payload["fecha_ingreso"] = str(payload["fecha_ingreso"])
+        if payload.get("fecha_nacimiento"):
+            payload["fecha_nacimiento"] = str(payload["fecha_nacimiento"])
+        payload["estado"] = "activo"
+
+        result = supabase_admin.table(_TABLE).insert(payload).execute()
+        if not result.data:
+            logger.error("Supabase insert vacío en empleados")
+            raise AppError("Error al crear empleado", "DB_ERROR", 500)
+        return _row(result.data[0])
 
     def update(self, id: str, data: EmpleadoUpdate) -> Optional[EmpleadoResponse]:
-        for i, r in enumerate(_DB):
-            if r["id"] == id:
-                patch = {k: v for k, v in data.model_dump(exclude_none=True).items()}
-                if "area_id" in patch:
-                    patch["area_id"] = str(patch["area_id"])
-                _DB[i] = {**r, **patch}
-                return _row(deepcopy(_DB[i]))
-        return None
+        """Actualiza solo los campos no-None y devuelve el registro actualizado."""
+        patch = {k: v for k, v in data.model_dump(exclude_none=True).items()}
+        if not patch:
+            return self.find_by_id(id)
+
+        if "area_id" in patch:
+            patch["area_id"] = str(patch["area_id"])
+        if "fecha_ingreso" in patch:
+            patch["fecha_ingreso"] = str(patch["fecha_ingreso"])
+        if "fecha_nacimiento" in patch and patch["fecha_nacimiento"]:
+            patch["fecha_nacimiento"] = str(patch["fecha_nacimiento"])
+
+        result = supabase_admin.table(_TABLE).update(patch).eq("id", id).execute()
+        if not result.data:
+            return None
+        return _row(result.data[0])
 
     def soft_delete(self, id: str) -> bool:
-        for i, r in enumerate(_DB):
-            if r["id"] == id:
-                _DB[i]["estado"] = "baja"
-                return True
-        return False
+        """Marca el empleado como baja sin eliminar el registro."""
+        result = supabase_admin.table(_TABLE).update({"estado": "baja"}).eq("id", id).execute()
+        return bool(result.data)

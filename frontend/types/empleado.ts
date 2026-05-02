@@ -4,6 +4,7 @@ export interface Empleado {
   apellido: string
   email_corporativo: string
   area_id: string
+  area_nombre: string | null
   cargo: string
   modalidad_trabajo: "presencial" | "remoto" | "hibrido"
   tipo_contrato: "indefinido" | "plazo_fijo" | "honorarios"
