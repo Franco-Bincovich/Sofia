@@ -1,24 +1,27 @@
-export type SeccionId = "pre-ingreso" | "semana-1" | "semana-2" | "mes-1"
-
-export interface Tarea {
+export interface OnboardingInstancia {
   id: string
-  texto: string
+  empleado_id: string
+  empleado_nombre: string
+  empleado_cargo: string | null
+  empleado_area: string | null
+  template_id: string
+  estado: string
+  fecha_inicio: string
+  progreso: number
+  tareas_completadas: number
+  tareas_total: number
+}
+
+export interface TareaProgreso {
+  progreso_id: string
+  tarea_id: string
+  titulo: string
+  descripcion: string | null
+  semana: number
+  orden: number
   completada: boolean
 }
 
-export interface Seccion {
-  id: SeccionId
-  titulo: string
-  tareas: Tarea[]
-}
-
-export interface EmpleadoOnboarding {
-  id: string
-  nombre: string
-  apellido: string
-  cargo: string
-  area: string
-  fechaIngreso: string
-  semanaActual: SeccionId
-  secciones: Seccion[]
+export interface OnboardingDetalle extends OnboardingInstancia {
+  tareas: TareaProgreso[]
 }

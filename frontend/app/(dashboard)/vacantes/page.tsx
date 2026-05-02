@@ -1,13 +1,15 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Briefcase, Plus } from "lucide-react"
 
 import { PageHeader } from "@/components/layout/PageHeader"
 import { EmptyState } from "@/components/ui/EmptyState"
+import { ErrorState } from "@/components/ui/ErrorState"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Table,
   TableBody,
@@ -16,73 +18,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { VacanteModal } from "@/components/features/vacantes/VacanteModal"
+import { fetchVacantes } from "@/services/vacantes"
 import type { EstadoVacante, Vacante } from "@/types/vacantes"
-
-const MOCK: Vacante[] = [
-  {
-    id: "1",
-    titulo: "Desarrollador Full Stack Senior",
-    area: "Tecnología",
-    estado: "en_proceso",
-    fechaApertura: "01/03/2025",
-    descripcion:
-      "Buscamos un desarrollador con experiencia en React, Node.js y bases de datos relacionales para unirse al equipo de plataforma. El rol implica diseño de arquitectura, revisión de código y mentoring de desarrolladores junior.",
-    requisitos: [
-      "5+ años de experiencia en desarrollo web",
-      "React y TypeScript (avanzado)",
-      "Node.js / Express",
-      "PostgreSQL y manejo de migraciones",
-      "Experiencia en metodologías ágiles",
-    ],
-  },
-  {
-    id: "2",
-    titulo: "Product Manager",
-    area: "Producto",
-    estado: "nueva",
-    fechaApertura: "15/04/2025",
-    descripcion:
-      "Buscamos un PM con experiencia en productos digitales B2B para liderar el roadmap de nuestra plataforma principal junto al equipo de ingeniería y diseño.",
-    requisitos: [
-      "3+ años como Product Manager",
-      "Experiencia en productos SaaS B2B",
-      "Metodologías ágiles (Scrum/Kanban)",
-      "Análisis de métricas y KPIs",
-      "Comunicación con stakeholders C-level",
-    ],
-  },
-  {
-    id: "3",
-    titulo: "Analista de Datos",
-    area: "Tecnología",
-    estado: "con_candidatos",
-    fechaApertura: "10/02/2025",
-    descripcion:
-      "Posición orientada al análisis de datos del negocio, construcción de dashboards ejecutivos y generación de insights accionables para las áreas de producto y comercial.",
-    requisitos: [
-      "SQL avanzado (queries complejas, optimización)",
-      "Python o R para análisis estadístico",
-      "Tableau o Power BI",
-      "Estadística descriptiva e inferencial",
-    ],
-  },
-  {
-    id: "4",
-    titulo: "HR Business Partner",
-    area: "RRHH",
-    estado: "cerrada",
-    fechaApertura: "05/01/2025",
-    descripcion:
-      "Rol estratégico de HRBP para acompañar a las áreas de Tecnología y Producto en sus procesos de gestión de personas, clima organizacional y desarrollo de talento.",
-    requisitos: [
-      "5+ años de experiencia en RRHH",
-      "Experiencia en empresas de tecnología",
-      "Gestión de procesos de selección end-to-end",
-      "Planes de desarrollo y sucesión",
-      "Gestión del cambio organizacional",
-    ],
-  },
-]
 
 const ESTADO_LABELS: Record<EstadoVacante, string> = {
   nueva: "Nueva",
@@ -98,22 +36,54 @@ const ESTADO_VARIANTS: Record<EstadoVacante, "default" | "secondary" | "destruct
   cerrada: "destructive",
 }
 
+function TableSkeleton() {
+  return (
+    <div className="space-y-2">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <Skeleton key={i} className="h-12 w-full rounded-lg" />
+      ))}
+    </div>
+  )
+}
+
+function formatFecha(raw: string | null): string {
+  if (!raw) return "—"
+  const d = new Date(raw)
+  return d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" })
+}
+
 export default function VacantesPage() {
   const router = useRouter()
+  const [vacantes, setVacantes] = useState<Vacante[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
   const [estadoFilter, setEstadoFilter] = useState<EstadoVacante | "">("")
+  const [modalOpen, setModalOpen] = useState(false)
 
-  const filtered = useMemo(() => {
-    if (!estadoFilter) return MOCK
-    return MOCK.filter((v) => v.estado === estadoFilter)
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError(false)
+    try {
+      const data = await fetchVacantes(estadoFilter || undefined)
+      setVacantes(data)
+    } catch {
+      setError(true)
+    } finally {
+      setLoading(false)
+    }
   }, [estadoFilter])
+
+  useEffect(() => {
+    load()
+  }, [load])
 
   return (
     <div>
       <PageHeader
         title="Vacantes"
-        description={`${filtered.length} vacante${filtered.length !== 1 ? "s" : ""}`}
+        description={loading ? "Cargando..." : `${vacantes.length} vacante${vacantes.length !== 1 ? "s" : ""}`}
         action={
-          <Button className="min-h-11">
+          <Button className="min-h-11" onClick={() => setModalOpen(true)}>
             <Plus />
             Nueva vacante
           </Button>
@@ -135,13 +105,19 @@ export default function VacantesPage() {
         </select>
       </div>
 
-      {filtered.length === 0 ? (
+      {loading && <TableSkeleton />}
+
+      {!loading && error && <ErrorState action={load} />}
+
+      {!loading && !error && vacantes.length === 0 && (
         <EmptyState
           icon={<Briefcase />}
           title="Sin resultados"
           description="No hay vacantes que coincidan con el filtro seleccionado."
         />
-      ) : (
+      )}
+
+      {!loading && !error && vacantes.length > 0 && (
         <Table>
           <TableHeader>
             <TableRow>
@@ -152,25 +128,38 @@ export default function VacantesPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map((vacante) => (
+            {vacantes.map((vacante) => (
               <TableRow
                 key={vacante.id}
                 className="cursor-pointer"
                 onClick={() => router.push(`/vacantes/${vacante.id}`)}
               >
                 <TableCell className="font-medium">{vacante.titulo}</TableCell>
-                <TableCell className="text-muted-foreground">{vacante.area}</TableCell>
+                <TableCell className="text-muted-foreground">
+                  {vacante.area_nombre ?? "—"}
+                </TableCell>
                 <TableCell>
                   <Badge variant={ESTADO_VARIANTS[vacante.estado]}>
                     {ESTADO_LABELS[vacante.estado]}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-muted-foreground">{vacante.fechaApertura}</TableCell>
+                <TableCell className="text-muted-foreground">
+                  {formatFecha(vacante.fecha_apertura ?? vacante.created_at)}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       )}
+
+      <VacanteModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSuccess={() => {
+          setModalOpen(false)
+          load()
+        }}
+      />
     </div>
   )
 }

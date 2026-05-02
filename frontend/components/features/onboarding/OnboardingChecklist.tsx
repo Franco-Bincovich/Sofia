@@ -5,62 +5,90 @@ import { X } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import type { EmpleadoOnboarding, Seccion } from "@/types/onboarding"
+import { completarTarea } from "@/services/onboarding"
+import type { OnboardingDetalle, TareaProgreso } from "@/types/onboarding"
+
+const SEMANA_LABEL: Record<number, string> = {
+  1: "Semana 1 — Bienvenida",
+  2: "Semana 2 — Capacitación",
+  3: "Semana 3 — Integración",
+  4: "Semana 4 — Primer mes",
+}
 
 interface OnboardingChecklistProps {
-  empleado: EmpleadoOnboarding
+  detalle: OnboardingDetalle
   onClose: () => void
+  onTareaToggled: (tareaId: string, completada: boolean) => void
 }
 
 type CheckState = Record<string, boolean>
 
-function buildInitialChecks(secciones: Seccion[]): CheckState {
-  return Object.fromEntries(
-    secciones.flatMap((s) => s.tareas.map((t) => [t.id, t.completada]))
-  )
+function buildInitialChecks(tareas: TareaProgreso[]): CheckState {
+  return Object.fromEntries(tareas.map((t) => [t.tarea_id, t.completada]))
 }
 
-function sectionCounts(
-  secciones: Seccion[],
-  checks: CheckState,
-): Record<string, { done: number; total: number }> {
-  return Object.fromEntries(
-    secciones.map((s) => {
-      const total = s.tareas.length
-      const done = s.tareas.filter((t) => checks[t.id]).length
-      return [s.id, { done, total }]
-    }),
-  ) as Record<string, { done: number; total: number }>
+function groupBySemana(tareas: TareaProgreso[]): Map<number, TareaProgreso[]> {
+  const map = new Map<number, TareaProgreso[]>()
+  for (const t of tareas) {
+    const list = map.get(t.semana) ?? []
+    list.push(t)
+    map.set(t.semana, list)
+  }
+  return map
 }
 
-export function OnboardingChecklist({ empleado, onClose }: OnboardingChecklistProps) {
+export function OnboardingChecklist({
+  detalle,
+  onClose,
+  onTareaToggled,
+}: OnboardingChecklistProps) {
   const [checks, setChecks] = useState<CheckState>(() =>
-    buildInitialChecks(empleado.secciones),
+    buildInitialChecks(detalle.tareas),
+  )
+  const [saving, setSaving] = useState<string | null>(null)
+
+  const total = detalle.tareas.length
+  const done = Object.values(checks).filter(Boolean).length
+  const overallPct = total > 0 ? Math.round((done / total) * 100) : 0
+
+  const semanas = groupBySemana(
+    [...detalle.tareas].sort((a, b) => a.semana - b.semana || a.orden - b.orden),
   )
 
-  const counts = sectionCounts(empleado.secciones, checks)
-  const totalTasks = empleado.secciones.reduce((acc, s) => acc + s.tareas.length, 0)
-  const doneTasks = Object.values(checks).filter(Boolean).length
-  const overallPct = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0
+  async function toggle(tareaId: string) {
+    const currentState = checks[tareaId]
+    const newState = !currentState
 
-  function toggle(taskId: string) {
-    setChecks((prev) => ({ ...prev, [taskId]: !prev[taskId] }))
+    setChecks((prev) => ({ ...prev, [tareaId]: newState }))
+    onTareaToggled(tareaId, newState)
+
+    if (newState) {
+      setSaving(tareaId)
+      try {
+        await completarTarea(String(detalle.id), tareaId)
+      } catch {
+        setChecks((prev) => ({ ...prev, [tareaId]: currentState }))
+        onTareaToggled(tareaId, currentState)
+      } finally {
+        setSaving(null)
+      }
+    }
   }
 
   return (
     <aside
       className="fixed inset-y-0 right-0 z-40 flex w-full flex-col bg-background shadow-xl ring-1 ring-border sm:w-[28rem]"
       role="dialog"
-      aria-label={`Checklist de ${empleado.nombre} ${empleado.apellido}`}
+      aria-label={`Checklist de ${detalle.empleado_nombre}`}
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-2 border-b px-4 py-3">
         <div>
           <h2 className="text-sm font-semibold text-foreground">
-            {empleado.nombre} {empleado.apellido}
+            {detalle.empleado_nombre}
           </h2>
           <p className="text-xs text-muted-foreground">
-            {empleado.cargo} · {empleado.area}
+            {detalle.empleado_cargo ?? "—"} · {detalle.empleado_area ?? "—"}
           </p>
         </div>
         <button
@@ -87,35 +115,43 @@ export function OnboardingChecklist({ empleado, onClose }: OnboardingChecklistPr
         </div>
       </div>
 
-      {/* Sections */}
+      {/* Sections by semana */}
       <div className="flex-1 overflow-y-auto p-4">
         <div className="space-y-5">
-          {empleado.secciones.map((seccion) => {
-            const { done, total } = counts[seccion.id]
+          {Array.from(semanas.entries()).map(([semana, tareas]) => {
+            const secDone = tareas.filter((t) => checks[t.tarea_id]).length
+            const secTotal = tareas.length
             const badgeVariant: "default" | "secondary" | "outline" =
-              done === total ? "default" : done > 0 ? "secondary" : "outline"
+              secDone === secTotal ? "default" : secDone > 0 ? "secondary" : "outline"
 
             return (
-              <section key={seccion.id}>
+              <section key={semana}>
                 <div className="mb-2 flex items-center justify-between">
                   <h3 className="text-sm font-medium text-foreground">
-                    {seccion.titulo}
+                    {SEMANA_LABEL[semana] ?? `Semana ${semana}`}
                   </h3>
                   <Badge variant={badgeVariant}>
-                    {done}/{total}
+                    {secDone}/{secTotal}
                   </Badge>
                 </div>
 
                 <ul className="space-y-0.5" role="list">
-                  {seccion.tareas.map((tarea) => {
-                    const checked = checks[tarea.id]
+                  {tareas.map((tarea) => {
+                    const checked = checks[tarea.tarea_id]
+                    const isSaving = saving === tarea.tarea_id
                     return (
-                      <li key={tarea.id}>
-                        <label className="flex cursor-pointer items-start gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted">
+                      <li key={tarea.tarea_id}>
+                        <label
+                          className={cn(
+                            "flex cursor-pointer items-start gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted",
+                            isSaving && "opacity-60",
+                          )}
+                        >
                           <input
                             type="checkbox"
                             checked={checked}
-                            onChange={() => toggle(tarea.id)}
+                            onChange={() => !isSaving && toggle(tarea.tarea_id)}
+                            disabled={isSaving}
                             className="mt-0.5 size-4 shrink-0 accent-primary"
                           />
                           <span
@@ -126,7 +162,7 @@ export function OnboardingChecklist({ empleado, onClose }: OnboardingChecklistPr
                                 : "text-foreground",
                             )}
                           >
-                            {tarea.texto}
+                            {tarea.titulo}
                           </span>
                         </label>
                       </li>

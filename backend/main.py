@@ -15,6 +15,9 @@ from middleware.security_headers import SecurityHeadersMiddleware
 from routers.areas import router as areas_router
 from routers.auth import limiter, router as auth_router
 from routers.empleados import router as empleados_router
+from routers.offboarding import router as offboarding_router
+from routers.onboarding import router as onboarding_router
+from routers.vacantes import candidatos_router, router as vacantes_router
 
 app = FastAPI(
     title="HR Karstec API",
@@ -48,3 +51,7 @@ async def health_check():
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(areas_router, prefix="/api/areas", tags=["areas"])
 app.include_router(empleados_router, prefix="/api/empleados", tags=["empleados"])
+app.include_router(vacantes_router, prefix="/api/vacantes", tags=["vacantes"])
+app.include_router(candidatos_router, prefix="/api/candidatos", tags=["candidatos"])
+app.include_router(onboarding_router, prefix="/api/onboarding", tags=["onboarding"])
+app.include_router(offboarding_router, prefix="/api/offboarding", tags=["offboarding"])
