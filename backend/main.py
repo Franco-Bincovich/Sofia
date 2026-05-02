@@ -18,6 +18,7 @@ from routers.costos import router as costos_router
 from routers.empleados import router as empleados_router
 from routers.offboarding import router as offboarding_router
 from routers.onboarding import router as onboarding_router
+from routers.sucesion import router as sucesion_router
 from routers.vacantes import candidatos_router, router as vacantes_router
 
 app = FastAPI(
@@ -57,3 +58,4 @@ app.include_router(candidatos_router, prefix="/api/candidatos", tags=["candidato
 app.include_router(onboarding_router, prefix="/api/onboarding", tags=["onboarding"])
 app.include_router(offboarding_router, prefix="/api/offboarding", tags=["offboarding"])
 app.include_router(costos_router, prefix="/api/costos", tags=["costos"])
+app.include_router(sucesion_router, prefix="/api/sucesion", tags=["sucesion"])
