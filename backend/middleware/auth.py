@@ -20,11 +20,16 @@ PUBLIC_ROUTES = frozenset([
     "/api/auth/login",
     "/api/auth/refresh",
 ])
-_ASSESSMENT_RE = re.compile(r"^/assessment/[^/]+$")
+_ASSESSMENT_FE_RE  = re.compile(r"^/assessment/[^/]+$")
+_ASSESSMENT_API_RE = re.compile(r"^/api/assessment/evaluacion/[^/]+(/submit)?$")
 
 
 def _is_public(path: str) -> bool:
-    return path in PUBLIC_ROUTES or bool(_ASSESSMENT_RE.match(path))
+    return (
+        path in PUBLIC_ROUTES
+        or bool(_ASSESSMENT_FE_RE.match(path))
+        or bool(_ASSESSMENT_API_RE.match(path))
+    )
 
 
 def _extract_token(request: Request) -> Optional[str]:

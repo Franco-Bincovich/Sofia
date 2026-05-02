@@ -1,12 +1,17 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Plus } from "lucide-react"
 import { Tabs } from "@base-ui/react/tabs"
 
 import { PageHeader } from "@/components/layout/PageHeader"
+import { CampanaModal } from "@/components/features/assessment/CampanaModal"
+import { EmptyState } from "@/components/ui/EmptyState"
+import { ErrorState } from "@/components/ui/ErrorState"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Table,
   TableBody,
@@ -15,82 +20,26 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { fetchCampanas, fetchResultados } from "@/services/assessment"
+import type { Campana, Resultado } from "@/types/assessment"
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
-type TipoCampaña   = "completo" | "conductual" | "cognitivo"
-type EstadoCampaña = "activa" | "cerrada"
-type TipoEval      = "completo" | "conductual" | "cognitivo"
-
-interface Campaña {
-  id: string
-  nombre: string
-  tipo: TipoCampaña
-  fechaCreacion: string
-  linksEnviados: number
-  completados: number
-  estado: EstadoCampaña
-}
-
-interface Resultado {
-  id: string
-  evaluado: string
-  tipo: TipoEval
-  fechaCompletado: string
-  perfilDominante: string
-  scoreGeneral: number
-}
-
-// ─── Data ─────────────────────────────────────────────────────────────────────
-
-const CAMPAÑAS: Campaña[] = [
-  {
-    id: "c1",
-    nombre: "Assessment Q2 2025",
-    tipo: "completo",
-    fechaCreacion: "15/03/2025",
-    linksEnviados: 8,
-    completados: 6,
-    estado: "activa",
-  },
-  {
-    id: "c2",
-    nombre: "Evaluación Equipo Ventas",
-    tipo: "conductual",
-    fechaCreacion: "01/04/2025",
-    linksEnviados: 12,
-    completados: 12,
-    estado: "cerrada",
-  },
-  {
-    id: "c3",
-    nombre: "Ingeniería Senior — Batch 1",
-    tipo: "cognitivo",
-    fechaCreacion: "20/04/2025",
-    linksEnviados: 5,
-    completados: 2,
-    estado: "activa",
-  },
-]
-
-const RESULTADOS: Resultado[] = [
-  { id: "1", evaluado: "Ana García",      tipo: "completo",   fechaCompletado: "10/04/2025", perfilDominante: "Liderazgo",        scoreGeneral: 82 },
-  { id: "2", evaluado: "Carlos López",    tipo: "conductual", fechaCompletado: "15/04/2025", perfilDominante: "Apertura",         scoreGeneral: 75 },
-  { id: "3", evaluado: "María Fernández", tipo: "completo",   fechaCompletado: "20/04/2025", perfilDominante: "Responsabilidad",  scoreGeneral: 68 },
-  { id: "4", evaluado: "Diego Torres",    tipo: "cognitivo",  fechaCompletado: "22/04/2025", perfilDominante: "Estabilidad",      scoreGeneral: 91 },
-]
-
-// ─── Badge maps ───────────────────────────────────────────────────────────────
-
-const ESTADO_VARIANT: Record<EstadoCampaña, "default" | "secondary"> = {
-  activa:  "default",
-  cerrada: "secondary",
-}
-
-const TIPO_LABEL: Record<TipoCampaña | TipoEval, string> = {
+const TIPO_LABEL: Record<string, string> = {
   completo:   "Completo",
   conductual: "Conductual",
   cognitivo:  "Cognitivo",
+}
+
+const ESTADO_VARIANT: Record<string, "default" | "secondary"> = {
+  activa:   "default",
+  cerrada:  "secondary",
+  borrador: "secondary",
+  archivada: "secondary",
+}
+
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" })
 }
 
 const TAB_CLASS =
@@ -99,10 +48,45 @@ const TAB_CLASS =
   "data-active:bg-background data-active:text-foreground data-active:shadow-sm " +
   "focus-visible:ring-2 focus-visible:ring-ring/50"
 
+// ─── Skeleton rows ────────────────────────────────────────────────────────────
+
+function TableSkeleton({ cols, rows = 4 }: { cols: number; rows?: number }) {
+  return (
+    <>
+      {Array.from({ length: rows }).map((_, i) => (
+        <TableRow key={i}>
+          {Array.from({ length: cols }).map((_, j) => (
+            <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
+          ))}
+        </TableRow>
+      ))}
+    </>
+  )
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AssessmentPage() {
   const router = useRouter()
+
+  const [campanas, setCampanas]   = useState<Campana[]>([])
+  const [resultados, setResultados] = useState<Resultado[]>([])
+  const [loadingC, setLoadingC]   = useState(true)
+  const [loadingR, setLoadingR]   = useState(true)
+  const [errorC, setErrorC]       = useState(false)
+  const [errorR, setErrorR]       = useState(false)
+  const [modalOpen, setModalOpen] = useState(false)
+
+  useEffect(() => {
+    fetchCampanas()
+      .then(setCampanas)
+      .catch(() => setErrorC(true))
+      .finally(() => setLoadingC(false))
+    fetchResultados()
+      .then(setResultados)
+      .catch(() => setErrorR(true))
+      .finally(() => setLoadingR(false))
+  }, [])
 
   return (
     <div className="space-y-6">
@@ -110,11 +94,17 @@ export default function AssessmentPage() {
         title="Assessment Engine"
         description="Campañas de evaluación y resultados del modelo AREAS"
         action={
-          <Button className="min-h-11">
+          <Button className="min-h-11" onClick={() => setModalOpen(true)}>
             <Plus />
             Nueva campaña
           </Button>
         }
+      />
+
+      <CampanaModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onCreated={(c) => setCampanas((prev) => [c, ...prev])}
       />
 
       <Tabs.Root defaultValue="campanias" className="space-y-6">
@@ -125,77 +115,99 @@ export default function AssessmentPage() {
 
         {/* ── Tab 1: Campañas ───────────────────────────────────────────── */}
         <Tabs.Panel value="campanias">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Creada</TableHead>
-                <TableHead className="text-right">Links</TableHead>
-                <TableHead className="text-right">Completados</TableHead>
-                <TableHead>Estado</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {CAMPAÑAS.map((c) => (
-                <TableRow key={c.id}>
-                  <TableCell className="font-medium">{c.nombre}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {TIPO_LABEL[c.tipo]}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{c.fechaCreacion}</TableCell>
-                  <TableCell className="text-right text-muted-foreground">
-                    {c.linksEnviados}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <span className={c.completados === c.linksEnviados ? "text-emerald-600 dark:text-emerald-400 font-medium" : ""}>
-                      {c.completados}
-                    </span>
-                    <span className="text-muted-foreground">/{c.linksEnviados}</span>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={ESTADO_VARIANT[c.estado]} className="capitalize">
-                      {c.estado}
-                    </Badge>
-                  </TableCell>
+          {errorC ? (
+            <ErrorState action={() => { setErrorC(false); setLoadingC(true); fetchCampanas().then(setCampanas).catch(() => setErrorC(true)).finally(() => setLoadingC(false)) }} />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nombre</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Creada</TableHead>
+                  <TableHead className="text-right">Links</TableHead>
+                  <TableHead className="text-right">Completados</TableHead>
+                  <TableHead>Estado</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {loadingC ? (
+                  <TableSkeleton cols={6} />
+                ) : campanas.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6}>
+                      <EmptyState icon={<Plus />} title="Sin campañas" description="Creá la primera campaña de assessment." />
+                    </TableCell>
+                  </TableRow>
+                ) : campanas.map((c) => (
+                  <TableRow key={c.id}>
+                    <TableCell className="font-medium">{c.nombre}</TableCell>
+                    <TableCell className="text-muted-foreground">{TIPO_LABEL[c.tipo] ?? c.tipo}</TableCell>
+                    <TableCell className="text-muted-foreground">{fmtDate(c.created_at)}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">{c.links_enviados}</TableCell>
+                    <TableCell className="text-right">
+                      <span className={c.completados === c.links_enviados && c.links_enviados > 0 ? "text-emerald-600 dark:text-emerald-400 font-medium" : ""}>
+                        {c.completados}
+                      </span>
+                      <span className="text-muted-foreground">/{c.links_enviados}</span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={ESTADO_VARIANT[c.estado] ?? "secondary"} className="capitalize">
+                        {c.estado}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </Tabs.Panel>
 
         {/* ── Tab 2: Resultados ─────────────────────────────────────────── */}
         <Tabs.Panel value="resultados">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Evaluado</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Fecha</TableHead>
-                <TableHead>Perfil dominante</TableHead>
-                <TableHead className="text-right">Score</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {RESULTADOS.map((r) => (
-                <TableRow
-                  key={r.id}
-                  className="cursor-pointer"
-                  onClick={() => router.push(`/assessment/${r.id}`)}
-                >
-                  <TableCell className="font-medium">{r.evaluado}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {TIPO_LABEL[r.tipo]}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{r.fechaCompletado}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{r.perfilDominante}</Badge>
-                  </TableCell>
-                  <TableCell className="text-right font-semibold">{r.scoreGeneral}</TableCell>
+          {errorR ? (
+            <ErrorState action={() => { setErrorR(false); setLoadingR(true); fetchResultados().then(setResultados).catch(() => setErrorR(true)).finally(() => setLoadingR(false)) }} />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Evaluado</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Perfil dominante</TableHead>
+                  <TableHead className="text-right">Score</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {loadingR ? (
+                  <TableSkeleton cols={5} />
+                ) : resultados.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5}>
+                      <EmptyState icon={<Plus />} title="Sin resultados" description="Todavía no hay evaluaciones completadas." />
+                    </TableCell>
+                  </TableRow>
+                ) : resultados.map((r) => (
+                  <TableRow
+                    key={r.id}
+                    className="cursor-pointer"
+                    onClick={() => router.push(`/assessment/${r.id}`)}
+                  >
+                    <TableCell className="font-medium">{r.evaluado_nombre}</TableCell>
+                    <TableCell className="text-muted-foreground">{TIPO_LABEL[r.tipo] ?? r.tipo}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {r.fecha_completado ? fmtDate(r.fecha_completado) : "—"}
+                    </TableCell>
+                    <TableCell>
+                      {r.perfil_dominante ? <Badge variant="outline">{r.perfil_dominante}</Badge> : "—"}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold">
+                      {r.score_general ?? "—"}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </Tabs.Panel>
       </Tabs.Root>
     </div>
