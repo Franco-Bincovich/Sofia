@@ -12,6 +12,7 @@ from config.settings import settings
 from middleware.auth import AuthMiddleware
 from middleware.error_handler import global_error_handler
 from middleware.security_headers import SecurityHeadersMiddleware
+from routers.areas import router as areas_router
 from routers.auth import limiter, router as auth_router
 from routers.empleados import router as empleados_router
 
@@ -45,4 +46,5 @@ async def health_check():
 
 # ── Routers ───────────────────────────────────────────────────────────────────
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
+app.include_router(areas_router, prefix="/api/areas", tags=["areas"])
 app.include_router(empleados_router, prefix="/api/empleados", tags=["empleados"])

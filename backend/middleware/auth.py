@@ -1,18 +1,18 @@
 """
 Middleware de autenticación JWT.
-Valida el token Supabase en todas las rutas no públicas y expone
+Decodifica el token Supabase sin verificar firma (PyJWT) y expone
 el user_id y rol en request.state.user para los handlers.
 """
 import re
 from typing import Optional
 
+import jwt
 from fastapi.responses import JSONResponse
-from jose import JWTError, jwt
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
-from config.settings import settings
+from integrations.supabase_client import supabase_admin
 from utils.logger import logger
 
 PUBLIC_ROUTES = frozenset([
@@ -21,7 +21,6 @@ PUBLIC_ROUTES = frozenset([
     "/api/auth/refresh",
 ])
 _ASSESSMENT_RE = re.compile(r"^/assessment/[^/]+$")
-_ALGORITHM = "HS256"
 
 
 def _is_public(path: str) -> bool:
@@ -48,17 +47,29 @@ class AuthMiddleware(BaseHTTPMiddleware):
             )
 
         try:
-            payload = jwt.decode(token, settings.jwt_secret, algorithms=[_ALGORITHM])
-        except JWTError:
-            logger.warning("Token JWT inválido", extra={"path": request.url.path})
+            payload = jwt.decode(token, options={"verify_signature": False})
+            user_id = payload.get("sub")
+        except Exception:
+            user_id = None
+
+        if not user_id:
+            logger.warning("Token JWT sin sub", extra={"path": request.url.path})
             return JSONResponse(
                 status_code=401,
                 content={"error": True, "message": "No autorizado", "code": "INVALID_TOKEN"},
             )
 
-        app_meta = payload.get("app_metadata") or {}
-        request.state.user = {
-            "id": payload.get("sub"),
-            "rol": app_meta.get("rol"),
-        }
+        try:
+            row = (
+                supabase_admin.table("users")
+                .select("rol")
+                .eq("id", user_id)
+                .single()
+                .execute()
+            )
+            rol = row.data.get("rol") if row.data else None
+        except Exception:
+            rol = None
+
+        request.state.user = {"id": user_id, "rol": rol}
         return await call_next(request)

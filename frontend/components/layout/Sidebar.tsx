@@ -5,6 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
   LayoutDashboard,
+  Layers,
   Users,
   GitBranch,
   Briefcase,
@@ -38,6 +39,7 @@ import {
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Áreas", href: "/areas", icon: Layers },
   { label: "Empleados", href: "/empleados", icon: Users },
   { label: "Organigrama", href: "/organigrama", icon: GitBranch },
   { label: "Vacantes", href: "/vacantes", icon: Briefcase },
