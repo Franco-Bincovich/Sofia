@@ -25,6 +25,7 @@ class EmpleadoCreate(EmpleadoBase):
     fecha_nacimiento: Optional[date] = None
     cuil: Optional[str] = None
     legajo: Optional[str] = None
+    rol: Optional[str] = None
 
 
 class EmpleadoUpdate(BaseModel):
@@ -41,6 +42,7 @@ class EmpleadoUpdate(BaseModel):
     cuil: Optional[str] = None
     legajo: Optional[str] = None
     estado: Optional[str] = None
+    rol: Optional[str] = None
 
 
 class EmpleadoResponse(BaseModel):
@@ -58,6 +60,7 @@ class EmpleadoResponse(BaseModel):
     fecha_nacimiento: Optional[date] = None
     cuil: Optional[str] = None
     legajo: Optional[str] = None
+    rol: Optional[str] = None
     estado: str
     created_at: datetime
 

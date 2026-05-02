@@ -37,6 +37,7 @@ type FormData = {
   fecha_nacimiento: string
   cuil: string
   legajo: string
+  rol: string
 }
 
 type FormErrors = Partial<Record<keyof FormData, string>>
@@ -54,6 +55,7 @@ const EMPTY: FormData = {
   fecha_nacimiento: "",
   cuil: "",
   legajo: "",
+  rol: "",
 }
 
 const TEXT_FIELDS: Array<{
@@ -71,6 +73,7 @@ const TEXT_FIELDS: Array<{
   { field: "fecha_nacimiento", label: "Fecha de nacimiento", type: "date" },
   { field: "cuil", label: "CUIL" },
   { field: "legajo", label: "Legajo" },
+  { field: "rol", label: "Rol" },
 ]
 
 const SELECT_CLASS =
@@ -124,6 +127,7 @@ export function EmpleadoModal({ open, onClose, onSuccess, empleado }: EmpleadoMo
         fecha_nacimiento: empleado.fecha_nacimiento ?? "",
         cuil: empleado.cuil ?? "",
         legajo: empleado.legajo ?? "",
+        rol: (empleado as Empleado & { rol?: string }).rol ?? "",
       })
     } else {
       setForm(EMPTY)
@@ -159,6 +163,7 @@ export function EmpleadoModal({ open, onClose, onSuccess, empleado }: EmpleadoMo
           fecha_nacimiento: form.fecha_nacimiento || undefined,
           cuil: form.cuil || undefined,
           legajo: form.legajo || undefined,
+          rol: form.rol || undefined,
         }
         await createEmpleado(payload)
       }

@@ -19,6 +19,8 @@ from routers.empleados import router as empleados_router
 from routers.offboarding import router as offboarding_router
 from routers.onboarding import router as onboarding_router
 from routers.assessment import router as assessment_router
+from routers.dashboard import router as dashboard_router
+from routers.organigrama import router as organigrama_router
 from routers.sucesion import router as sucesion_router
 from routers.vacantes import candidatos_router, router as vacantes_router
 
@@ -61,3 +63,5 @@ app.include_router(offboarding_router, prefix="/api/offboarding", tags=["offboar
 app.include_router(costos_router, prefix="/api/costos", tags=["costos"])
 app.include_router(sucesion_router, prefix="/api/sucesion", tags=["sucesion"])
 app.include_router(assessment_router, prefix="/api/assessment", tags=["assessment"])
+app.include_router(organigrama_router, prefix="/api/organigrama", tags=["organigrama"])
+app.include_router(dashboard_router, prefix="/api/dashboard", tags=["dashboard"])

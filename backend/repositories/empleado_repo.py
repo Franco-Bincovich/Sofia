@@ -61,11 +61,11 @@ class EmpleadoRepo:
 
     def save(self, data: EmpleadoCreate) -> EmpleadoResponse:
         """Inserta un nuevo empleado y devuelve el registro creado."""
-        payload = data.model_dump()
-        payload["area_id"] = str(payload["area_id"])
-        payload["fecha_ingreso"] = str(payload["fecha_ingreso"])
-        if payload.get("fecha_nacimiento"):
-            payload["fecha_nacimiento"] = str(payload["fecha_nacimiento"])
+        payload = {k: v for k, v in data.model_dump().items() if v is not None}
+        payload["area_id"] = str(data.area_id)
+        payload["fecha_ingreso"] = str(data.fecha_ingreso)
+        if data.fecha_nacimiento:
+            payload["fecha_nacimiento"] = str(data.fecha_nacimiento)
         payload["estado"] = "activo"
 
         result = supabase_admin.table(_TABLE).insert(payload).execute()
