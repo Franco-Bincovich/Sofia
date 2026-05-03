@@ -56,7 +56,7 @@ class IntegracionService:
         existing = {r["tipo"]: r for r in rows}
 
         result = []
-        for tipo in ("google", "anthropic"):
+        for tipo in ("google", "anthropic", "zernio"):
             row = existing.get(tipo)
             if row and row.get("activo"):
                 result.append(IntegracionResponse(
@@ -164,6 +164,21 @@ class IntegracionService:
         self._repo.save_api_key(user_id, "anthropic", api_key)
         logger.info("API key Anthropic guardada", extra={"user_id": user_id})
         return IntegracionResponse(tipo="anthropic", email_cuenta=None, activo=True, connected=True)
+
+    def save_zernio_key(self, user_id: str, api_key: str) -> IntegracionResponse:
+        """
+        Guarda o actualiza la API key de Zernio del usuario.
+
+        Args:
+            user_id: UUID del usuario.
+            api_key: API key de Zernio a almacenar.
+
+        Returns:
+            IntegracionResponse confirmando que la key fue guardada.
+        """
+        self._repo.save_api_key(user_id, "zernio", api_key)
+        logger.info("API key Zernio guardada", extra={"user_id": user_id})
+        return IntegracionResponse(tipo="zernio", email_cuenta=None, activo=True, connected=True)
 
     def disconnect(self, user_id: str, tipo: str) -> bool:
         """

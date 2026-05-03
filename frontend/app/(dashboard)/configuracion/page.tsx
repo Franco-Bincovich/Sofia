@@ -16,6 +16,7 @@ import {
   fetchIntegraciones,
   getGoogleAuthUrl,
   saveAnthropicKey,
+  saveZernioKey,
 } from "@/services/integraciones"
 import type { Integracion } from "@/services/integraciones"
 import type { Session } from "@/types/auth"
@@ -59,6 +60,8 @@ export default function ConfiguracionPage() {
   const [loading, setLoading] = useState(true)
   const [apiKey, setApiKey] = useState("")
   const [savingKey, setSavingKey] = useState(false)
+  const [zernioKey, setZernioKey] = useState("")
+  const [savingZernioKey, setSavingZernioKey] = useState(false)
   const [connectingGoogle, setConnectingGoogle] = useState(false)
   const [disconnectingGoogle, setDisconnectingGoogle] = useState(false)
 
@@ -89,6 +92,7 @@ export default function ConfiguracionPage() {
 
   const google = integraciones.find((i) => i.tipo === "google")
   const anthropic = integraciones.find((i) => i.tipo === "anthropic")
+  const zernio = integraciones.find((i) => i.tipo === "zernio")
 
   const handleGoogleConnect = async () => {
     setConnectingGoogle(true)
@@ -119,6 +123,18 @@ export default function ConfiguracionPage() {
       await load()
     } finally {
       setSavingKey(false)
+    }
+  }
+
+  const handleSaveZernioKey = async () => {
+    if (!zernioKey.trim()) return
+    setSavingZernioKey(true)
+    try {
+      await saveZernioKey(zernioKey.trim())
+      setZernioKey("")
+      await load()
+    } finally {
+      setSavingZernioKey(false)
     }
   }
 
@@ -238,6 +254,69 @@ export default function ConfiguracionPage() {
                   disabled={savingKey || !apiKey.trim()}
                 >
                   {savingKey ? "Guardando…" : anthropic?.connected ? "Actualizar" : "Guardar"}
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Zernio / LinkedIn ────────────────────────────────────────── */}
+          <div className="rounded-xl border bg-card p-5">
+            <div className="flex items-start gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#0A66C2]/10 ring-1 ring-border">
+                <span className="text-sm font-bold text-[#0A66C2]">Z</span>
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <h2 className="font-semibold">Zernio (LinkedIn)</h2>
+                  {zernio?.connected && (
+                    <Badge variant="secondary" className="ml-auto">
+                      <CheckCircle2 className="mr-1 size-3" />
+                      Configurado
+                    </Badge>
+                  )}
+                </div>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  Conectá tu cuenta de{" "}
+                  <a
+                    href="https://zernio.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-2"
+                  >
+                    Zernio
+                  </a>{" "}
+                  para publicar vacantes en LinkedIn y otras redes automáticamente.
+                </p>
+              </div>
+            </div>
+
+            <Separator className="my-4" />
+
+            <div className="space-y-3">
+              {zernio?.connected && (
+                <p className="text-sm text-muted-foreground">
+                  Key actual:{" "}
+                  <span className="font-mono tracking-widest">••••••••</span>
+                </p>
+              )}
+              <div className="flex items-end gap-2">
+                <div className="flex-1">
+                  <Label htmlFor="zernio-key" className="mb-1.5 block text-sm">
+                    {zernio?.connected ? "Nueva API key (reemplaza la actual)" : "API Key de Zernio"}
+                  </Label>
+                  <Input
+                    id="zernio-key"
+                    type="password"
+                    placeholder="zrn_…"
+                    value={zernioKey}
+                    onChange={(e) => setZernioKey(e.target.value)}
+                  />
+                </div>
+                <Button
+                  onClick={handleSaveZernioKey}
+                  disabled={savingZernioKey || !zernioKey.trim()}
+                >
+                  {savingZernioKey ? "Guardando…" : zernio?.connected ? "Actualizar" : "Guardar"}
                 </Button>
               </div>
             </div>

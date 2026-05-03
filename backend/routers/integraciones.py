@@ -55,6 +55,12 @@ async def save_anthropic_key(
     return _service().save_anthropic_key(user_id, body.api_key)
 
 
+@router.post("/zernio", response_model=IntegracionResponse)
+async def save_zernio_key(request: Request, body: ApiKeyUpdate) -> IntegracionResponse:
+    user_id: str = request.state.user["id"]
+    return _service().save_zernio_key(user_id, body.api_key)
+
+
 @router.delete("/{tipo}", status_code=204)
 async def disconnect(tipo: str, request: Request) -> None:
     user_id: str = request.state.user["id"]

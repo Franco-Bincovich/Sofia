@@ -2,6 +2,8 @@
 Repositorio de integraciones por usuario.
 Interfaz pública: get_by_user · save_google_tokens · save_api_key · delete
 """
+from typing import Optional
+
 from integrations.supabase_client import supabase_admin
 from utils.errors import AppError
 from utils.logger import logger
@@ -58,6 +60,18 @@ class IntegracionRepo:
             logger.error("Supabase upsert vacío en usuario_integraciones (api_key)")
             raise AppError("Error al guardar API key", "DB_ERROR", 500)
         return result.data[0]
+
+    def get_by_user_and_tipo(self, user_id: str, tipo: str) -> Optional[dict]:
+        """Devuelve la integración activa de un tipo específico para un usuario."""
+        result = (
+            supabase_admin.table(_TABLE)
+            .select("*")
+            .eq("user_id", user_id)
+            .eq("tipo", tipo)
+            .maybe_single()
+            .execute()
+        )
+        return result.data
 
     def delete(self, user_id: str, tipo: str) -> bool:
         """Elimina una integración de un usuario por tipo."""

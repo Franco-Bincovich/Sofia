@@ -1,4 +1,4 @@
-import type { Candidato, CandidatoCreate, EtapaPipeline, Vacante, VacanteCreate, VacanteUpdate } from "@/types/vacantes"
+import type { Candidato, CandidatoCreate, EmailCandidato, EtapaPipeline, LinkedinPublicarRequest, LinkedinPublicarResponse, Vacante, VacanteCreate, VacanteUpdate } from "@/types/vacantes"
 import { apiFetch } from "@/services/api"
 
 export async function fetchVacantes(estado?: string): Promise<Vacante[]> {
@@ -41,5 +41,23 @@ export async function moverCandidato(candidatoId: string, etapa: EtapaPipeline):
   return apiFetch<Candidato>(`/api/candidatos/${candidatoId}/etapa`, {
     method: "PUT",
     body: JSON.stringify({ etapa }),
+  })
+}
+
+export async function publicarLinkedin(vacanteId: string, data: LinkedinPublicarRequest): Promise<LinkedinPublicarResponse> {
+  return apiFetch<LinkedinPublicarResponse>(`/api/vacantes/${vacanteId}/publicar-linkedin`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  })
+}
+
+export async function fetchEmailsCandidatos(vacanteId: string): Promise<EmailCandidato[]> {
+  return apiFetch<EmailCandidato[]>(`/api/vacantes/${vacanteId}/emails-candidatos`)
+}
+
+export async function crearCandidatoDesdeEmail(vacanteId: string, emailId: string): Promise<Candidato> {
+  return apiFetch<Candidato>(`/api/vacantes/${vacanteId}/candidatos-desde-email`, {
+    method: "POST",
+    body: JSON.stringify({ email_id: emailId }),
   })
 }

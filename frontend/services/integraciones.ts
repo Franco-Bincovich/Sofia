@@ -25,3 +25,10 @@ export async function saveAnthropicKey(api_key: string): Promise<Integracion> {
 export async function disconnectIntegracion(tipo: string): Promise<void> {
   await apiFetch<void>(`/api/integraciones/${tipo}`, { method: "DELETE" })
 }
+
+export async function saveZernioKey(api_key: string): Promise<Integracion> {
+  return apiFetch<Integracion>("/api/integraciones/zernio", {
+    method: "POST",
+    body: JSON.stringify({ api_key }),
+  })
+}

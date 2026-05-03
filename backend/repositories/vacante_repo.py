@@ -75,6 +75,10 @@ class VacanteRepo:
         res = supabase_admin.table(_V).update({"estado": estado}).eq("id", id).execute()
         return self.find_by_id(id) if res.data else None
 
+    def save_linkedin_data(self, id: str, post_id: str, url: str, email_contacto: str) -> None:
+        """Guarda los datos de publicación en LinkedIn en la vacante."""
+        supabase_admin.table(_V).update({"linkedin_post_id": post_id, "linkedin_url": url, "email_contacto": email_contacto}).eq("id", id).execute()
+
     def find_candidatos(self, vacante_id: str) -> List[CandidatoResponse]:
         res = supabase_admin.table(_C).select("*").eq("vacante_id", vacante_id).order("created_at").execute()
         return [_crow(r) for r in (res.data or [])]

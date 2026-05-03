@@ -2,18 +2,29 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { ArrowLeft, Briefcase, Plus } from "lucide-react"
+import { ArrowLeft, Briefcase, ExternalLink, Mail, Plus, RefreshCw, Share2 } from "lucide-react"
 
 import { PageHeader } from "@/components/layout/PageHeader"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { ErrorState } from "@/components/ui/ErrorState"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { CandidatoCard } from "@/components/features/vacantes/CandidatoCard"
 import { CandidatoModal } from "@/components/features/vacantes/CandidatoModal"
-import { fetchVacante, fetchCandidatos, moverCandidato } from "@/services/vacantes"
-import type { Candidato, EstadoVacante, EtapaPipeline, Vacante } from "@/types/vacantes"
+import { ApiError, getSession } from "@/services/api"
+import {
+  crearCandidatoDesdeEmail,
+  fetchCandidatos,
+  fetchEmailsCandidatos,
+  fetchVacante,
+  moverCandidato,
+  publicarLinkedin,
+} from "@/services/vacantes"
+import type { Candidato, EmailCandidato, EstadoVacante, EtapaPipeline, Vacante } from "@/types/vacantes"
 
 const ETAPAS: EtapaPipeline[] = [
   "postulado",
@@ -86,6 +97,248 @@ function PageSkeleton() {
   )
 }
 
+// ── Modal de publicación en LinkedIn ─────────────────────────────────────────
+
+interface LinkedinModalProps {
+  open: boolean
+  vacanteId: string
+  defaultEmail: string
+  onClose: () => void
+  onSuccess: () => void
+}
+
+function LinkedinModal({ open, vacanteId, defaultEmail, onClose, onSuccess }: LinkedinModalProps) {
+  const router = useRouter()
+  const [email, setEmail] = useState(defaultEmail)
+  const [loading, setLoading] = useState(false)
+  const [notConfigured, setNotConfigured] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (open) {
+      setEmail(defaultEmail)
+      setNotConfigured(false)
+      setError(null)
+    }
+  }, [open, defaultEmail])
+
+  const handlePublicar = async () => {
+    if (!email.trim()) return
+    setLoading(true)
+    setNotConfigured(false)
+    setError(null)
+    try {
+      await publicarLinkedin(vacanteId, { email_contacto: email.trim() })
+      onSuccess()
+      onClose()
+    } catch (err) {
+      if (err instanceof ApiError && err.code === "ZERNIO_NOT_CONFIGURED") {
+        setNotConfigured(true)
+      } else {
+        setError(err instanceof Error ? err.message : "Error al publicar")
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Publicar en LinkedIn</DialogTitle>
+          <DialogDescription>
+            Se publicará la vacante en LinkedIn via Zernio con el email de contacto indicado.
+          </DialogDescription>
+        </DialogHeader>
+
+        {notConfigured ? (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
+            Zernio no está configurado.{" "}
+            <button
+              className="font-medium underline underline-offset-2"
+              onClick={() => router.push("/configuracion")}
+            >
+              Ir a Configuración
+            </button>{" "}
+            para agregar tu API key.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="linkedin-email" className="mb-1.5 block text-sm">
+                Email de contacto
+              </Label>
+              <Input
+                id="linkedin-email"
+                type="email"
+                placeholder="rrhh@empresa.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+            {error && (
+              <p className="text-sm text-destructive">{error}</p>
+            )}
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={loading}>
+            Cancelar
+          </Button>
+          {!notConfigured && (
+            <Button onClick={handlePublicar} disabled={loading || !email.trim()}>
+              {loading ? "Publicando…" : "Publicar"}
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ── Sección de emails recibidos ───────────────────────────────────────────────
+
+interface EmailsSectionProps {
+  vacanteId: string
+  onCandidatoAgregado: () => void
+}
+
+function EmailsSection({ vacanteId, onCandidatoAgregado }: EmailsSectionProps) {
+  const router = useRouter()
+  const [emails, setEmails] = useState<EmailCandidato[]>([])
+  const [loading, setLoading] = useState(false)
+  const [cargado, setCargado] = useState(false)
+  const [notConfigured, setNotConfigured] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [agregando, setAgregando] = useState<string | null>(null)
+
+  const cargarEmails = async () => {
+    setLoading(true)
+    setNotConfigured(false)
+    setError(null)
+    try {
+      const data = await fetchEmailsCandidatos(vacanteId)
+      setEmails(data)
+      setCargado(true)
+    } catch (err) {
+      if (err instanceof ApiError && err.code === "GMAIL_NOT_CONFIGURED") {
+        setNotConfigured(true)
+        setCargado(true)
+      } else {
+        setError(err instanceof Error ? err.message : "Error al cargar emails")
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleAgregar = async (emailId: string) => {
+    setAgregando(emailId)
+    try {
+      await crearCandidatoDesdeEmail(vacanteId, emailId)
+      onCandidatoAgregado()
+      setEmails((prev) => prev.filter((e) => e.email_id !== emailId))
+    } catch {
+      // stay in current state
+    } finally {
+      setAgregando(null)
+    }
+  }
+
+  return (
+    <div className="mt-8">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-base font-semibold text-foreground">Emails recibidos</h2>
+        <Button
+          variant="outline"
+          size="sm"
+          className="min-h-10 gap-2"
+          onClick={cargarEmails}
+          disabled={loading}
+        >
+          <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
+          {cargado ? "Actualizar" : "Revisar emails"}
+        </Button>
+      </div>
+
+      {!cargado && !loading && (
+        <div className="rounded-xl border border-dashed border-border p-8 text-center">
+          <Mail className="mx-auto mb-3 size-8 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
+            Hacé click en "Revisar emails" para ver postulaciones recibidas en Gmail.
+          </p>
+        </div>
+      )}
+
+      {loading && (
+        <div className="space-y-2">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-16 w-full rounded-lg" />
+          ))}
+        </div>
+      )}
+
+      {cargado && !loading && notConfigured && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
+          Gmail no está conectado.{" "}
+          <button
+            className="font-medium underline underline-offset-2"
+            onClick={() => router.push("/configuracion")}
+          >
+            Ir a Configuración
+          </button>{" "}
+          para conectar tu cuenta de Google.
+        </div>
+      )}
+
+      {cargado && !loading && !notConfigured && error && (
+        <p className="text-sm text-destructive">{error}</p>
+      )}
+
+      {cargado && !loading && !notConfigured && !error && emails.length === 0 && (
+        <div className="rounded-xl border bg-card p-6 text-center">
+          <p className="text-sm text-muted-foreground">
+            No hay emails relacionados con esta vacante.
+          </p>
+        </div>
+      )}
+
+      {cargado && !loading && !notConfigured && !error && emails.length > 0 && (
+        <div className="space-y-2">
+          {emails.map((email) => (
+            <div
+              key={email.email_id}
+              className="flex items-start justify-between gap-4 rounded-lg border bg-card p-4"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-foreground">{email.remitente}</p>
+                <p className="truncate text-sm text-muted-foreground">{email.asunto}</p>
+                <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                  {email.cuerpo_preview}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">{email.fecha}</p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="shrink-0 min-h-10"
+                disabled={agregando === email.email_id}
+                onClick={() => handleAgregar(email.email_id)}
+              >
+                {agregando === email.email_id ? "Agregando…" : "Agregar como candidato"}
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Página principal ──────────────────────────────────────────────────────────
+
 export default function VacanteDetailPage() {
   const params = useParams()
   const router = useRouter()
@@ -96,7 +349,10 @@ export default function VacanteDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
+  const [linkedinModalOpen, setLinkedinModalOpen] = useState(false)
   const [moviendo, setMoviendo] = useState<string | null>(null)
+
+  const userEmail = getSession()?.user.email ?? ""
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -173,10 +429,33 @@ export default function VacanteDetailPage() {
             title={vacante.titulo}
             description={vacante.area_nombre ?? "—"}
             action={
-              <Button className="min-h-11" onClick={() => setModalOpen(true)}>
-                <Plus />
-                Agregar candidato
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                {vacante.linkedin_post_id ? (
+                  <a
+                    href={vacante.linkedin_url ?? "#"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex min-h-11 items-center gap-2 rounded-md border border-[#0A66C2] px-3 py-2 text-sm font-medium text-[#0A66C2] transition-colors hover:bg-[#0A66C2]/10"
+                  >
+                    <Share2 className="size-4" />
+                    Publicada en LinkedIn
+                    <ExternalLink className="size-3" />
+                  </a>
+                ) : (
+                  <Button
+                    variant="outline"
+                    className="min-h-11 gap-2 border-[#0A66C2] text-[#0A66C2] hover:bg-[#0A66C2]/10"
+                    onClick={() => setLinkedinModalOpen(true)}
+                  >
+                    <Share2 className="size-4" />
+                    Publicar en LinkedIn
+                  </Button>
+                )}
+                <Button className="min-h-11" onClick={() => setModalOpen(true)}>
+                  <Plus />
+                  Agregar candidato
+                </Button>
+              </div>
             }
           />
 
@@ -268,6 +547,8 @@ export default function VacanteDetailPage() {
             </div>
           </div>
 
+          <EmailsSection vacanteId={id} onCandidatoAgregado={load} />
+
           <CandidatoModal
             open={modalOpen}
             vacanteId={id}
@@ -276,6 +557,14 @@ export default function VacanteDetailPage() {
               setModalOpen(false)
               load()
             }}
+          />
+
+          <LinkedinModal
+            open={linkedinModalOpen}
+            vacanteId={id}
+            defaultEmail={vacante.email_contacto ?? userEmail}
+            onClose={() => setLinkedinModalOpen(false)}
+            onSuccess={load}
           />
         </>
       )}

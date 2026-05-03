@@ -7,8 +7,10 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
 
-from schemas.vacante import CandidatoCreate, CandidatoResponse, EtapaUpdate, VacanteCreate, VacanteResponse, VacanteUpdate
+from schemas.vacante import CandidatoCreate, CandidatoResponse, CandidatoDesdeEmailRequest, EmailCandidatoResponse, EtapaUpdate, PublicarLinkedinRequest, PublicarLinkedinResponse, VacanteCreate, VacanteResponse, VacanteUpdate
+from services.gmail_service import GmailService
 from services.vacante_service import VacanteService
+from services.zernio_service import ZernioService
 
 router = APIRouter()
 candidatos_router = APIRouter()
@@ -61,3 +63,18 @@ async def mover_candidato(
     id: UUID, body: EtapaUpdate, service: VacanteService = Depends(_svc)
 ) -> CandidatoResponse:
     return service.mover_candidato(id, body.etapa)
+
+
+@router.post("/{id}/publicar-linkedin", response_model=PublicarLinkedinResponse)
+async def publicar_linkedin(id: UUID, body: PublicarLinkedinRequest, request: Request) -> PublicarLinkedinResponse:
+    return ZernioService().publicar_en_vacante(str(id), body.email_contacto, request.state.user["id"])
+
+
+@router.get("/{id}/emails-candidatos", response_model=List[EmailCandidatoResponse])
+async def get_emails_candidatos(id: UUID, request: Request) -> List[EmailCandidatoResponse]:
+    return GmailService().get_emails_candidatos(str(id), request.state.user["id"])
+
+
+@router.post("/{id}/candidatos-desde-email", response_model=CandidatoResponse, status_code=201)
+async def candidato_desde_email(id: UUID, body: CandidatoDesdeEmailRequest, request: Request) -> CandidatoResponse:
+    return GmailService().crear_candidato_desde_email(str(id), body.email_id, request.state.user["id"])

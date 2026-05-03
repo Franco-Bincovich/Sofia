@@ -38,6 +38,9 @@ class VacanteResponse(BaseModel):
     estado: str
     fecha_apertura: Optional[date] = None
     created_at: datetime
+    linkedin_post_id: Optional[str] = None
+    linkedin_url: Optional[str] = None
+    email_contacto: Optional[str] = None
 
 
 class CandidatoCreate(BaseModel):
@@ -64,3 +67,25 @@ class CandidatoResponse(BaseModel):
 
 class EtapaUpdate(BaseModel):
     etapa: str
+
+
+class PublicarLinkedinRequest(BaseModel):
+    email_contacto: str
+
+
+class PublicarLinkedinResponse(BaseModel):
+    post_id: str
+    url: str
+    publicado_en: datetime
+
+
+class EmailCandidatoResponse(BaseModel):
+    email_id: str
+    remitente: str
+    asunto: str
+    fecha: str
+    cuerpo_preview: str
+
+
+class CandidatoDesdeEmailRequest(BaseModel):
+    email_id: str

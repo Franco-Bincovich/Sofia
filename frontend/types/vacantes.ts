@@ -18,6 +18,27 @@ export interface Vacante {
   estado: EstadoVacante
   fecha_apertura: string | null
   created_at: string
+  linkedin_post_id: string | null
+  linkedin_url: string | null
+  email_contacto: string | null
+}
+
+export interface LinkedinPublicarRequest {
+  email_contacto: string
+}
+
+export interface LinkedinPublicarResponse {
+  post_id: string
+  url: string
+  publicado_en: string
+}
+
+export interface EmailCandidato {
+  email_id: string
+  remitente: string
+  asunto: string
+  fecha: string
+  cuerpo_preview: string
 }
 
 export interface VacanteCreate {
