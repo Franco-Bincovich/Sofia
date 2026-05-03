@@ -1,16 +1,17 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { ChevronRight, Plus, UserCheck, X } from "lucide-react"
+import Link from "next/link"
+import { ChevronRight, Plus, Settings2, UserCheck, X } from "lucide-react"
 
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { OnboardingChecklist } from "@/components/features/onboarding/OnboardingChecklist"
 import { fetchEmpleados } from "@/services/empleados"
-import { fetchOnboardingEmpleado, fetchOnboardings, iniciarOnboarding } from "@/services/onboarding"
+import { fetchOnboardingEmpleado, fetchOnboardings, fetchTemplates, iniciarOnboarding } from "@/services/onboarding"
 import type { Empleado } from "@/types/empleado"
-import type { OnboardingDetalle, OnboardingInstancia } from "@/types/onboarding"
+import type { OnboardingDetalle, OnboardingInstancia, OnboardingTemplate } from "@/types/onboarding"
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -31,16 +32,25 @@ interface IniciarModalProps {
 
 function IniciarModal({ activos, onClose, onSuccess }: IniciarModalProps) {
   const [empleados, setEmpleados] = useState<Empleado[]>([])
+  const [templates, setTemplates] = useState<OnboardingTemplate[]>([])
   const [loadingEmp, setLoadingEmp] = useState(true)
   const [selectedId, setSelectedId] = useState("")
+  const [selectedTemplateId, setSelectedTemplateId] = useState("")
   const [iniciando, setIniciando] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const ids = new Set(activos.map((o) => o.empleado_id))
-    fetchEmpleados(1, 100, undefined, "activo")
-      .then((r) => setEmpleados(r.items.filter((e) => !ids.has(e.id))))
-      .catch(() => setError("No se pudieron cargar los empleados"))
+    Promise.all([
+      fetchEmpleados(1, 100, undefined, "activo"),
+      fetchTemplates(),
+    ])
+      .then(([emps, tmpls]) => {
+        setEmpleados(emps.items.filter((e) => !ids.has(e.id)))
+        setTemplates(tmpls)
+        if (tmpls.length > 0) setSelectedTemplateId(tmpls[0].id)
+      })
+      .catch(() => setError("No se pudieron cargar los datos"))
       .finally(() => setLoadingEmp(false))
   }, [activos])
 
@@ -49,7 +59,7 @@ function IniciarModal({ activos, onClose, onSuccess }: IniciarModalProps) {
     setIniciando(true)
     setError(null)
     try {
-      const instancia = await iniciarOnboarding(selectedId)
+      const instancia = await iniciarOnboarding(selectedId, selectedTemplateId || undefined)
       onSuccess(instancia)
     } catch {
       setError("No se pudo iniciar el onboarding. Verificá que el empleado no tenga uno activo.")
@@ -89,38 +99,63 @@ function IniciarModal({ activos, onClose, onSuccess }: IniciarModalProps) {
           </button>
         </div>
 
-        {/* Select */}
-        <div>
-          <label
-            htmlFor="emp-select"
-            className="mb-1.5 block text-sm font-medium text-foreground"
-          >
-            Empleado
-          </label>
-
-          {loadingEmp ? (
-            <div className="h-10 animate-pulse rounded-lg bg-muted" />
-          ) : (
-            <select
-              id="emp-select"
-              value={selectedId}
-              onChange={(e) => setSelectedId(e.target.value)}
-              className="w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
+        {/* Selects */}
+        <div className="space-y-4">
+          <div>
+            <label
+              htmlFor="emp-select"
+              className="mb-1.5 block text-sm font-medium text-foreground"
             >
-              <option value="">Seleccioná un empleado…</option>
-              {empleados.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {e.nombre} {e.apellido}
-                  {e.cargo ? ` — ${e.cargo}` : ""}
-                </option>
-              ))}
-            </select>
-          )}
+              Empleado
+            </label>
 
-          {!loadingEmp && !error && empleados.length === 0 && (
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              Todos los empleados activos ya tienen un onboarding en curso.
-            </p>
+            {loadingEmp ? (
+              <div className="h-10 animate-pulse rounded-lg bg-muted" />
+            ) : (
+              <select
+                id="emp-select"
+                value={selectedId}
+                onChange={(e) => setSelectedId(e.target.value)}
+                className="w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
+              >
+                <option value="">Seleccioná un empleado…</option>
+                {empleados.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.nombre} {e.apellido}
+                    {e.cargo ? ` — ${e.cargo}` : ""}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {!loadingEmp && !error && empleados.length === 0 && (
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                Todos los empleados activos ya tienen un onboarding en curso.
+              </p>
+            )}
+          </div>
+
+          {!loadingEmp && templates.length > 0 && (
+            <div>
+              <label
+                htmlFor="tmpl-select"
+                className="mb-1.5 block text-sm font-medium text-foreground"
+              >
+                Template
+              </label>
+              <select
+                id="tmpl-select"
+                value={selectedTemplateId}
+                onChange={(e) => setSelectedTemplateId(e.target.value)}
+                className="w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                {templates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
           )}
         </div>
 
@@ -237,20 +272,29 @@ export default function OnboardingPage() {
 
   return (
     <div>
-      {/* Header + acción */}
+      {/* Header + acciones */}
       <div className="relative">
         <PageHeader
           title="Onboarding"
           description={`${onboardings.length} colaboradores en proceso`}
         />
-        <button
-          type="button"
-          onClick={() => setModalOpen(true)}
-          className="absolute right-0 top-0 flex min-h-10 items-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <Plus className="size-4" />
-          <span className="hidden sm:inline">Iniciar onboarding</span>
-        </button>
+        <div className="absolute right-0 top-0 flex items-center gap-2">
+          <Link
+            href="/onboarding/templates"
+            className="flex min-h-10 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Settings2 className="size-4" />
+            <span className="hidden sm:inline">Gestionar templates</span>
+          </Link>
+          <button
+            type="button"
+            onClick={() => setModalOpen(true)}
+            className="flex min-h-10 items-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Plus className="size-4" />
+            <span className="hidden sm:inline">Iniciar onboarding</span>
+          </button>
+        </div>
       </div>
 
       {onboardings.length === 0 ? (

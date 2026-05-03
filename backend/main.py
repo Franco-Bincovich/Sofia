@@ -19,6 +19,7 @@ from routers.empleados import router as empleados_router
 from routers.empresa import router as empresa_router
 from routers.offboarding import router as offboarding_router
 from routers.onboarding import router as onboarding_router
+from routers.onboarding_templates import router as onboarding_templates_router
 from routers.assessment import router as assessment_router
 from routers.dashboard import router as dashboard_router
 from routers.organigrama import router as organigrama_router
@@ -62,6 +63,7 @@ app.include_router(areas_router, prefix="/api/areas", tags=["areas"])
 app.include_router(empleados_router, prefix="/api/empleados", tags=["empleados"])
 app.include_router(vacantes_router, prefix="/api/vacantes", tags=["vacantes"])
 app.include_router(candidatos_router, prefix="/api/candidatos", tags=["candidatos"])
+app.include_router(onboarding_templates_router, prefix="/api/onboarding/templates", tags=["onboarding"])
 app.include_router(onboarding_router, prefix="/api/onboarding", tags=["onboarding"])
 app.include_router(offboarding_router, prefix="/api/offboarding", tags=["offboarding"])
 app.include_router(costos_router, prefix="/api/costos", tags=["costos"])

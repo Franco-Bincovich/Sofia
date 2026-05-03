@@ -12,6 +12,15 @@ class TareaCreate(BaseModel):
     descripcion: Optional[str] = None
     semana: Literal[1, 2, 3, 4]
     orden: int
+    responsable_tipo: Literal["rrhh", "manager", "empleado", "ti", "administracion"] = "rrhh"
+    dias_limite: int = 1
+
+
+class TareaUpdate(BaseModel):
+    titulo: Optional[str] = None
+    descripcion: Optional[str] = None
+    semana: Optional[Literal[1, 2, 3, 4]] = None
+    orden: Optional[int] = None
 
 
 class TareaResponse(BaseModel):
@@ -28,11 +37,21 @@ class TemplateCreate(BaseModel):
     descripcion: Optional[str] = None
 
 
+class TemplateUpdate(BaseModel):
+    nombre: Optional[str] = None
+    descripcion: Optional[str] = None
+
+
 class TemplateResponse(BaseModel):
     id: UUID
     nombre: str
     descripcion: Optional[str] = None
     tareas: List[TareaResponse] = []
+    tareas_total: int = 0
+
+
+class IniciarOnboardingRequest(BaseModel):
+    template_id: Optional[UUID] = None
 
 
 class TareaProgresoResponse(BaseModel):

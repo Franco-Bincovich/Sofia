@@ -1,3 +1,20 @@
+export interface TemplateTarea {
+  id: string
+  template_id: string
+  titulo: string
+  descripcion: string | null
+  semana: number
+  orden: number
+}
+
+export interface OnboardingTemplate {
+  id: string
+  nombre: string
+  descripcion: string | null
+  tareas: TemplateTarea[]
+  tareas_total: number
+}
+
 export interface OnboardingInstancia {
   id: string
   empleado_id: string

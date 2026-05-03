@@ -2,11 +2,12 @@
 Router de onboarding — instancias activas y completado de tareas.
 Rutas protegidas por AuthMiddleware.
 """
+from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
 
-from schemas.onboarding import InstanciaDetalleResponse, InstanciaResponse
+from schemas.onboarding import IniciarOnboardingRequest, InstanciaDetalleResponse, InstanciaResponse
 from services.onboarding_service import OnboardingService
 
 router = APIRouter()
@@ -34,9 +35,11 @@ async def get_onboarding_empleado(
 @router.post("/{empleado_id}/iniciar", response_model=InstanciaResponse, status_code=201)
 async def iniciar_onboarding(
     empleado_id: UUID,
+    body: Optional[IniciarOnboardingRequest] = None,
     service: OnboardingService = Depends(_service),
 ) -> InstanciaResponse:
-    return service.iniciar_onboarding(empleado_id)
+    template_id = body.template_id if body else None
+    return service.iniciar_onboarding(empleado_id, template_id)
 
 
 @router.put(

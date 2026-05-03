@@ -6,14 +6,20 @@ from typing import Optional
 from uuid import UUID
 
 from repositories.onboarding_repo import OnboardingRepo
+from repositories.onboarding_templates_repo import OnboardingTemplatesRepo
 from schemas.onboarding import InstanciaDetalleResponse, InstanciaResponse
 from utils.errors import AppError
 from utils.logger import logger
 
 
 class OnboardingService:
-    def __init__(self, repo: Optional[OnboardingRepo] = None) -> None:
+    def __init__(
+        self,
+        repo: Optional[OnboardingRepo] = None,
+        templates_repo: Optional[OnboardingTemplatesRepo] = None,
+    ) -> None:
         self._repo = repo or OnboardingRepo()
+        self._templates_repo = templates_repo or OnboardingTemplatesRepo()
 
     def get_onboardings_activos(self) -> list[InstanciaResponse]:
         """
@@ -50,20 +56,26 @@ class OnboardingService:
             raise AppError("Error al cargar el progreso del onboarding", "ONBOARDING_ERROR", 500)
         return detalle
 
-    def iniciar_onboarding(self, empleado_id: UUID) -> InstanciaResponse:
+    def iniciar_onboarding(
+        self,
+        empleado_id: UUID,
+        template_id: Optional[UUID] = None,
+    ) -> InstanciaResponse:
         """
-        Inicia el onboarding para un empleado usando el template activo por defecto.
+        Inicia el onboarding para un empleado.
+        Si se provee template_id, usa ese template; si no, usa el template activo por defecto.
         Crea la instancia y genera las filas de progreso para cada tarea del template.
 
         Args:
             empleado_id: UUID del empleado que inicia el onboarding.
+            template_id: UUID del template a usar. Opcional; si None usa el por defecto.
 
         Returns:
             InstanciaResponse con el onboarding recién creado.
 
         Raises:
             AppError: ONBOARDING_ALREADY_ACTIVE (409) si el empleado ya tiene un onboarding activo.
-            AppError: TEMPLATE_NOT_FOUND (404) si no hay template activo configurado.
+            AppError: TEMPLATE_NOT_FOUND (404) si el template especificado o el por defecto no existe.
         """
         existente = self._repo.find_instancia_by_empleado(str(empleado_id))
         if existente:
@@ -72,13 +84,18 @@ class OnboardingService:
                 "ONBOARDING_ALREADY_ACTIVE",
                 409,
             )
-        template = self._repo.get_default_template()
-        if not template:
-            raise AppError(
-                "No hay template de onboarding activo configurado",
-                "TEMPLATE_NOT_FOUND",
-                404,
-            )
+        if template_id:
+            template = self._templates_repo.get_template(str(template_id))
+            if not template:
+                raise AppError("Template no encontrado", "TEMPLATE_NOT_FOUND", 404)
+        else:
+            template = self._repo.get_default_template()
+            if not template:
+                raise AppError(
+                    "No hay template de onboarding activo configurado",
+                    "TEMPLATE_NOT_FOUND",
+                    404,
+                )
         instancia = self._repo.create_instancia(str(empleado_id), str(template.id))
         logger.info(
             "Onboarding iniciado",
