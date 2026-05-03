@@ -38,6 +38,7 @@ export interface EmpleadoCreate {
   fecha_nacimiento?: string
   cuil?: string
   legajo?: string
+  rol?: string
 }
 
 export type EmpleadoUpdate = Partial<EmpleadoCreate> & { estado?: string }

@@ -26,6 +26,14 @@ class Settings(BaseSettings):
     resend_api_key: str
     resend_from_email: str = "noreply@hrkarstec.com"
 
+    # Google OAuth
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    google_redirect_uri: str = "http://localhost:8000/api/integraciones/google/callback"
+
+    # Frontend URL (para redirects OAuth)
+    frontend_url: str = "http://localhost:3000"
+
     # CORS
     allowed_origins: str = "http://localhost:3000,http://localhost:3001"
 

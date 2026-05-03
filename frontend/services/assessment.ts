@@ -1,4 +1,4 @@
-import { apiFetch, API_BASE } from "@/services/api"
+import { apiFetch, API_BASE, ApiError } from "@/services/api"
 import type { Campana, CampanaCreate, LinkCreate, LinkInfo, Resultado, ResultadoDetalle, RespuestaItem } from "@/types/assessment"
 
 export async function fetchCampanas(): Promise<Campana[]> {
@@ -19,11 +19,12 @@ export async function createLink(campanaId: string, data: LinkCreate): Promise<L
   })
 }
 
+// Rutas públicas — no requieren auth headers. Usan fetch directo.
 export async function fetchEvaluacion(token: string): Promise<LinkInfo> {
   const res = await fetch(`${API_BASE}/api/assessment/evaluacion/${token}`)
   if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as { message?: string }
-    throw new Error(body.message ?? "Token no válido")
+    const body = await res.json().catch(() => ({})) as { message?: string; code?: string }
+    throw new ApiError(body.message ?? "Token no válido", body.code ?? "INVALID_TOKEN", res.status)
   }
   return res.json() as Promise<LinkInfo>
 }
@@ -38,8 +39,8 @@ export async function submitEvaluacion(
     body: JSON.stringify({ respuestas }),
   })
   if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as { message?: string }
-    throw new Error(body.message ?? "Error al enviar respuestas")
+    const body = await res.json().catch(() => ({})) as { message?: string; code?: string }
+    throw new ApiError(body.message ?? "Error al enviar respuestas", body.code ?? "SUBMIT_ERROR", res.status)
   }
   return res.json() as Promise<ResultadoDetalle>
 }

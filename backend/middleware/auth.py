@@ -19,6 +19,7 @@ PUBLIC_ROUTES = frozenset([
     "/health",
     "/api/auth/login",
     "/api/auth/refresh",
+    "/api/integraciones/google/callback",
 ])
 _ASSESSMENT_FE_RE  = re.compile(r"^/assessment/[^/]+$")
 _ASSESSMENT_API_RE = re.compile(r"^/api/assessment/evaluacion/[^/]+(/submit)?$")

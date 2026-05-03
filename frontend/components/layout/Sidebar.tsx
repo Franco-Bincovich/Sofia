@@ -49,6 +49,7 @@ const NAV_ITEMS = [
   { label: "Sucesión", href: "/sucesion", icon: TrendingUp },
   { label: "Assessment", href: "/assessment", icon: ClipboardList },
   { label: "Reportes", href: "/reportes", icon: BarChart3 },
+  { label: "Configuración", href: "/configuracion", icon: Settings },
 ] as const
 
 interface NavItemProps {
