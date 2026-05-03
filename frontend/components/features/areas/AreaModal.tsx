@@ -13,7 +13,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { fetchEmpleados } from "@/services/empleados"
 import { createArea, updateArea } from "@/services/areas"
+import type { Empleado } from "@/types/empleado"
 import type { Area, AreaCreate } from "@/types/area"
 
 interface AreaModalProps {
@@ -26,11 +28,16 @@ interface AreaModalProps {
 type FormData = {
   nombre: string
   descripcion: string
+  responsable_id: string
 }
 
 type FormErrors = Partial<Record<keyof FormData, string>>
 
-const EMPTY: FormData = { nombre: "", descripcion: "" }
+const EMPTY: FormData = { nombre: "", descripcion: "", responsable_id: "" }
+
+const SELECT_CLASS =
+  "h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm text-foreground " +
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
 
 function validate(form: FormData): FormErrors {
   const errors: FormErrors = {}
@@ -41,14 +48,26 @@ function validate(form: FormData): FormErrors {
 
 export function AreaModal({ open, onClose, onSuccess, area }: AreaModalProps) {
   const isEdit = Boolean(area)
-  const [form, setForm] = useState<FormData>(EMPTY)
-  const [errors, setErrors] = useState<FormErrors>({})
+  const [form, setForm]             = useState<FormData>(EMPTY)
+  const [errors, setErrors]         = useState<FormErrors>({})
   const [submitting, setSubmitting] = useState(false)
   const [serverError, setServerError] = useState("")
+  const [empleados, setEmpleados]   = useState<Empleado[]>([])
+
+  useEffect(() => {
+    if (!open) return
+    fetchEmpleados(1, 100, undefined, "activo")
+      .then((res) => setEmpleados(res.items))
+      .catch(() => setEmpleados([]))
+  }, [open])
 
   useEffect(() => {
     if (area) {
-      setForm({ nombre: area.nombre, descripcion: area.descripcion ?? "" })
+      setForm({
+        nombre: area.nombre,
+        descripcion: area.descripcion ?? "",
+        responsable_id: area.responsable_id ?? "",
+      })
     } else {
       setForm(EMPTY)
     }
@@ -57,7 +76,7 @@ export function AreaModal({ open, onClose, onSuccess, area }: AreaModalProps) {
   }, [area, open])
 
   function handleField(key: keyof FormData) {
-    return (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    return (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
       const val = e.target.value
       setForm((prev) => ({ ...prev, [key]: val }))
       if (errors[key]) setErrors((prev) => ({ ...prev, [key]: undefined }))
@@ -78,11 +97,13 @@ export function AreaModal({ open, onClose, onSuccess, area }: AreaModalProps) {
         await updateArea(area.id, {
           nombre: form.nombre.trim(),
           descripcion: form.descripcion.trim() || undefined,
+          responsable_id: form.responsable_id || undefined,
         })
       } else {
         const payload: AreaCreate = {
           nombre: form.nombre.trim(),
           descripcion: form.descripcion.trim() || undefined,
+          responsable_id: form.responsable_id || undefined,
         }
         await createArea(payload)
       }
@@ -130,6 +151,25 @@ export function AreaModal({ open, onClose, onSuccess, area }: AreaModalProps) {
                 rows={3}
                 className="resize-none"
               />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="responsable_id">
+                Responsable <span className="text-muted-foreground">(opcional)</span>
+              </Label>
+              <select
+                id="responsable_id"
+                value={form.responsable_id}
+                onChange={handleField("responsable_id")}
+                className={SELECT_CLASS}
+              >
+                <option value="">Sin responsable asignado</option>
+                {empleados.map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.nombre} {emp.apellido} — {emp.cargo}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 

@@ -3,6 +3,7 @@ export interface Area {
   nombre: string
   descripcion: string | null
   responsable_id: string | null
+  responsable_nombre: string | null
   cantidad_empleados: number
   created_at: string
 }
@@ -10,6 +11,7 @@ export interface Area {
 export interface AreaCreate {
   nombre: string
   descripcion?: string
+  responsable_id?: string
 }
 
 export interface AreaUpdate {

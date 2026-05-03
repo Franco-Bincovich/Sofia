@@ -2,12 +2,16 @@
 Repositorio de sucesión — queries Supabase.
 Interfaz: get_mapa_talento · get_planes_carrera · get_plan_by_empleado
           create_plan · update_readiness · get_hitos · completar_hito
+          get_analisis_posicion
 """
 from datetime import date
 from typing import Optional
 
 from integrations.supabase_client import supabase_admin
-from schemas.sucesion import EmpleadoMapaResponse, HitoResponse, PlanCarreraCreate, PlanCarreraResponse
+from schemas.sucesion import (
+    EmpleadoAnalisisResponse, EmpleadoMapaResponse,
+    HitoResponse, PlanCarreraCreate, PlanCarreraResponse,
+)
 from utils.errors import AppError
 
 _EMP, _PC, _HIT = "empleados", "planes_carrera", "planes_carrera_hitos"
@@ -20,7 +24,7 @@ def _mapa_row(r: dict) -> EmpleadoMapaResponse:
     area = r.get("areas") or {}
     return EmpleadoMapaResponse(
         id=r["id"], nombre=r["nombre"], apellido=r["apellido"],
-        cargo=r.get("cargo"), area_nombre=area.get("nombre"),
+        cargo=r.get("cargo"), area_id=r.get("area_id"), area_nombre=area.get("nombre"),
         potencial=r.get("potencial", "medio"), desempeno=r.get("desempeno", "medio"),
     )
 
@@ -49,7 +53,7 @@ def _hito_row(r: dict) -> HitoResponse:
 class SucesionRepo:
     def get_mapa_talento(self) -> list[EmpleadoMapaResponse]:
         res = supabase_admin.table(_EMP).select(
-            f"id,nombre,apellido,cargo,potencial,desempeno,{_AREA}"
+            f"id,nombre,apellido,cargo,area_id,potencial,desempeno,{_AREA}"
         ).eq("estado", "activo").execute()
         return [_mapa_row(r) for r in (res.data or [])]
 
@@ -93,8 +97,41 @@ class SucesionRepo:
         res = supabase_admin.table(_HIT).select("*").eq("plan_id", plan_id).execute()
         return [_hito_row(r) for r in (res.data or [])]
 
+    def create_hito(self, plan_id: str, titulo: str,
+                    descripcion: Optional[str], fecha_objetivo: Optional[str]) -> HitoResponse:
+        payload: dict = {"plan_id": plan_id, "nombre": titulo}
+        if descripcion: payload["descripcion"] = descripcion
+        if fecha_objetivo: payload["fecha_objetivo"] = fecha_objetivo
+        ins = supabase_admin.table(_HIT).insert(payload).execute()
+        if not ins.data:
+            raise AppError("Error al crear hito", "DB_ERROR", 500)
+        return _hito_row(ins.data[0])
+
     def completar_hito(self, hito_id: str) -> bool:
         res = supabase_admin.table(_HIT).update({
             "estado": "completado", "fecha_completada": date.today().isoformat(),
         }).eq("id", hito_id).execute()
         return bool(res.data)
+
+    def get_analisis_posicion(self, area_id: str) -> list[EmpleadoAnalisisResponse]:
+        qr = supabase_admin.table(_EMP).select(
+            "id, nombre, apellido, cargo, potencial, desempeno, "
+            "assessment_links!assessment_links_empleado_id_fkey(assessment_resultados(puntuacion))"
+        ).eq("area_id", area_id).eq("estado", "activo").execute()
+
+        rows: list[EmpleadoAnalisisResponse] = []
+        for r in (qr.data or []):
+            best: Optional[int] = None
+            for lnk in (r.get("assessment_links") or []):
+                for item in (lnk.get("assessment_resultados") or []):
+                    sg = (item.get("puntuacion") or {}).get("general")
+                    if sg is not None and (best is None or int(sg) > best):
+                        best = int(sg)
+            rows.append(EmpleadoAnalisisResponse(
+                id=r["id"], nombre=r["nombre"], apellido=r["apellido"],
+                cargo=r.get("cargo"), score=best,
+                potencial=r.get("potencial"), desempeno=r.get("desempeno"),
+            ))
+
+        rows.sort(key=lambda x: (x.score is None, -(x.score or 0)))
+        return rows

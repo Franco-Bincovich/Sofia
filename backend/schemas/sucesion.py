@@ -14,9 +14,20 @@ class EmpleadoMapaResponse(BaseModel):
     nombre: str
     apellido: str
     cargo: Optional[str] = None
+    area_id: Optional[UUID] = None
     area_nombre: Optional[str] = None
     potencial: Literal["alto", "medio", "bajo"]
     desempeno: Literal["alto", "medio", "bajo"]
+
+
+class EmpleadoAnalisisResponse(BaseModel):
+    id: UUID
+    nombre: str
+    apellido: str
+    cargo: Optional[str] = None
+    score: Optional[int] = None
+    potencial: Optional[str] = None
+    desempeno: Optional[str] = None
 
 
 class PlanCarreraCreate(BaseModel):
@@ -43,6 +54,16 @@ class HitoCreate(BaseModel):
     titulo: str
     descripcion: Optional[str] = None
     fecha_objetivo: Optional[date] = None
+
+
+class HitoBodyCreate(BaseModel):
+    titulo: str = Field(..., min_length=1, max_length=200)
+    descripcion: Optional[str] = None
+    fecha_objetivo: Optional[date] = None
+
+
+class ReadinessUpdate(BaseModel):
+    readiness: int = Field(..., ge=0, le=100)
 
 
 class HitoResponse(BaseModel):

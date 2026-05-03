@@ -175,7 +175,7 @@ export default function AreasPage() {
                   {area.descripcion ?? <span className="italic text-muted-foreground/60">—</span>}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {area.responsable_id ?? <span className="italic text-muted-foreground/60">—</span>}
+                  {area.responsable_nombre ?? <span className="italic text-muted-foreground/60">—</span>}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
                   {area.cantidad_empleados}

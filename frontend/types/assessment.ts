@@ -8,17 +8,23 @@ export interface Campana {
   links_enviados: number
   completados: number
   created_at: string
+  area_id: string | null
+  area_nombre: string | null
+  posicion_objetivo: string | null
 }
 
 export interface CampanaCreate {
   nombre: string
   tipo: TipoEval
+  area_id?: string
+  posicion_objetivo?: string
 }
 
 export interface LinkCreate {
   campana_id: string
   evaluado_nombre: string
   evaluado_email: string
+  empleado_id?: string
 }
 
 export interface LinkInfo {
@@ -40,6 +46,8 @@ export interface Resultado {
   perfil_dominante: string | null
   score_general: number | null
   scores: Record<string, number> | null
+  area_nombre: string | null
+  posicion_objetivo: string | null
 }
 
 export type ResultadoDetalle = Resultado

@@ -6,7 +6,7 @@ from datetime import date, datetime
 from typing import List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class EmpleadoBase(BaseModel):
@@ -43,6 +43,11 @@ class EmpleadoUpdate(BaseModel):
     legajo: Optional[str] = None
     estado: Optional[str] = None
     rol: Optional[str] = None
+
+    @field_validator("fecha_ingreso", "fecha_nacimiento", mode="before")
+    @classmethod
+    def empty_str_to_none(cls, v: object) -> object:
+        return None if v == "" else v
 
 
 class EmpleadoResponse(BaseModel):

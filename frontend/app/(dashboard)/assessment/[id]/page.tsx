@@ -112,6 +112,13 @@ export default function AssessmentDetailPage() {
   const extraKeys     = Object.keys(scores).filter((k) => !AREAS_ORDER.includes(k as typeof AREAS_ORDER[number]) && k !== "general")
   const allDisplayKeys = [...AREAS_ORDER.filter((k) => scores[k] !== undefined), ...extraKeys]
 
+  const metaParts = [
+    `Tipo: ${resultado.tipo}`,
+    resultado.area_nombre && `Área: ${resultado.area_nombre}`,
+    resultado.posicion_objetivo && `Posición: ${resultado.posicion_objetivo}`,
+    `Completado: ${resultado.fecha_completado ? new Date(resultado.fecha_completado).toLocaleDateString("es-AR") : "—"}`,
+  ].filter(Boolean).join(" · ")
+
   return (
     <div className="space-y-6">
       <div>
@@ -122,7 +129,7 @@ export default function AssessmentDetailPage() {
 
       <PageHeader
         title={resultado.evaluado_nombre || "Evaluado"}
-        description={`Tipo: ${resultado.tipo} · Completado: ${resultado.fecha_completado ? new Date(resultado.fecha_completado).toLocaleDateString("es-AR") : "—"}`}
+        description={metaParts}
         action={
           <div className="flex items-center gap-2">
             {resultado.perfil_dominante && <Badge variant="outline">{resultado.perfil_dominante}</Badge>}

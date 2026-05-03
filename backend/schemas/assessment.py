@@ -14,6 +14,8 @@ TipoEval = Literal["completo", "conductual", "cognitivo"]
 class CampanaCreate(BaseModel):
     nombre: str = Field(..., min_length=1, max_length=150)
     tipo: TipoEval
+    area_id: Optional[str] = None
+    posicion_objetivo: Optional[str] = Field(default=None, max_length=200)
 
 
 class CampanaResponse(BaseModel):
@@ -24,12 +26,16 @@ class CampanaResponse(BaseModel):
     links_enviados: int
     completados: int
     created_at: datetime
+    area_id: Optional[UUID] = None
+    area_nombre: Optional[str] = None
+    posicion_objetivo: Optional[str] = None
 
 
 class LinkCreate(BaseModel):
     campana_id: UUID
     evaluado_nombre: str = Field(..., min_length=1, max_length=200)
     evaluado_email: str = Field(..., min_length=1, max_length=255)
+    empleado_id: Optional[str] = None
 
 
 class LinkResponse(BaseModel):
@@ -51,6 +57,8 @@ class ResultadoResponse(BaseModel):
     perfil_dominante: Optional[str] = None
     score_general: Optional[int] = None
     scores: Optional[dict[str, Any]] = None
+    area_nombre: Optional[str] = None
+    posicion_objetivo: Optional[str] = None
 
 
 class RespuestaCreate(BaseModel):

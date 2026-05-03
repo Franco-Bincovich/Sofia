@@ -3,9 +3,20 @@ export interface EmpleadoMapa {
   nombre: string
   apellido: string
   cargo: string | null
+  area_id: string | null
   area_nombre: string | null
   potencial: "alto" | "medio" | "bajo"
   desempeno: "alto" | "medio" | "bajo"
+}
+
+export interface EmpleadoAnalisis {
+  id: string
+  nombre: string
+  apellido: string
+  cargo: string | null
+  score: number | null
+  potencial: string | null
+  desempeno: string | null
 }
 
 export interface PlanCarreraCreate {
@@ -25,6 +36,12 @@ export interface PlanCarrera {
   readiness: number
   hitos_completados: number
   hitos_total: number
+}
+
+export interface HitoCreate {
+  titulo: string
+  descripcion?: string
+  fecha_objetivo?: string
 }
 
 export interface Hito {

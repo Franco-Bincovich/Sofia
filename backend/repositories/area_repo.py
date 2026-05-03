@@ -9,6 +9,7 @@ from schemas.area import AreaCreate, AreaResponse, AreaUpdate
 
 _TABLE = "areas"
 _EMPLEADOS_TABLE = "empleados"
+_SELECT = "*, empleados!fk_areas_responsable(nombre, apellido)"
 
 
 def _counts_by_area() -> dict[str, int]:
@@ -28,11 +29,16 @@ def _counts_by_area() -> dict[str, int]:
 
 
 def _to_response(row: dict, counts: dict[str, int]) -> AreaResponse:
+    emp = row.get("empleados") or {}
+    responsable_nombre = (
+        f"{emp.get('nombre', '')} {emp.get('apellido', '')}".strip() or None
+    )
     return AreaResponse(
         id=str(row["id"]),
         nombre=row["nombre"],
         descripcion=row.get("descripcion"),
         responsable_id=str(row["responsable_id"]) if row.get("responsable_id") else None,
+        responsable_nombre=responsable_nombre,
         cantidad_empleados=counts.get(str(row["id"]), 0),
         created_at=row["created_at"],
     )
@@ -42,7 +48,7 @@ class AreaRepo:
     def find_all(self) -> List[AreaResponse]:
         res = (
             supabase_admin.table(_TABLE)
-            .select("id, nombre, descripcion, responsable_id, created_at")
+            .select(_SELECT)
             .eq("activo", True)
             .order("nombre")
             .execute()
@@ -53,7 +59,7 @@ class AreaRepo:
     def find_by_id(self, id: str) -> Optional[AreaResponse]:
         res = (
             supabase_admin.table(_TABLE)
-            .select("id, nombre, descripcion, responsable_id, created_at")
+            .select(_SELECT)
             .eq("id", id)
             .eq("activo", True)
             .single()

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -12,7 +12,9 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { fetchAreas } from "@/services/areas"
 import { createCampana } from "@/services/assessment"
+import type { Area } from "@/types/area"
 import type { Campana, CampanaCreate, TipoEval } from "@/types/assessment"
 
 interface CampanaModalProps {
@@ -27,15 +29,32 @@ const TIPOS: { value: TipoEval; label: string }[] = [
   { value: "cognitivo",  label: "Cognitivo" },
 ]
 
+const SELECT_CLASS =
+  "h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none " +
+  "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+
 export function CampanaModal({ open, onClose, onCreated }: CampanaModalProps) {
-  const [nombre, setNombre] = useState("")
-  const [tipo, setTipo]     = useState<TipoEval>("completo")
-  const [error, setError]   = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [nombre, setNombre]               = useState("")
+  const [tipo, setTipo]                   = useState<TipoEval>("completo")
+  const [areaId, setAreaId]               = useState<string>("")
+  const [posicionObjetivo, setPosicion]   = useState("")
+  const [areas, setAreas]                 = useState<Area[]>([])
+  const [error, setError]                 = useState<string | null>(null)
+  const [loading, setLoading]             = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      fetchAreas()
+        .then(setAreas)
+        .catch(() => setAreas([]))
+    }
+  }, [open])
 
   function handleClose() {
     setNombre("")
     setTipo("completo")
+    setAreaId("")
+    setPosicion("")
     setError(null)
     onClose()
   }
@@ -49,7 +68,12 @@ export function CampanaModal({ open, onClose, onCreated }: CampanaModalProps) {
     setError(null)
     setLoading(true)
     try {
-      const data: CampanaCreate = { nombre: nombre.trim(), tipo }
+      const data: CampanaCreate = {
+        nombre: nombre.trim(),
+        tipo,
+        ...(areaId && { area_id: areaId }),
+        ...(posicionObjetivo.trim() && { posicion_objetivo: posicionObjetivo.trim() }),
+      }
       const campana = await createCampana(data)
       onCreated(campana)
       handleClose()
@@ -85,12 +109,39 @@ export function CampanaModal({ open, onClose, onCreated }: CampanaModalProps) {
               id="campana-tipo"
               value={tipo}
               onChange={(e) => setTipo(e.target.value as TipoEval)}
-              className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              className={SELECT_CLASS}
             >
               {TIPOS.map((t) => (
                 <option key={t.value} value={t.value}>{t.label}</option>
               ))}
             </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="campana-area">Área <span className="text-muted-foreground">(opcional)</span></Label>
+            <select
+              id="campana-area"
+              value={areaId}
+              onChange={(e) => setAreaId(e.target.value)}
+              className={SELECT_CLASS}
+            >
+              <option value="">Sin área específica</option>
+              {areas.map((a) => (
+                <option key={a.id} value={a.id}>{a.nombre}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="campana-posicion">
+              Posición objetivo <span className="text-muted-foreground">(opcional)</span>
+            </Label>
+            <Input
+              id="campana-posicion"
+              value={posicionObjetivo}
+              onChange={(e) => setPosicion(e.target.value)}
+              placeholder="Ej. Tech Lead, Product Manager…"
+            />
           </div>
 
           {error && (
