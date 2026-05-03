@@ -128,3 +128,17 @@
     @apply font-sans;
   }
 }
+
+@media print {
+  aside {
+    display: none !important;
+  }
+  /* AI panel FAB, hamburger, and all fixed UI chrome */
+  .fixed {
+    display: none !important;
+  }
+  main {
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+}

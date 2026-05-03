@@ -1,4 +1,4 @@
-import { apiFetch } from "./api"
+import { apiFetch, API_BASE, authHeaders } from "./api"
 
 export type TipoReporte = "headcount" | "rotacion" | "costos" | "vacantes" | "onboarding" | "adhoc"
 
@@ -35,4 +35,29 @@ export function generarReporte(body: ReporteGenerarRequest): Promise<ReporteResp
 
 export function fetchHistorial(): Promise<HistorialItem[]> {
   return apiFetch<HistorialItem[]>("/api/reportes/historial")
+}
+
+export async function exportarReporte(
+  id: string,
+  formato: "pdf" | "excel",
+  nombre: string,
+): Promise<void> {
+  const res = await fetch(
+    `${API_BASE}/api/reportes/${id}/exportar?formato=${formato}`,
+    { headers: authHeaders() },
+  )
+  if (!res.ok) {
+    throw new Error(`Error al exportar: ${res.status}`)
+  }
+  const blob = await res.blob()
+  const ext = formato === "pdf" ? "pdf" : "xlsx"
+  const safe = nombre.replace(/[^\w\s\-]/g, "").trim() || "reporte"
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = `${safe}.${ext}`
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
 }

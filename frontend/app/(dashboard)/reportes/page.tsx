@@ -34,6 +34,7 @@ import {
 import {
   generarReporte,
   fetchHistorial,
+  exportarReporte,
   type TipoReporte,
   type HistorialItem,
   type ReporteResponse,
@@ -334,10 +335,13 @@ function AdhocResultModal({
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+type ExportKey = `${string}-${"pdf" | "excel"}`
+
 export default function ReportesPage() {
   const [historial, setHistorial] = useState<HistorialItem[]>([])
   const [historialLoading, setHistorialLoading] = useState(true)
   const [adhocReporte, setAdhocReporte] = useState<ReporteResponse | null>(null)
+  const [exportLoading, setExportLoading] = useState<Set<ExportKey>>(new Set())
 
   const cargarHistorial = useCallback(async () => {
     setHistorialLoading(true)
@@ -358,6 +362,23 @@ export default function ReportesPage() {
   function handleAdhocSuccess(reporte: ReporteResponse) {
     setAdhocReporte(reporte)
     cargarHistorial()
+  }
+
+  async function handleExportar(id: string, nombre: string, formato: "pdf" | "excel") {
+    const key: ExportKey = `${id}-${formato}`
+    setExportLoading((prev) => new Set(prev).add(key))
+    try {
+      await exportarReporte(id, formato, nombre)
+      toast.success(`${formato.toUpperCase()} descargado`)
+    } catch {
+      toast.error(`No se pudo exportar el ${formato.toUpperCase()}. Intentá de nuevo.`)
+    } finally {
+      setExportLoading((prev) => {
+        const next = new Set(prev)
+        next.delete(key)
+        return next
+      })
+    }
   }
 
   return (
@@ -425,19 +446,21 @@ export default function ReportesPage() {
                         variant="ghost"
                         size="sm"
                         className="min-h-[2.75rem] gap-1.5 text-xs"
-                        onClick={() => toast.info("Exportación a PDF próximamente disponible")}
+                        disabled={exportLoading.has(`${r.id}-pdf`)}
+                        onClick={() => handleExportar(r.id, r.nombre, "pdf")}
                       >
                         <FileDown className="size-3.5" />
-                        PDF
+                        {exportLoading.has(`${r.id}-pdf`) ? "…" : "PDF"}
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
                         className="min-h-[2.75rem] gap-1.5 text-xs"
-                        onClick={() => toast.info("Exportación a Excel próximamente disponible")}
+                        disabled={exportLoading.has(`${r.id}-excel`)}
+                        onClick={() => handleExportar(r.id, r.nombre, "excel")}
                       >
                         <FileSpreadsheet className="size-3.5" />
-                        Excel
+                        {exportLoading.has(`${r.id}-excel`) ? "…" : "Excel"}
                       </Button>
                     </div>
                   </TableCell>

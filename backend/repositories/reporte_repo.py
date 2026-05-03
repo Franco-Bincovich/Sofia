@@ -59,6 +59,35 @@ class ReporteRepo:
             created_at=r["created_at"],
         )
 
+    def find_by_id(self, reporte_id: str) -> Optional[ReporteResponse]:
+        """
+        Retorna un reporte completo (incluye datos) por su ID.
+
+        Args:
+            reporte_id: UUID del reporte.
+
+        Returns:
+            ReporteResponse o None si no existe.
+        """
+        res = (
+            supabase_admin.table(_TABLE)
+            .select("id, nombre, tipo, datos, generado_por, created_at")
+            .eq("id", reporte_id)
+            .limit(1)
+            .execute()
+        )
+        if not res.data:
+            return None
+        r = res.data[0]
+        return ReporteResponse(
+            id=r["id"],
+            nombre=r["nombre"],
+            tipo=r["tipo"],
+            datos=r["datos"],
+            generado_por=r["generado_por"],
+            created_at=r["created_at"],
+        )
+
     def find_historial(self, limit: int = 50) -> List[HistorialItem]:
         """
         Retorna el historial de reportes generados, ordenado por fecha desc.

@@ -271,6 +271,16 @@ function OrgTree({
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+function handleExportarPDF() {
+  document.body.classList.add("printing")
+  const cleanup = () => {
+    document.body.classList.remove("printing")
+    window.removeEventListener("afterprint", cleanup)
+  }
+  window.addEventListener("afterprint", cleanup)
+  window.print()
+}
+
 export default function OrganigramaPage() {
   const [areas, setAreas] = useState<AreaNodoAPI[]>([])
   const [empresaNombre, setEmpresaNombre] = useState("Empresa")
@@ -301,7 +311,7 @@ export default function OrganigramaPage() {
         title="Organigrama"
         description="Estructura organizacional por área"
         action={
-          <Button variant="outline" className="min-h-11">
+          <Button variant="outline" className="min-h-11 print:hidden" onClick={handleExportarPDF}>
             <FileDown className="size-4" />
             Exportar PDF
           </Button>
