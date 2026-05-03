@@ -1,0 +1,18 @@
+# Variables de entorno — NUNCA commitear
+backend/.env
+frontend/.env.local
+frontend/.env
+
+# Python
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/**/*.pyc
+
+# Next.js
+frontend/.next/
+frontend/node_modules/
+
+# Misc
+.DS_Store
+*.log
