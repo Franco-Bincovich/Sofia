@@ -4,6 +4,7 @@ Interfaz: get_mapa_talento · get_planes_carrera · get_plan_by_empleado
           create_plan · update_readiness · get_hitos · completar_hito
           get_analisis_posicion
 """
+import json
 from datetime import date
 from typing import Optional
 
@@ -48,6 +49,18 @@ def _hito_row(r: dict) -> HitoResponse:
         descripcion=r.get("descripcion"), completado=r.get("estado") == "completado",
         fecha_objetivo=str(r["fecha_objetivo"]) if r.get("fecha_objetivo") else None,
     )
+
+
+def _parse_json_field(value):
+    """Parsea un campo JSONB que Supabase puede devolver como string en vez de dict/list."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except Exception:
+            return None
+    return value
 
 
 class SucesionRepo:
@@ -114,22 +127,29 @@ class SucesionRepo:
         return bool(res.data)
 
     def get_analisis_posicion(self, area_id: str) -> list[EmpleadoAnalisisResponse]:
-        qr = supabase_admin.table(_EMP).select(
-            "id, nombre, apellido, cargo, potencial, desempeno, "
-            "assessment_links!assessment_links_empleado_id_fkey(assessment_resultados(puntuacion))"
-        ).eq("area_id", area_id).eq("estado", "activo").execute()
+        emps_res = supabase_admin.table(_EMP).select(
+            "id, nombre, apellido, cargo, potencial, desempeno"
+        ).eq("area_id", area_id).neq("estado", "baja").execute()
 
         rows: list[EmpleadoAnalisisResponse] = []
-        for r in (qr.data or []):
-            best: Optional[int] = None
-            for lnk in (r.get("assessment_links") or []):
-                for item in (lnk.get("assessment_resultados") or []):
-                    sg = (item.get("puntuacion") or {}).get("general")
-                    if sg is not None and (best is None or int(sg) > best):
-                        best = int(sg)
+        for r in (emps_res.data or []):
+            score: Optional[int] = None
+            ar = supabase_admin.table("assessment_resultados").select(
+                "empleado_id, puntuacion"
+            ).eq("empleado_id", r["id"]).order("completado_en", desc=True).limit(1).execute()
+
+            if ar.data:
+                puntuacion = _parse_json_field(ar.data[0].get("puntuacion")) or {}
+                sg = puntuacion.get("general") or puntuacion.get("total")
+                if sg is not None:
+                    try:
+                        score = int(sg)
+                    except (ValueError, TypeError):
+                        score = None
+
             rows.append(EmpleadoAnalisisResponse(
                 id=r["id"], nombre=r["nombre"], apellido=r["apellido"],
-                cargo=r.get("cargo"), score=best,
+                cargo=r.get("cargo"), score=score,
                 potencial=r.get("potencial"), desempeno=r.get("desempeno"),
             ))
 
