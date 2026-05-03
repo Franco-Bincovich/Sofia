@@ -22,6 +22,7 @@ from routers.onboarding import router as onboarding_router
 from routers.assessment import router as assessment_router
 from routers.dashboard import router as dashboard_router
 from routers.organigrama import router as organigrama_router
+from routers.importacion import router as importacion_router
 from routers.integraciones import router as integraciones_router
 from routers.reportes import router as reportes_router
 from routers.sucesion import router as sucesion_router
@@ -70,4 +71,5 @@ app.include_router(organigrama_router, prefix="/api/organigrama", tags=["organig
 app.include_router(dashboard_router, prefix="/api/dashboard", tags=["dashboard"])
 app.include_router(empresa_router, prefix="/api/empresa", tags=["empresa"])
 app.include_router(reportes_router, prefix="/api/reportes", tags=["reportes"])
+app.include_router(importacion_router, prefix="/api/importacion", tags=["importacion"])
 app.include_router(integraciones_router, prefix="/api/integraciones", tags=["integraciones"])

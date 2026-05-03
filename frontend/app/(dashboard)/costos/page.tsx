@@ -1,13 +1,23 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { DollarSign, FileText, TrendingUp, Users } from "lucide-react"
+import { DollarSign, FileText, Pencil, TrendingUp, Upload, Users } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
 import { PageHeader } from "@/components/layout/PageHeader"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { ErrorState } from "@/components/ui/ErrorState"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   Table,
@@ -18,8 +28,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { fetchDashboardCostos } from "@/services/costos"
-import type { DashboardCostos, EvolucionMes } from "@/types/costo"
+import { NominaModal } from "@/components/features/costos/NominaModal"
+import { cargarNomina, fetchDashboardCostos, fetchNominaMes } from "@/services/costos"
+import type { DashboardCostos, EvolucionMes, Nomina } from "@/types/costo"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -173,6 +184,7 @@ function DashboardSkeleton() {
       </div>
       <Skeleton className="h-56 rounded-xl" />
       <Skeleton className="h-72 rounded-xl" />
+      <Skeleton className="h-64 rounded-xl" />
     </div>
   )
 }
@@ -186,6 +198,17 @@ export default function CostosPage() {
   const [dashboard, setDashboard] = useState<DashboardCostos | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+  const [nominaOpen, setNominaOpen] = useState(false)
+
+  const [nomina, setNomina] = useState<Nomina[]>([])
+  const [nominaListLoading, setNominaListLoading] = useState(true)
+  const [nominaListError, setNominaListError] = useState(false)
+
+  const [editItem, setEditItem] = useState<Nomina | null>(null)
+  const [editBruto, setEditBruto] = useState("")
+  const [editNeto, setEditNeto] = useState("")
+  const [editSaving, setEditSaving] = useState(false)
+  const [editError, setEditError] = useState("")
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -200,9 +223,49 @@ export default function CostosPage() {
     }
   }, [mes, anio])
 
-  useEffect(() => {
-    load()
-  }, [load])
+  const loadNomina = useCallback(async () => {
+    setNominaListLoading(true)
+    setNominaListError(false)
+    try {
+      const data = await fetchNominaMes(mes, anio)
+      setNomina(data)
+    } catch {
+      setNominaListError(true)
+    } finally {
+      setNominaListLoading(false)
+    }
+  }, [mes, anio])
+
+  useEffect(() => { load() }, [load])
+  useEffect(() => { loadNomina() }, [loadNomina])
+
+  function openEdit(item: Nomina) {
+    setEditItem(item)
+    setEditBruto(String(item.monto_bruto))
+    setEditNeto(String(item.monto_neto))
+    setEditError("")
+  }
+
+  async function saveEdit() {
+    if (!editItem) return
+    setEditSaving(true)
+    setEditError("")
+    try {
+      await cargarNomina({
+        empleado_id: editItem.empleado_id,
+        mes,
+        anio,
+        monto_bruto: Number(editBruto),
+        monto_neto: Number(editNeto),
+      })
+      setEditItem(null)
+      await Promise.all([load(), loadNomina()])
+    } catch {
+      setEditError("No se pudo guardar. Intentá de nuevo.")
+    } finally {
+      setEditSaving(false)
+    }
+  }
 
   const isEmpty =
     !loading && !error && dashboard !== null && dashboard.costos_por_area.length === 0
@@ -262,12 +325,18 @@ export default function CostosPage() {
         title="Costos de Personal"
         description={`Nómina y presupuesto — ${MESES_LARGOS[mes - 1]} ${anio}`}
         action={
-          <PeriodSelector
-            mes={mes}
-            anio={anio}
-            onChangeMes={setMes}
-            onChangeAnio={setAnio}
-          />
+          <div className="flex items-center gap-2">
+            <PeriodSelector
+              mes={mes}
+              anio={anio}
+              onChangeMes={setMes}
+              onChangeAnio={setAnio}
+            />
+            <Button className="min-h-11 gap-1.5" onClick={() => setNominaOpen(true)}>
+              <Upload className="size-4" />
+              Cargar nómina
+            </Button>
+          </div>
         }
       />
 
@@ -286,18 +355,14 @@ export default function CostosPage() {
           title="Sin datos de nómina"
           description={`No hay registros de nómina para ${MESES_LARGOS[mes - 1]} ${anio}. Cargá la nómina del período para ver los costos.`}
           action={
-            <button
+            <Button
               type="button"
-              className="mt-1 inline-flex min-h-11 items-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              onClick={() =>
-                window.open(
-                  `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/docs#/costos/post_nomina_api_costos_nomina_post`,
-                  "_blank",
-                )
-              }
+              className="mt-1 min-h-11 gap-1.5"
+              onClick={() => setNominaOpen(true)}
             >
+              <Upload className="size-4" />
               Cargar nómina
-            </button>
+            </Button>
           }
         />
       )}
@@ -402,6 +467,112 @@ export default function CostosPage() {
           </section>
         </>
       )}
+
+      {/* Detalle de nómina */}
+      {!loading && (
+        <section
+          className="rounded-xl border bg-card p-4 md:p-6"
+          aria-label="Detalle de nómina"
+        >
+          <h2 className="mb-4 text-base font-semibold text-foreground">Detalle de nómina</h2>
+          {nominaListLoading ? (
+            <Skeleton className="h-40 rounded-lg" />
+          ) : nominaListError ? (
+            <ErrorState
+              description="No se pudo cargar el detalle de nómina."
+              action={loadNomina}
+            />
+          ) : nomina.length === 0 ? (
+            <EmptyState
+              icon={<Users />}
+              title="Sin registros"
+              description={`No hay nómina cargada para ${MESES_LARGOS[mes - 1]} ${anio}.`}
+            />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Empleado</TableHead>
+                  <TableHead>Área</TableHead>
+                  <TableHead className="text-right">Monto bruto</TableHead>
+                  <TableHead className="text-right">Monto neto</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {nomina.map((n) => (
+                  <TableRow key={n.id}>
+                    <TableCell className="font-medium">{n.empleado_nombre}</TableCell>
+                    <TableCell className="text-muted-foreground">{n.area_nombre}</TableCell>
+                    <TableCell className="text-right">{pesos(n.monto_bruto)}</TableCell>
+                    <TableCell className="text-right">{pesos(n.monto_neto)}</TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="min-h-9 gap-1"
+                        onClick={() => openEdit(n)}
+                      >
+                        <Pencil className="size-3.5" />
+                        Editar
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </section>
+      )}
+
+      <NominaModal
+        open={nominaOpen}
+        onClose={() => setNominaOpen(false)}
+        onSuccess={() => {
+          setNominaOpen(false)
+          load()
+          loadNomina()
+        }}
+      />
+
+      <Dialog open={editItem !== null} onOpenChange={(open) => { if (!open) setEditItem(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar nómina — {editItem?.empleado_nombre}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-bruto">Monto bruto</Label>
+              <Input
+                id="edit-bruto"
+                type="number"
+                min={0}
+                value={editBruto}
+                onChange={(e) => setEditBruto(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-neto">Monto neto</Label>
+              <Input
+                id="edit-neto"
+                type="number"
+                min={0}
+                value={editNeto}
+                onChange={(e) => setEditNeto(e.target.value)}
+              />
+            </div>
+            {editError && <p className="text-sm text-destructive">{editError}</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditItem(null)} disabled={editSaving}>
+              Cancelar
+            </Button>
+            <Button onClick={saveEdit} disabled={editSaving}>
+              {editSaving ? "Guardando…" : "Guardar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

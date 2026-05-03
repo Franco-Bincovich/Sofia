@@ -60,8 +60,8 @@ class DashboardService:
             .gte("updated_at", f"{ini}T00:00:00").lte("updated_at", f"{fin}T23:59:59")
             .execute().count or 0
         )
-        costos_res = db.table("costos_nomina").select("total").eq("anio", anio).eq("mes", mes).execute()
-        costo_nomina = float(sum(r.get("total") or 0 for r in costos_res.data))
+        costos_res = db.table("costos_nomina").select("salario_bruto").eq("anio", anio).eq("mes", mes).execute()
+        costo_nomina = float(sum(r.get("salario_bruto") or 0 for r in costos_res.data))
         onboardings_activos = _count("onboarding_instancias", estado="en_progreso")
         vacantes_activas = (
             db.table("vacantes").select("id", count="exact").neq("estado", "cerrada").execute().count or 0

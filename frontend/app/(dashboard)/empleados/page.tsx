@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { Plus, Search, Users } from "lucide-react"
+import { Plus, Search, Upload, Users } from "lucide-react"
 
 import { PageHeader } from "@/components/layout/PageHeader"
 import { EmptyState } from "@/components/ui/EmptyState"
@@ -20,6 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { EmpleadoModal } from "@/components/features/empleados/EmpleadoModal"
+import { ImportarCSVModal } from "@/components/features/empleados/ImportarCSVModal"
 import { fetchEmpleados } from "@/services/empleados"
 import type { Empleado, EmpleadoListResponse } from "@/types/empleado"
 
@@ -57,6 +58,7 @@ export default function EmpleadosPage() {
   const [estado, setEstado] = useState("")
   const [page, setPage] = useState(1)
   const [newOpen, setNewOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -95,10 +97,20 @@ export default function EmpleadosPage() {
         title="Empleados"
         description={loading ? "Cargando..." : `${total} colaboradores`}
         action={
-          <Button className="min-h-11" onClick={() => setNewOpen(true)}>
-            <Plus />
-            Nuevo empleado
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              className="min-h-11 gap-1.5"
+              onClick={() => setImportOpen(true)}
+            >
+              <Upload className="size-4" />
+              Importar CSV
+            </Button>
+            <Button className="min-h-11" onClick={() => setNewOpen(true)}>
+              <Plus />
+              Nuevo empleado
+            </Button>
+          </div>
         }
       />
 
@@ -205,6 +217,15 @@ export default function EmpleadosPage() {
         onClose={() => setNewOpen(false)}
         onSuccess={() => {
           setNewOpen(false)
+          load()
+        }}
+      />
+
+      <ImportarCSVModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onSuccess={() => {
+          setImportOpen(false)
           load()
         }}
       />

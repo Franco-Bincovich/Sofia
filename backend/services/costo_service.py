@@ -33,12 +33,12 @@ class CostoService:
             DashboardCostosResponse con KPIs, costos por área y evolución mensual.
         """
         rows = self._repo.get_nomina_mes(mes, anio)
-        total = sum(r.total for r in rows)
+        total = sum(r.monto_bruto for r in rows)
         promedio = total / len(rows) if rows else 0.0
 
         prev_m = mes - 1 if mes > 1 else 12
         prev_y = anio if mes > 1 else anio - 1
-        total_prev = sum(r.total for r in self._repo.get_nomina_mes(prev_m, prev_y))
+        total_prev = sum(r.monto_bruto for r in self._repo.get_nomina_mes(prev_m, prev_y))
         variacion = round((total - total_prev) / total_prev * 100, 2) if total_prev else None
 
         amap: dict[str, dict] = {}
@@ -49,7 +49,7 @@ class CostoService:
                     "costo_mensual": 0.0, "presupuesto": 0.0,
                 }
             amap[r.area_nombre]["empleados"] += 1
-            amap[r.area_nombre]["costo_mensual"] += r.total
+            amap[r.area_nombre]["costo_mensual"] += r.monto_bruto
 
         presupuestos = self._repo.get_presupuestos_mes(mes, anio)
         for nombre, monto in presupuestos.items():
