@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { fetchOrganigrama } from "@/services/organigrama"
+import { fetchEmpresaConfig } from "@/services/empresa"
 import type { AreaNodoAPI, EmpleadoNodoAPI } from "@/types/organigrama"
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -212,10 +213,12 @@ function OrgTree({
   areas,
   selectedId,
   onSelect,
+  empresaNombre,
 }: {
   areas: AreaNodoAPI[]
   selectedId: string | null
   onSelect: (area: AreaNodoAPI) => void
+  empresaNombre: string
 }) {
   const isOnly = areas.length === 1
 
@@ -223,7 +226,7 @@ function OrgTree({
     <div className="flex flex-col items-center">
       {/* Nodo raíz */}
       <div className="flex w-36 flex-col items-center justify-center gap-0.5 rounded-xl border bg-card px-4 py-3 text-center shadow-sm">
-        <span className="text-sm font-bold text-foreground">Empresa</span>
+        <span className="text-sm font-bold text-foreground">{empresaNombre}</span>
         <span className="text-xs text-muted-foreground">Organización</span>
       </div>
 
@@ -270,13 +273,20 @@ function OrgTree({
 
 export default function OrganigramaPage() {
   const [areas, setAreas] = useState<AreaNodoAPI[]>([])
+  const [empresaNombre, setEmpresaNombre] = useState("Empresa")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<AreaNodoAPI | null>(null)
 
   useEffect(() => {
-    fetchOrganigrama()
-      .then(setAreas)
+    Promise.all([
+      fetchOrganigrama(),
+      fetchEmpresaConfig().catch(() => null),
+    ])
+      .then(([areasData, empresaData]) => {
+        setAreas(areasData)
+        if (empresaData?.nombre) setEmpresaNombre(empresaData.nombre)
+      })
       .catch(() => setError("No se pudo cargar el organigrama."))
       .finally(() => setLoading(false))
   }, [])
@@ -313,6 +323,7 @@ export default function OrganigramaPage() {
               areas={areas}
               selectedId={selected?.id ?? null}
               onSelect={handleSelect}
+              empresaNombre={empresaNombre}
             />
           )}
         </div>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import {
   Users,
   RefreshCw,
@@ -12,10 +12,17 @@ import {
   FileSpreadsheet,
   type LucideIcon,
 } from "lucide-react"
+import { toast } from "sonner"
 
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
   Table,
   TableBody,
@@ -24,25 +31,34 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+  generarReporte,
+  fetchHistorial,
+  type TipoReporte,
+  type HistorialItem,
+  type ReporteResponse,
+} from "@/services/reportes"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface ReporteEstandar {
-  id: string
+  id: TipoReporte
   titulo: string
   descripcion: string
   icon: LucideIcon
-}
-
-interface ReporteHistorial {
-  id: string
-  nombre: string
-  tipo: string
-  fecha: string
-  generadoPor: string
+  usaPeriodo: boolean
 }
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
+
+const MESES = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+]
+
+const ANO_ACTUAL = new Date().getFullYear()
+const MES_ACTUAL = new Date().getMonth() + 1
+const ANOS = [ANO_ACTUAL, ANO_ACTUAL - 1, ANO_ACTUAL - 2]
 
 const REPORTES_ESTANDAR: ReporteEstandar[] = [
   {
@@ -51,6 +67,7 @@ const REPORTES_ESTANDAR: ReporteEstandar[] = [
     descripcion:
       "Evolución de la dotación por área, nivel y tipo de contratación. Incluye altas, bajas y transferencias del período.",
     icon: Users,
+    usaPeriodo: true,
   },
   {
     id: "rotacion",
@@ -58,6 +75,7 @@ const REPORTES_ESTANDAR: ReporteEstandar[] = [
     descripcion:
       "Índice de rotación voluntaria e involuntaria, análisis de causas de egreso y comparativa histórica por trimestre.",
     icon: RefreshCw,
+    usaPeriodo: true,
   },
   {
     id: "costos",
@@ -65,6 +83,7 @@ const REPORTES_ESTANDAR: ReporteEstandar[] = [
     descripcion:
       "Nómina total y por área, desvío presupuestario, costo promedio por empleado y evolución mensual del período.",
     icon: DollarSign,
+    usaPeriodo: true,
   },
   {
     id: "vacantes",
@@ -72,6 +91,7 @@ const REPORTES_ESTANDAR: ReporteEstandar[] = [
     descripcion:
       "Estado del pipeline de selección, tiempo promedio de cobertura, vacantes activas y cerradas por área.",
     icon: Briefcase,
+    usaPeriodo: false,
   },
   {
     id: "onboarding",
@@ -79,54 +99,97 @@ const REPORTES_ESTANDAR: ReporteEstandar[] = [
     descripcion:
       "Completitud de tareas de inducción, tiempo promedio al primer hito productivo y encuestas de experiencia de ingreso.",
     icon: UserCheck,
+    usaPeriodo: false,
   },
 ]
 
-const HISTORIAL: ReporteHistorial[] = [
-  {
-    id: "1",
-    nombre: "Headcount — Abril 2025",
-    tipo: "Headcount",
-    fecha: "30/04/2025",
-    generadoPor: "Ana García",
-  },
-  {
-    id: "2",
-    nombre: "Rotación Q1 2025",
-    tipo: "Rotación",
-    fecha: "01/04/2025",
-    generadoPor: "Ana García",
-  },
-  {
-    id: "3",
-    nombre: "Costos Marzo 2025",
-    tipo: "Costos",
-    fecha: "31/03/2025",
-    generadoPor: "Carlos López",
-  },
-  {
-    id: "4",
-    nombre: "Análisis de clima organizacional",
-    tipo: "Ad Hoc IA",
-    fecha: "15/03/2025",
-    generadoPor: "AI HR Karstec",
-  },
-  {
-    id: "5",
-    nombre: "Vacantes Pipeline — T1 2025",
-    tipo: "Vacantes",
-    fecha: "03/03/2025",
-    generadoPor: "Laura Méndez",
-  },
-]
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function formatFecha(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString("es-AR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    })
+  } catch {
+    return iso
+  }
+}
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function ReporteCard({ reporte }: { reporte: ReporteEstandar }) {
-  const Icon = reporte.icon
+function PeriodoSelector({
+  id,
+  mes,
+  anio,
+  onMesChange,
+  onAnioChange,
+}: {
+  id: string
+  mes: number
+  anio: number
+  onMesChange: (mes: number) => void
+  onAnioChange: (anio: number) => void
+}) {
+  return (
+    <div className="flex gap-2">
+      <div className="flex-1">
+        <label htmlFor={`mes-${id}`} className="sr-only">Mes</label>
+        <select
+          id={`mes-${id}`}
+          value={mes}
+          onChange={(e) => onMesChange(Number(e.target.value))}
+          className="flex min-h-[2.75rem] w-full rounded-md border border-input bg-background px-2 py-1 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+        >
+          {MESES.map((m, i) => (
+            <option key={i + 1} value={i + 1}>{m}</option>
+          ))}
+        </select>
+      </div>
+      <div className="w-24">
+        <label htmlFor={`anio-${id}`} className="sr-only">Año</label>
+        <select
+          id={`anio-${id}`}
+          value={anio}
+          onChange={(e) => onAnioChange(Number(e.target.value))}
+          className="flex min-h-[2.75rem] w-full rounded-md border border-input bg-background px-2 py-1 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+        >
+          {ANOS.map((a) => (
+            <option key={a} value={a}>{a}</option>
+          ))}
+        </select>
+      </div>
+    </div>
+  )
+}
 
-  function handleGenerar() {
-    console.log(`Generando reporte: ${reporte.id}`)
+function ReporteCard({
+  reporte,
+  onSuccess,
+}: {
+  reporte: ReporteEstandar
+  onSuccess: () => void
+}) {
+  const Icon = reporte.icon
+  const [mes, setMes] = useState(MES_ACTUAL)
+  const [anio, setAnio] = useState(ANO_ACTUAL)
+  const [loading, setLoading] = useState(false)
+
+  async function handleGenerar() {
+    setLoading(true)
+    try {
+      await generarReporte({
+        tipo: reporte.id,
+        ...(reporte.usaPeriodo ? { mes, anio } : {}),
+      })
+      toast.success(`${reporte.titulo} generado exitosamente`)
+      onSuccess()
+    } catch {
+      toast.error("No se pudo generar el reporte. Intentá de nuevo.")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -142,24 +205,47 @@ function ReporteCard({ reporte }: { reporte: ReporteEstandar }) {
           </p>
         </div>
       </div>
+
+      {reporte.usaPeriodo && (
+        <PeriodoSelector
+          id={reporte.id}
+          mes={mes}
+          anio={anio}
+          onMesChange={setMes}
+          onAnioChange={setAnio}
+        />
+      )}
+
       <Button
         variant="outline"
         size="sm"
         className="mt-auto min-h-[2.75rem] w-full"
         onClick={handleGenerar}
+        disabled={loading}
       >
-        Generar
+        {loading ? "Generando…" : "Generar"}
       </Button>
     </div>
   )
 }
 
-function ReporteAdHocCard() {
+function ReporteAdHocCard({ onSuccess }: { onSuccess: (r: ReporteResponse) => void }) {
   const [prompt, setPrompt] = useState("")
+  const [loading, setLoading] = useState(false)
 
-  function handleGenerar() {
+  async function handleGenerar() {
     if (!prompt.trim()) return
-    console.log(`Generando reporte Ad Hoc con IA: "${prompt}"`)
+    setLoading(true)
+    try {
+      const reporte = await generarReporte({ tipo: "adhoc", prompt })
+      toast.success("Análisis IA generado exitosamente")
+      onSuccess(reporte)
+      setPrompt("")
+    } catch {
+      toast.error("No se pudo generar el análisis. Intentá de nuevo.")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -183,10 +269,7 @@ function ReporteAdHocCard() {
       </div>
 
       <div className="flex flex-col gap-2">
-        <label
-          htmlFor="adhoc-prompt"
-          className="text-xs font-medium text-foreground"
-        >
+        <label htmlFor="adhoc-prompt" className="text-xs font-medium text-foreground">
           Descripción del reporte
         </label>
         <textarea
@@ -202,39 +285,79 @@ function ReporteAdHocCard() {
       <Button
         size="sm"
         className="min-h-[2.75rem] w-full"
-        disabled={!prompt.trim()}
+        disabled={!prompt.trim() || loading}
         onClick={handleGenerar}
       >
         <Sparkles className="size-4" />
-        Generar con IA
+        {loading ? "Generando…" : "Generar con IA"}
       </Button>
     </div>
   )
 }
 
 function TipoCell({ tipo }: { tipo: string }) {
-  const isIA = tipo === "Ad Hoc IA"
+  const isIA = tipo === "adhoc"
   return isIA ? (
     <div className="flex items-center gap-1.5">
-      <span className="text-sm text-muted-foreground">{tipo}</span>
+      <span className="text-sm text-muted-foreground">Ad Hoc IA</span>
       <Badge className="bg-primary text-primary-foreground text-[10px] px-1.5 py-0">
         IA
       </Badge>
     </div>
   ) : (
-    <span className="text-sm text-muted-foreground">{tipo}</span>
+    <span className="text-sm capitalize text-muted-foreground">{tipo}</span>
+  )
+}
+
+function AdhocResultModal({
+  reporte,
+  onClose,
+}: {
+  reporte: ReporteResponse | null
+  onClose: () => void
+}) {
+  const analisis = reporte?.datos?.analisis as string | undefined
+
+  return (
+    <Dialog open={!!reporte} onOpenChange={(open) => { if (!open) onClose() }}>
+      <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="text-base">{reporte?.nombre ?? "Análisis IA"}</DialogTitle>
+        </DialogHeader>
+        <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+          {analisis ?? "Sin contenido generado."}
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ReportesPage() {
-  function handleDescargarPdf(reporte: ReporteHistorial) {
-    console.log(`Descargando PDF: ${reporte.nombre} (id: ${reporte.id})`)
-  }
+  const [historial, setHistorial] = useState<HistorialItem[]>([])
+  const [historialLoading, setHistorialLoading] = useState(true)
+  const [adhocReporte, setAdhocReporte] = useState<ReporteResponse | null>(null)
 
-  function handleDescargarExcel(reporte: ReporteHistorial) {
-    console.log(`Descargando Excel: ${reporte.nombre} (id: ${reporte.id})`)
+  const cargarHistorial = useCallback(async () => {
+    setHistorialLoading(true)
+    try {
+      const data = await fetchHistorial()
+      setHistorial(data)
+    } catch {
+      // no bloquear la UI si falla el historial
+    } finally {
+      setHistorialLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    cargarHistorial()
+  }, [cargarHistorial])
+
+  function handleAdhocSuccess(reporte: ReporteResponse) {
+    setAdhocReporte(reporte)
+    cargarHistorial()
   }
 
   return (
@@ -251,9 +374,9 @@ export default function ReportesPage() {
         </h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {REPORTES_ESTANDAR.map((r) => (
-            <ReporteCard key={r.id} reporte={r} />
+            <ReporteCard key={r.id} reporte={r} onSuccess={cargarHistorial} />
           ))}
-          <ReporteAdHocCard />
+          <ReporteAdHocCard onSuccess={handleAdhocSuccess} />
         </div>
       </section>
 
@@ -262,55 +385,70 @@ export default function ReportesPage() {
         className="rounded-xl border bg-card p-4 md:p-6"
         aria-label="Historial de reportes"
       >
-        <h2 className="mb-4 text-base font-semibold text-foreground">
-          Historial
-        </h2>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nombre</TableHead>
-              <TableHead>Tipo</TableHead>
-              <TableHead>Fecha</TableHead>
-              <TableHead>Generado por</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {HISTORIAL.map((r) => (
-              <TableRow key={r.id}>
-                <TableCell className="font-medium">{r.nombre}</TableCell>
-                <TableCell>
-                  <TipoCell tipo={r.tipo} />
-                </TableCell>
-                <TableCell className="text-muted-foreground">{r.fecha}</TableCell>
-                <TableCell className="text-muted-foreground">{r.generadoPor}</TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="min-h-[2.75rem] gap-1.5 text-xs"
-                      onClick={() => handleDescargarPdf(r)}
-                    >
-                      <FileDown className="size-3.5" />
-                      PDF
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="min-h-[2.75rem] gap-1.5 text-xs"
-                      onClick={() => handleDescargarExcel(r)}
-                    >
-                      <FileSpreadsheet className="size-3.5" />
-                      Excel
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
+        <h2 className="mb-4 text-base font-semibold text-foreground">Historial</h2>
+
+        {historialLoading ? (
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-10 animate-pulse rounded-md bg-muted" />
             ))}
-          </TableBody>
-        </Table>
+          </div>
+        ) : historial.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            Aún no se generaron reportes.
+          </p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nombre</TableHead>
+                <TableHead>Tipo</TableHead>
+                <TableHead>Fecha</TableHead>
+                <TableHead>Generado por</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {historial.map((r) => (
+                <TableRow key={r.id}>
+                  <TableCell className="font-medium">{r.nombre}</TableCell>
+                  <TableCell>
+                    <TipoCell tipo={r.tipo} />
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {formatFecha(r.created_at)}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{r.generado_por}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="min-h-[2.75rem] gap-1.5 text-xs"
+                        onClick={() => toast.info("Exportación a PDF próximamente disponible")}
+                      >
+                        <FileDown className="size-3.5" />
+                        PDF
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="min-h-[2.75rem] gap-1.5 text-xs"
+                        onClick={() => toast.info("Exportación a Excel próximamente disponible")}
+                      >
+                        <FileSpreadsheet className="size-3.5" />
+                        Excel
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </section>
+
+      <AdhocResultModal reporte={adhocReporte} onClose={() => setAdhocReporte(null)} />
     </div>
   )
 }

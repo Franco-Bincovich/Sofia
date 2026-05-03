@@ -16,11 +16,13 @@ from routers.areas import router as areas_router
 from routers.auth import limiter, router as auth_router
 from routers.costos import router as costos_router
 from routers.empleados import router as empleados_router
+from routers.empresa import router as empresa_router
 from routers.offboarding import router as offboarding_router
 from routers.onboarding import router as onboarding_router
 from routers.assessment import router as assessment_router
 from routers.dashboard import router as dashboard_router
 from routers.organigrama import router as organigrama_router
+from routers.reportes import router as reportes_router
 from routers.sucesion import router as sucesion_router
 from routers.vacantes import candidatos_router, router as vacantes_router
 
@@ -65,3 +67,5 @@ app.include_router(sucesion_router, prefix="/api/sucesion", tags=["sucesion"])
 app.include_router(assessment_router, prefix="/api/assessment", tags=["assessment"])
 app.include_router(organigrama_router, prefix="/api/organigrama", tags=["organigrama"])
 app.include_router(dashboard_router, prefix="/api/dashboard", tags=["dashboard"])
+app.include_router(empresa_router, prefix="/api/empresa", tags=["empresa"])
+app.include_router(reportes_router, prefix="/api/reportes", tags=["reportes"])
