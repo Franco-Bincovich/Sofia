@@ -267,7 +267,7 @@ export default function TemplateDetailPage() {
   }
 
   if (error || !template) {
-    return <ErrorState message={error ?? "Template no encontrado"} />
+    return <ErrorState description={error ?? "Template no encontrado"} />
   }
 
   return (

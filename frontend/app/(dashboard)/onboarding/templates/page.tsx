@@ -160,7 +160,7 @@ export default function TemplatesPage() {
     return (
       <div>
         <PageHeader title="Templates de onboarding" />
-        <ErrorState message={error} />
+        <ErrorState description={error} />
       </div>
     )
   }
