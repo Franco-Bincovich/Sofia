@@ -161,9 +161,12 @@ export default function EmpleadoDetailPage() {
   const [error, setError] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [offboardingOpen, setOffboardingOpen] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
 
-  // TODO: leer desde sesión real cuando el auth esté completo
-  const isAdmin = true
+  useEffect(() => {
+    const session = JSON.parse(localStorage.getItem("session") || "{}")
+    setIsAdmin(session?.user?.rol === "admin_rrhh")
+  }, [])
 
   useEffect(() => {
     if (!id) return

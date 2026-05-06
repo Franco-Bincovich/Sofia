@@ -14,6 +14,11 @@ Tu nombre es HR Karstec. Ayudás al equipo de RRHH con:
 Respondé siempre en español, de forma concisa y profesional. Si no tenés datos concretos, indicalo claramente.`
 
 export async function POST(req: NextRequest) {
+  const authHeader = req.headers.get("Authorization")
+  if (!authHeader || authHeader.trim() === "") {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+  }
+
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
     return NextResponse.json({ error: "API key no configurada" }, { status: 500 })

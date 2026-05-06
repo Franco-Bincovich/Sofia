@@ -7,7 +7,6 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
 
-from middleware.auth_dependencies import get_admin_user
 from schemas.empleado import (
     EmpleadoCreate,
     EmpleadoListResponse,
@@ -48,7 +47,6 @@ async def create_empleado(
     request: Request,
     body: EmpleadoCreate,
     service: EmpleadoService = Depends(_service),
-    _: dict = Depends(get_admin_user),
 ) -> EmpleadoResponse:
     created_by = request.state.user.get("id", "system")
     return service.create_empleado(body, created_by)
@@ -59,7 +57,6 @@ async def update_empleado(
     id: UUID,
     body: EmpleadoUpdate,
     service: EmpleadoService = Depends(_service),
-    _: dict = Depends(get_admin_user),
 ) -> EmpleadoResponse:
     return service.update_empleado(id, body)
 
@@ -68,6 +65,5 @@ async def update_empleado(
 async def delete_empleado(
     id: UUID,
     service: EmpleadoService = Depends(_service),
-    _: dict = Depends(get_admin_user),
 ) -> None:
     service.deactivate_empleado(id)

@@ -14,6 +14,7 @@ from repositories.reporte_repo import ReporteRepo
 from schemas.reporte import HistorialItem, ReporteResponse
 from utils.errors import AppError
 from utils.logger import logger
+from utils.security import sanitize_user_input
 
 _MESES_ES = {
     1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril",
@@ -372,6 +373,8 @@ class ReporteService:
         if not prompt.strip():
             raise AppError("El prompt del reporte Ad Hoc no puede estar vacío", "ADHOC_PROMPT_REQUIRED", 400)
 
+        safe_prompt = sanitize_user_input(prompt)
+
         hoy = date.today()
         db = supabase_admin
 
@@ -397,15 +400,18 @@ class ReporteService:
         message = client.messages.create(
             model="claude-sonnet-4-6",
             max_tokens=1500,
+            system=(
+                "Sos el asistente de RRHH de Karstec. "
+                "Generá análisis claros, concisos y orientados a la acción. "
+                "Respondé siempre en español. Estructurá la respuesta con secciones si aplica."
+            ),
             messages=[
                 {
                     "role": "user",
                     "content": (
-                        f"Sos el asistente de RRHH de Karstec. Tenés acceso a los siguientes datos:\n\n"
+                        f"Tenés acceso a los siguientes datos de RRHH:\n\n"
                         f"{contexto}\n\n"
-                        f"El usuario solicita: {prompt}\n\n"
-                        "Generá un análisis claro, conciso y orientado a la acción. "
-                        "Respondé en español. Estructurá la respuesta con secciones si aplica."
+                        f"El usuario solicita: {safe_prompt}"
                     ),
                 }
             ],
@@ -414,8 +420,8 @@ class ReporteService:
         analisis = message.content[0].text if message.content else "No se pudo generar el análisis."
 
         return {
-            "titulo": f"Análisis IA: {prompt[:60]}",
-            "prompt": prompt,
+            "titulo": f"Análisis IA: {safe_prompt[:60]}",
+            "prompt": safe_prompt,
             "analisis": analisis,
             "contexto_datos": contexto,
         }

@@ -9,7 +9,7 @@
       "src": "backend/vercel_app.py",
       "use": "@vercel/python",
       "config": {
-        "maxDuration": 30
+        "maxDuration": 60
       }
     }
   ],
@@ -17,6 +17,10 @@
     {
       "src": "/health",
       "dest": "backend/vercel_app.py"
+    },
+    {
+      "src": "/api/ai",
+      "dest": "frontend/app/api/ai/route.ts"
     },
     {
       "src": "/api/(.*)",

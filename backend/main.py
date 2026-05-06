@@ -13,7 +13,8 @@ from middleware.auth import AuthMiddleware
 from middleware.error_handler import global_error_handler
 from middleware.security_headers import SecurityHeadersMiddleware
 from routers.areas import router as areas_router
-from routers.auth import limiter, router as auth_router
+from routers.auth import router as auth_router
+from utils.rate_limiter import limiter
 from routers.costos import router as costos_router
 from routers.empleados import router as empleados_router
 from routers.empresa import router as empresa_router

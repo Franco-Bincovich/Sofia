@@ -4,6 +4,7 @@ Rutas protegidas por AuthMiddleware (requieren JWT válido).
 """
 from fastapi import APIRouter, Depends, File, Request, UploadFile
 
+from middleware.auth_dependencies import get_admin_user
 from schemas.empleado import EmpleadoCreate
 from schemas.importacion import (
     ConfirmarError,
@@ -14,6 +15,7 @@ from schemas.importacion import (
 from services.csv_service import parse_empleados_csv
 from services.empleado_service import EmpleadoService
 from utils.logger import logger
+from utils.rate_limiter import limiter
 
 router = APIRouter()
 
@@ -23,7 +25,9 @@ def _service() -> EmpleadoService:
 
 
 @router.post("/empleados/preview", response_model=ImportacionPreviewResponse)
+@limiter.limit("5/minute")
 async def preview_csv(
+    request: Request,
     file: UploadFile = File(...),
 ) -> ImportacionPreviewResponse:
     """Parsea y valida el CSV devolviendo una vista previa sin guardar nada."""
@@ -38,10 +42,12 @@ async def preview_csv(
 
 
 @router.post("/empleados/confirmar", response_model=ImportacionConfirmarResponse)
+@limiter.limit("3/minute")
 async def confirmar_importacion(
     request: Request,
     body: ImportacionConfirmarRequest,
     service: EmpleadoService = Depends(_service),
+    _: dict = Depends(get_admin_user),
 ) -> ImportacionConfirmarResponse:
     """Inserta las filas válidas confirmadas como nuevos empleados en Supabase."""
     created_by = request.state.user.get("id", "importacion_csv")

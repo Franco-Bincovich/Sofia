@@ -7,6 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
 
+from middleware.auth_dependencies import get_admin_user
 from schemas.vacante import CandidatoCreate, CandidatoResponse, CandidatoDesdeEmailRequest, EmailCandidatoResponse, EtapaUpdate, PublicarLinkedinRequest, PublicarLinkedinResponse, VacanteCreate, VacanteResponse, VacanteUpdate
 from services.gmail_service import GmailService
 from services.vacante_service import VacanteService
@@ -34,7 +35,10 @@ async def get_vacante(id: UUID, service: VacanteService = Depends(_svc)) -> Vaca
 
 @router.post("", response_model=VacanteResponse, status_code=201)
 async def create_vacante(
-    request: Request, body: VacanteCreate, service: VacanteService = Depends(_svc)
+    request: Request,
+    body: VacanteCreate,
+    service: VacanteService = Depends(_svc),
+    _: dict = Depends(get_admin_user),
 ) -> VacanteResponse:
     return service.create_vacante(body, request.state.user.get("id", "system"))
 

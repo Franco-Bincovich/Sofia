@@ -4,13 +4,14 @@ Rutas protegidas requieren AuthMiddleware; evaluacion/* son públicas.
 """
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
 from schemas.assessment import (
     CampanaCreate, CampanaResponse, LinkCreate, LinkResponse,
     ResultadoResponse, RespuestaCreate,
 )
 from services.assessment_service import AssessmentService
+from utils.rate_limiter import limiter
 
 router = APIRouter()
 
@@ -48,7 +49,9 @@ async def get_evaluacion(token: str, svc: AssessmentService = Depends(_svc)) -> 
 
 
 @router.post("/evaluacion/{token}/submit", response_model=ResultadoResponse, status_code=201)
+@limiter.limit("5/minute")
 async def submit_evaluacion(
+    request: Request,
     token: str,
     data: RespuestaCreate,
     svc: AssessmentService = Depends(_svc),

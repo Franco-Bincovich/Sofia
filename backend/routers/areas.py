@@ -7,6 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request
 
+from middleware.auth_dependencies import get_admin_user
 from schemas.area import AreaCreate, AreaResponse, AreaUpdate
 from services.area_service import AreaService
 
@@ -37,6 +38,7 @@ async def create_area(
     request: Request,
     body: AreaCreate,
     service: AreaService = Depends(_service),
+    _: dict = Depends(get_admin_user),
 ) -> AreaResponse:
     created_by = request.state.user.get("id", "system")
     return service.create_area(body, created_by)

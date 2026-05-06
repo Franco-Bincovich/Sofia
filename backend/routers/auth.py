@@ -3,15 +3,13 @@ Router de autenticación — login, logout, refresh.
 Rate limiting: login está limitado a 5 requests/minuto por IP (slowapi).
 """
 from fastapi import APIRouter, Depends, Request
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 
 from schemas.auth import LoginRequest, LoginResponse, RefreshRequest, RefreshResponse
 from services.auth_service import AuthService
 from utils.errors import AppError
+from utils.rate_limiter import limiter
 
 router = APIRouter()
-limiter = Limiter(key_func=get_remote_address)
 
 
 def _get_token(request: Request) -> str:

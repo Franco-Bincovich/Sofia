@@ -9,9 +9,11 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import Response
 
+from middleware.auth_dependencies import get_admin_user
 from schemas.reporte import HistorialItem, ReporteGenerarRequest, ReporteResponse
 from services.reporte_export_service import ReporteExportService
 from services.reporte_service import ReporteService
+from utils.rate_limiter import limiter
 
 router = APIRouter()
 
@@ -27,10 +29,12 @@ def _export_service() -> ReporteExportService:
 
 
 @router.post("/generar", response_model=ReporteResponse, status_code=201)
+@limiter.limit("10/minute")
 async def generar_reporte(
     request: Request,
     body: ReporteGenerarRequest,
     service: ReporteService = Depends(_service),
+    _: dict = Depends(get_admin_user),
 ) -> ReporteResponse:
     generado_por = getattr(request.state, "user", {}).get("email", "Sistema")
     return service.generar(

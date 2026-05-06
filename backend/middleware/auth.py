@@ -1,12 +1,12 @@
 """
 Middleware de autenticación JWT.
-Decodifica el token Supabase sin verificar firma (PyJWT) y expone
-el user_id y rol en request.state.user para los handlers.
+Delega la verificación del token a Supabase Admin (get_user) para soportar
+el algoritmo ES256 que usa Supabase internamente, y expone user_id y rol
+en request.state.user para los handlers.
 """
 import re
 from typing import Optional
 
-import jwt
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -53,16 +53,13 @@ class AuthMiddleware(BaseHTTPMiddleware):
             )
 
         try:
-            payload = jwt.decode(token, options={"verify_signature": False})
-            user_id = payload.get("sub")
+            user_resp = supabase_admin.auth.get_user(token)
+            user_id = user_resp.user.id
         except Exception:
-            user_id = None
-
-        if not user_id:
-            logger.warning("Token JWT sin sub", extra={"path": request.url.path})
+            logger.warning("Token JWT inválido o expirado", extra={"path": request.url.path})
             return JSONResponse(
                 status_code=401,
-                content={"error": True, "message": "No autorizado", "code": "INVALID_TOKEN"},
+                content={"error": True, "message": "No autorizado", "code": "UNAUTHORIZED"},
             )
 
         try:
