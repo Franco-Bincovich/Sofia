@@ -8,6 +8,8 @@ export interface Campana {
   links_enviados: number
   completados: number
   created_at: string
+  empresa_id: string | null
+  empresa_nombre: string | null
   area_id: string | null
   area_nombre: string | null
   posicion_objetivo: string | null
@@ -16,6 +18,7 @@ export interface Campana {
 export interface CampanaCreate {
   nombre: string
   tipo: TipoEval
+  empresa_id: string
   area_id?: string
   posicion_objetivo?: string
 }
@@ -40,6 +43,8 @@ export interface LinkInfo {
 export interface Resultado {
   id: string
   link_id: string
+  empresa_id: string | null
+  empresa_nombre: string | null
   evaluado_nombre: string
   tipo: string
   fecha_completado: string | null

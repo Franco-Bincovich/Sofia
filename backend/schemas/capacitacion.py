@@ -1,0 +1,86 @@
+"""
+Schemas Pydantic para el módulo de capacitaciones.
+Capacitacion: catálogo por empresa — empresa_id explícito en Create.
+Asignacion: asignación empleado × curso — empresa_id heredado del empleado al crear.
+"""
+from datetime import date, datetime
+from typing import List, Optional
+from uuid import UUID
+
+from pydantic import BaseModel
+
+
+# ── Catálogo de capacitaciones ─────────────────────────────────────────────────
+
+class CapacitacionCreate(BaseModel):
+    empresa_id: UUID
+    nombre: str
+    descripcion: Optional[str] = None
+    categoria: Optional[str] = None
+    duracion_horas: Optional[float] = None
+    obligatoria: bool = False
+
+
+class CapacitacionUpdate(BaseModel):
+    nombre: Optional[str] = None
+    descripcion: Optional[str] = None
+    categoria: Optional[str] = None
+    duracion_horas: Optional[float] = None
+    obligatoria: Optional[bool] = None
+    activo: Optional[bool] = None
+
+
+class CapacitacionResponse(BaseModel):
+    id: str
+    empresa_id: str
+    empresa_nombre: Optional[str] = None
+    nombre: str
+    descripcion: Optional[str] = None
+    categoria: Optional[str] = None
+    duracion_horas: Optional[float] = None
+    obligatoria: bool
+    activo: bool
+    created_at: datetime
+
+
+class CapacitacionListResponse(BaseModel):
+    items: List[CapacitacionResponse]
+    total: int
+
+
+# ── Asignaciones empleado × capacitación ─────────────────────────────────────
+
+class AsignacionCreate(BaseModel):
+    capacitacion_id: UUID
+    empleado_id: UUID
+    fecha_asignacion: Optional[date] = None
+    fecha_limite: Optional[date] = None
+
+
+class AsignacionUpdate(BaseModel):
+    estado: Optional[str] = None
+    fecha_limite: Optional[date] = None
+    fecha_completado: Optional[date] = None
+
+
+class AsignacionResponse(BaseModel):
+    id: str
+    empresa_id: str
+    empresa_nombre: Optional[str] = None
+    capacitacion_id: str
+    capacitacion_nombre: Optional[str] = None
+    empleado_id: str
+    empleado_nombre: Optional[str] = None
+    area_id: Optional[str] = None
+    area_nombre: Optional[str] = None
+    estado: str
+    fecha_asignacion: Optional[date] = None
+    fecha_limite: Optional[date] = None
+    fecha_completado: Optional[date] = None
+    certificado_url: Optional[str] = None
+    created_at: datetime
+
+
+class AsignacionListResponse(BaseModel):
+    items: List[AsignacionResponse]
+    total: int

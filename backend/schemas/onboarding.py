@@ -34,6 +34,7 @@ class TareaResponse(BaseModel):
 
 class TemplateCreate(BaseModel):
     nombre: str
+    empresa_id: UUID  # root entity — empresa explícita obligatoria
     descripcion: Optional[str] = None
 
 
@@ -45,6 +46,8 @@ class TemplateUpdate(BaseModel):
 class TemplateResponse(BaseModel):
     id: UUID
     nombre: str
+    empresa_id: Optional[UUID] = None
+    empresa_nombre: Optional[str] = None
     descripcion: Optional[str] = None
     tareas: List[TareaResponse] = []
     tareas_total: int = 0
@@ -67,6 +70,8 @@ class TareaProgresoResponse(BaseModel):
 class InstanciaResponse(BaseModel):
     id: UUID
     empleado_id: UUID
+    empresa_id: Optional[UUID] = None
+    empresa_nombre: Optional[str] = None
     empleado_nombre: str
     empleado_cargo: Optional[str] = None
     empleado_area: Optional[str] = None

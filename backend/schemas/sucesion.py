@@ -16,6 +16,8 @@ class EmpleadoMapaResponse(BaseModel):
     cargo: Optional[str] = None
     area_id: Optional[UUID] = None
     area_nombre: Optional[str] = None
+    empresa_id: Optional[UUID] = None
+    empresa_nombre: Optional[str] = None
     potencial: Literal["alto", "medio", "bajo"]
     desempeno: Literal["alto", "medio", "bajo"]
 
@@ -40,6 +42,8 @@ class PlanCarreraCreate(BaseModel):
 class PlanCarreraResponse(BaseModel):
     id: UUID
     empleado_id: UUID
+    empresa_id: Optional[UUID] = None
+    empresa_nombre: Optional[str] = None
     empleado_nombre: str
     cargo_actual: Optional[str] = None
     cargo_objetivo: str

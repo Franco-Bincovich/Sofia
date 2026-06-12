@@ -42,6 +42,8 @@ class AccesoResponse(BaseModel):
 class OffboardingResponse(BaseModel):
     id: UUID
     empleado_id: UUID
+    empresa_id: Optional[UUID] = None
+    empresa_nombre: Optional[str] = None
     empleado_nombre: str
     motivo: str
     estado: str

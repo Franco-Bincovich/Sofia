@@ -1,0 +1,69 @@
+import { apiFetch } from "./api"
+import type {
+  Asignacion, AsignacionCreate, AsignacionListResponse, AsignacionUpdate,
+  Hora, HoraCreate, HoraListResponse,
+  Proyecto, ProyectoCreate, ProyectoListResponse, ProyectoUpdate,
+} from "@/types/proyecto"
+
+const BASE = "/api/proyectos"
+
+// ── Proyectos ──────────────────────────────────────────────────────────────────
+
+export function fetchProyectos(estado?: string): Promise<ProyectoListResponse> {
+  const qs = estado ? `?estado=${estado}` : ""
+  return apiFetch<ProyectoListResponse>(`${BASE}${qs}`)
+}
+
+export function fetchProyecto(id: string): Promise<Proyecto> {
+  return apiFetch<Proyecto>(`${BASE}/${id}`)
+}
+
+export function createProyecto(body: ProyectoCreate): Promise<Proyecto> {
+  return apiFetch<Proyecto>(BASE, { method: "POST", body: JSON.stringify(body) })
+}
+
+export function updateProyecto(id: string, body: ProyectoUpdate): Promise<Proyecto> {
+  return apiFetch<Proyecto>(`${BASE}/${id}`, { method: "PUT", body: JSON.stringify(body) })
+}
+
+export function deleteProyecto(id: string): Promise<void> {
+  return apiFetch<void>(`${BASE}/${id}`, { method: "DELETE" })
+}
+
+// ── Asignaciones ───────────────────────────────────────────────────────────────
+
+export function fetchAsignaciones(proyectoId: string): Promise<AsignacionListResponse> {
+  return apiFetch<AsignacionListResponse>(`${BASE}/${proyectoId}/asignaciones`)
+}
+
+export function createAsignacion(proyectoId: string, body: AsignacionCreate): Promise<Asignacion> {
+  return apiFetch<Asignacion>(`${BASE}/${proyectoId}/asignaciones`, {
+    method: "POST", body: JSON.stringify(body),
+  })
+}
+
+export function updateAsignacion(proyectoId: string, asigId: string, body: AsignacionUpdate): Promise<Asignacion> {
+  return apiFetch<Asignacion>(`${BASE}/${proyectoId}/asignaciones/${asigId}`, {
+    method: "PUT", body: JSON.stringify(body),
+  })
+}
+
+export function deleteAsignacion(proyectoId: string, asigId: string): Promise<void> {
+  return apiFetch<void>(`${BASE}/${proyectoId}/asignaciones/${asigId}`, { method: "DELETE" })
+}
+
+// ── Horas ──────────────────────────────────────────────────────────────────────
+
+export function fetchHoras(proyectoId: string): Promise<HoraListResponse> {
+  return apiFetch<HoraListResponse>(`${BASE}/${proyectoId}/horas`)
+}
+
+export function createHora(proyectoId: string, body: HoraCreate): Promise<Hora> {
+  return apiFetch<Hora>(`${BASE}/${proyectoId}/horas`, {
+    method: "POST", body: JSON.stringify(body),
+  })
+}
+
+export function deleteHora(proyectoId: string, horaId: string): Promise<void> {
+  return apiFetch<void>(`${BASE}/${proyectoId}/horas/${horaId}`, { method: "DELETE" })
+}

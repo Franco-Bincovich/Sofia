@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 
 class AreaCreate(BaseModel):
+    empresa_id: str
     nombre: str = Field(..., max_length=100)
     descripcion: Optional[str] = None
     responsable_id: Optional[str] = None
@@ -22,6 +23,7 @@ class AreaUpdate(BaseModel):
 
 class AreaResponse(BaseModel):
     id: str
+    empresa_id: Optional[str] = None
     nombre: str
     descripcion: Optional[str] = None
     responsable_id: Optional[str] = None

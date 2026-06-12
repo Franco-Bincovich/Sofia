@@ -6,11 +6,15 @@ export async function fetchEmpleados(
   pageSize: number,
   search?: string,
   estado?: string,
+  empresaIdOverride?: string,
 ): Promise<EmpleadoListResponse> {
   const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) })
   if (search) params.set("search", search)
   if (estado) params.set("estado", estado)
-  return apiFetch<EmpleadoListResponse>(`/api/empleados?${params}`)
+  return apiFetch<EmpleadoListResponse>(
+    `/api/empleados?${params}`,
+    empresaIdOverride ? { headers: { "X-Empresa-Id": empresaIdOverride } } : {},
+  )
 }
 
 export async function fetchEmpleado(id: string): Promise<Empleado> {

@@ -5,6 +5,8 @@ export interface EmpleadoMapa {
   cargo: string | null
   area_id: string | null
   area_nombre: string | null
+  empresa_id: string | null
+  empresa_nombre: string | null
   potencial: "alto" | "medio" | "bajo"
   desempeno: "alto" | "medio" | "bajo"
 }
@@ -29,6 +31,8 @@ export interface PlanCarreraCreate {
 export interface PlanCarrera {
   id: string
   empleado_id: string
+  empresa_id: string | null
+  empresa_nombre: string | null
   empleado_nombre: string
   cargo_actual: string | null
   cargo_objetivo: string

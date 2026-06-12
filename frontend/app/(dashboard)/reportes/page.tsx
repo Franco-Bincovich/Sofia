@@ -10,6 +10,7 @@ import {
   Sparkles,
   FileDown,
   FileSpreadsheet,
+  CalendarDays,
   type LucideIcon,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -39,6 +40,7 @@ import {
   type HistorialItem,
   type ReporteResponse,
 } from "@/services/reportes"
+import { getEmpresaActivaId } from "@/services/empresaStore"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -48,6 +50,7 @@ interface ReporteEstandar {
   descripcion: string
   icon: LucideIcon
   usaPeriodo: boolean
+  usaAnio?: boolean
 }
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
@@ -101,6 +104,15 @@ const REPORTES_ESTANDAR: ReporteEstandar[] = [
       "Completitud de tareas de inducción, tiempo promedio al primer hito productivo y encuestas de experiencia de ingreso.",
     icon: UserCheck,
     usaPeriodo: false,
+  },
+  {
+    id: "anual_consolidado",
+    titulo: "Informe Anual Consolidado",
+    descripcion:
+      "Resumen del año completo: ingresos, egresos, headcount por área, procesos, vacaciones, capacitaciones y evaluaciones. Exporta a Excel con múltiples hojas.",
+    icon: CalendarDays,
+    usaPeriodo: false,
+    usaAnio: true,
   },
 ]
 
@@ -165,6 +177,34 @@ function PeriodoSelector({
   )
 }
 
+function AnioSelector({
+  id,
+  anio,
+  onAnioChange,
+}: {
+  id: string
+  anio: number
+  onAnioChange: (anio: number) => void
+}) {
+  return (
+    <div>
+      <label htmlFor={`anio-solo-${id}`} className="mb-1 block text-xs font-medium text-foreground">
+        Año
+      </label>
+      <select
+        id={`anio-solo-${id}`}
+        value={anio}
+        onChange={(e) => onAnioChange(Number(e.target.value))}
+        className="flex min-h-[2.75rem] w-full rounded-md border border-input bg-background px-2 py-1 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+      >
+        {ANOS.map((a) => (
+          <option key={a} value={a}>{a}</option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
 function ReporteCard({
   reporte,
   onSuccess,
@@ -183,6 +223,7 @@ function ReporteCard({
       await generarReporte({
         tipo: reporte.id,
         ...(reporte.usaPeriodo ? { mes, anio } : {}),
+        ...(reporte.usaAnio ? { anio } : {}),
       })
       toast.success(`${reporte.titulo} generado exitosamente`)
       onSuccess()
@@ -215,6 +256,10 @@ function ReporteCard({
           onMesChange={setMes}
           onAnioChange={setAnio}
         />
+      )}
+
+      {reporte.usaAnio && (
+        <AnioSelector id={reporte.id} anio={anio} onAnioChange={setAnio} />
       )}
 
       <Button
@@ -338,6 +383,9 @@ function AdhocResultModal({
 type ExportKey = `${string}-${"pdf" | "excel"}`
 
 export default function ReportesPage() {
+  const [empresaActivaId] = useState<string | null>(() => getEmpresaActivaId())
+  const mostrarEmpresa = !empresaActivaId
+
   const [historial, setHistorial] = useState<HistorialItem[]>([])
   const [historialLoading, setHistorialLoading] = useState(true)
   const [adhocReporte, setAdhocReporte] = useState<ReporteResponse | null>(null)
@@ -423,6 +471,7 @@ export default function ReportesPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Nombre</TableHead>
+                {mostrarEmpresa && <TableHead>Empresa</TableHead>}
                 <TableHead>Tipo</TableHead>
                 <TableHead>Fecha</TableHead>
                 <TableHead>Generado por</TableHead>
@@ -433,6 +482,11 @@ export default function ReportesPage() {
               {historial.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="font-medium">{r.nombre}</TableCell>
+                  {mostrarEmpresa && (
+                    <TableCell className="text-muted-foreground">
+                      {r.empresa_nombre ?? <span className="italic text-muted-foreground/60">Consolidado</span>}
+                    </TableCell>
+                  )}
                   <TableCell>
                     <TipoCell tipo={r.tipo} />
                   </TableCell>

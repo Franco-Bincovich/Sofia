@@ -4,6 +4,7 @@ Interfaz: get_templates · get_template · create_template · update_template
           delete_template · add_tarea · update_tarea · delete_tarea
 """
 from typing import Optional
+from uuid import UUID
 
 from integrations.supabase_client import supabase_admin
 from schemas.onboarding import TareaResponse, TemplateResponse
@@ -13,42 +14,48 @@ _TT, _TMPL, _TI = "onboarding_tareas", "onboarding_templates", "onboarding_insta
 _TT_COLS = f"{_TT}(id,template_id,nombre,descripcion,semana,orden)"
 
 
+def _with_empresa(q, empresa_id: Optional[UUID]):
+    return q.eq("empresa_id", str(empresa_id)) if empresa_id else q
+
+
 def _tarea(t: dict) -> TareaResponse:
     return TareaResponse(id=t["id"], template_id=t["template_id"], titulo=t["nombre"],
                          descripcion=t.get("descripcion"), semana=t.get("semana", 1), orden=t.get("orden", 1))
 
 
 class OnboardingTemplatesRepo:
-    def get_templates(self) -> list[TemplateResponse]:
-        """Retorna todos los templates activos con conteo de tareas."""
-        res = supabase_admin.table(_TMPL).select(f"id,nombre,descripcion,{_TT}(id)").eq("activo", True).execute()
+    def get_templates(self, empresa_id: Optional[UUID] = None) -> list[TemplateResponse]:
+        """Retorna todos los templates activos con conteo de tareas, filtrado por empresa."""
+        q = supabase_admin.table(_TMPL).select(f"id,empresa_id,nombre,descripcion,empresas(nombre),{_TT}(id)").eq("activo", True)
         return [
-            TemplateResponse(id=r["id"], nombre=r["nombre"], descripcion=r.get("descripcion"),
-                             tareas=[], tareas_total=len(r.get("onboarding_tareas") or []))
-            for r in (res.data or [])
+            TemplateResponse(
+                id=r["id"], nombre=r["nombre"], descripcion=r.get("descripcion"),
+                empresa_id=r.get("empresa_id"), empresa_nombre=(r.get("empresas") or {}).get("nombre"),
+                tareas=[], tareas_total=len(r.get("onboarding_tareas") or []),
+            )
+            for r in (_with_empresa(q, empresa_id).execute().data or [])
         ]
 
-    def get_template(self, template_id: str) -> Optional[TemplateResponse]:
+    def get_template(self, template_id: str, empresa_id: Optional[UUID] = None) -> Optional[TemplateResponse]:
         """Retorna un template con todas sus tareas ordenadas por semana y orden."""
-        res = supabase_admin.table(_TMPL).select(f"id,nombre,descripcion,{_TT_COLS}").eq(
-            "id", template_id).eq("activo", True).maybe_single().execute()
-        if res is None or not res.data:
+        q = supabase_admin.table(_TMPL).select(f"id,empresa_id,nombre,descripcion,empresas(nombre),{_TT_COLS}").eq("id", template_id).eq("activo", True)
+        res = _with_empresa(q, empresa_id).maybe_single().execute()
+        if not (res and res.data):
             return None
         r = res.data
-        tareas = [_tarea(t) for t in sorted(
-            r.get("onboarding_tareas") or [],
-            key=lambda x: (x.get("semana", 1), x.get("orden", 1)),
-        )]
+        tareas = sorted([_tarea(t) for t in (r.get("onboarding_tareas") or [])], key=lambda x: (x.semana, x.orden))
         return TemplateResponse(id=r["id"], nombre=r["nombre"], descripcion=r.get("descripcion"),
+                                empresa_id=r.get("empresa_id"), empresa_nombre=(r.get("empresas") or {}).get("nombre"),
                                 tareas=tareas, tareas_total=len(tareas))
 
-    def create_template(self, nombre: str, descripcion: Optional[str]) -> TemplateResponse:
-        """Crea un nuevo template de onboarding."""
-        res = supabase_admin.table(_TMPL).insert({"nombre": nombre, "descripcion": descripcion, "activo": True}).execute()
+    def create_template(self, nombre: str, descripcion: Optional[str], empresa_id: UUID) -> TemplateResponse:
+        """Crea un nuevo template de onboarding asociado a la empresa indicada."""
+        res = supabase_admin.table(_TMPL).insert({"nombre": nombre, "descripcion": descripcion, "activo": True, "empresa_id": str(empresa_id)}).execute()
         if not res.data:
             raise AppError("Error al crear template", "DB_ERROR", 500)
         r = res.data[0]
-        return TemplateResponse(id=r["id"], nombre=r["nombre"], descripcion=r.get("descripcion"), tareas=[], tareas_total=0)
+        return TemplateResponse(id=r["id"], nombre=r["nombre"], descripcion=r.get("descripcion"),
+                                empresa_id=r.get("empresa_id"), tareas=[], tareas_total=0)
 
     def update_template(self, template_id: str, data: dict) -> Optional[TemplateResponse]:
         """Actualiza nombre y/o descripción de un template."""

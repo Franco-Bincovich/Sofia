@@ -4,6 +4,7 @@ Interfaz: find_activos · find_by_empleado · create_offboarding · update_activ
 """
 from datetime import date, timedelta
 from typing import Optional
+from uuid import UUID
 
 from integrations.supabase_client import supabase_admin
 from schemas.offboarding import ActivoResponse, OffboardingCreate, OffboardingResponse
@@ -11,7 +12,7 @@ from utils.errors import AppError
 
 _OI = "offboarding_instancias"
 _OA = "offboarding_activos"
-_EJ = "empleados!offboarding_instancias_empleado_id_fkey(nombre,apellido,cargo)"
+_EJ = "empleados!offboarding_instancias_empleado_id_fkey(nombre,apellido,cargo), empresas(nombre)"
 _EXCL = ["completado", "cancelado"]
 _DEFAULT_ACTIVOS = [
     ("laptop",            "Computadora portátil de trabajo"),
@@ -19,6 +20,10 @@ _DEFAULT_ACTIVOS = [
     ("licencia_software", "Licencias de software corporativo"),
     ("celular",           "Teléfono corporativo"),
 ]
+
+
+def _with_empresa(q, empresa_id: Optional[UUID]):
+    return q.eq("empresa_id", str(empresa_id)) if empresa_id else q
 
 
 def _activo_row(r: dict) -> ActivoResponse:
@@ -30,10 +35,12 @@ def _activo_row(r: dict) -> ActivoResponse:
 
 def _inst_row(r: dict, activos: list) -> OffboardingResponse:
     emp = r.get("empleados") or {}
+    empresa = r.get("empresas") or {}
     total = len(activos)
     devueltos = sum(1 for a in activos if a.get("estado") == "devuelto")
     return OffboardingResponse(
         id=r["id"], empleado_id=r["empleado_id"],
+        empresa_id=r.get("empresa_id"), empresa_nombre=empresa.get("nombre"),
         empleado_nombre=f"{emp.get('nombre', '')} {emp.get('apellido', '')}".strip(),
         motivo=r["motivo_egreso"], estado=r["estado"],
         fecha_inicio=str(r.get("created_at", ""))[:10],
@@ -47,30 +54,29 @@ class OffboardingRepo:
         res = supabase_admin.table(_OA).select("*").eq("instancia_id", instancia_id).execute()
         return res.data or []
 
-    def find_activos(self) -> list[OffboardingResponse]:
-        res = supabase_admin.table(_OI).select(f"*, {_EJ}").not_.in_("estado", _EXCL).execute()
-        return [_inst_row(r, self._get_activos(r["id"])) for r in (res.data or [])]
+    def find_activos(self, empresa_id: Optional[UUID] = None) -> list[OffboardingResponse]:
+        q = supabase_admin.table(_OI).select(f"*, {_EJ}").not_.in_("estado", _EXCL)
+        return [_inst_row(r, self._get_activos(r["id"])) for r in (_with_empresa(q, empresa_id).execute().data or [])]
 
-    def find_by_empleado(self, empleado_id: str) -> Optional[OffboardingResponse]:
-        res = supabase_admin.table(_OI).select(f"*, {_EJ}").eq(
-            "empleado_id", empleado_id
-        ).not_.in_("estado", _EXCL).limit(1).maybe_single().execute()
+    def find_by_empleado(self, empleado_id: str, empresa_id: Optional[UUID] = None) -> Optional[OffboardingResponse]:
+        q = supabase_admin.table(_OI).select(f"*, {_EJ}").eq("empleado_id", empleado_id).not_.in_("estado", _EXCL).limit(1)
+        res = _with_empresa(q, empresa_id).maybe_single().execute()
         if not res.data:
             return None
         return _inst_row(res.data, self._get_activos(res.data["id"]))
 
-    def create_offboarding(self, data: OffboardingCreate) -> OffboardingResponse:
+    def create_offboarding(self, data: OffboardingCreate, empresa_id: str) -> OffboardingResponse:
         fecha_fin = data.fecha_ultimo_dia or (date.today() + timedelta(days=30))
         ins = supabase_admin.table(_OI).insert({
             "empleado_id": str(data.empleado_id), "motivo_egreso": data.motivo,
-            "descripcion_motivo": data.descripcion_motivo,
+            "descripcion_motivo": data.descripcion_motivo, "empresa_id": empresa_id,
             "fecha_ultimo_dia": str(fecha_fin), "estado": "iniciado",
         }).execute()
         if not ins.data:
             raise AppError("Error al crear offboarding", "DB_ERROR", 500)
         inst_id = ins.data[0]["id"]
         supabase_admin.table(_OA).insert([
-            {"instancia_id": inst_id, "tipo_activo": t, "descripcion": d, "estado": "pendiente"}
+            {"instancia_id": inst_id, "tipo_activo": t, "descripcion": d, "estado": "pendiente", "empresa_id": empresa_id}
             for t, d in _DEFAULT_ACTIVOS
         ]).execute()
         return _inst_row(ins.data[0], self._get_activos(inst_id))

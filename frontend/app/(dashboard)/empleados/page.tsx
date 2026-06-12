@@ -22,7 +22,10 @@ import {
 import { EmpleadoModal } from "@/components/features/empleados/EmpleadoModal"
 import { ImportarCSVModal } from "@/components/features/empleados/ImportarCSVModal"
 import { fetchEmpleados } from "@/services/empleados"
+import { fetchEmpresas } from "@/services/empresas"
+import { getEmpresaActivaId } from "@/services/empresaStore"
 import type { Empleado, EmpleadoListResponse } from "@/types/empleado"
+import type { Empresa } from "@/types/empresa"
 
 const ESTADO_LABELS: Record<string, string> = {
   activo: "Activo",
@@ -38,6 +41,10 @@ const ESTADO_VARIANTS: Record<string, "default" | "destructive" | "secondary"> =
 
 const PAGE_SIZE = 20
 
+const SELECT_CLASS =
+  "min-h-[2rem] rounded-lg border border-input bg-transparent px-2.5 text-sm text-foreground " +
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+
 function TableSkeleton() {
   return (
     <div className="space-y-2">
@@ -51,6 +58,9 @@ function TableSkeleton() {
 export default function EmpleadosPage() {
   const router = useRouter()
 
+  // empresa activa del topbar — estable durante la sesión (el topbar recarga la página al cambiar)
+  const [empresaActivaId, setEmpresaActivaIdLocal] = useState<string | null>(null)
+
   const [data, setData] = useState<EmpleadoListResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -60,18 +70,42 @@ export default function EmpleadosPage() {
   const [newOpen, setNewOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
 
+  // filtro de empresa en la columna (solo activo cuando topbar = "Todas")
+  const [empresaFiltro, setEmpresaFiltro] = useState("")
+  const [empresas, setEmpresas] = useState<Empresa[]>([])
+
+  useEffect(() => {
+    const id = getEmpresaActivaId()
+    setEmpresaActivaIdLocal(id)
+    // cargar lista de empresas solo cuando el topbar está en "Todas"
+    if (!id) {
+      fetchEmpresas()
+        .then((res) => setEmpresas(res.items.filter((e) => e.activa)))
+        .catch(() => {})
+    }
+  }, [])
+
   const load = useCallback(async () => {
     setLoading(true)
     setError(false)
     try {
-      const result = await fetchEmpleados(page, PAGE_SIZE, search || undefined, estado || undefined)
+      // si topbar = "Todas" y hay filtro de columna activo, pasar el id de empresa como override del header
+      const empresaOverride =
+        !empresaActivaId && empresaFiltro ? empresaFiltro : undefined
+      const result = await fetchEmpleados(
+        page,
+        PAGE_SIZE,
+        search || undefined,
+        estado || undefined,
+        empresaOverride,
+      )
       setData(result)
     } catch {
       setError(true)
     } finally {
       setLoading(false)
     }
-  }, [page, search, estado])
+  }, [page, search, estado, empresaActivaId, empresaFiltro])
 
   useEffect(() => {
     load()
@@ -87,9 +121,17 @@ export default function EmpleadosPage() {
     setPage(1)
   }
 
+  function handleEmpresaFiltro(value: string) {
+    setEmpresaFiltro(value)
+    setPage(1)
+  }
+
   const items: Empleado[] = data?.items ?? []
   const total = data?.total ?? 0
   const totalPages = data?.total_pages ?? 0
+
+  // el filtro de columna se muestra solo cuando el topbar está en "Todas"
+  const mostrarFiltroEmpresa = !empresaActivaId && empresas.length > 0
 
   return (
     <div>
@@ -124,9 +166,22 @@ export default function EmpleadosPage() {
             onChange={(e) => handleSearch(e.target.value)}
           />
         </div>
+        {mostrarFiltroEmpresa && (
+          <select
+            aria-label="Filtrar por empresa"
+            className={SELECT_CLASS}
+            value={empresaFiltro}
+            onChange={(e) => handleEmpresaFiltro(e.target.value)}
+          >
+            <option value="">Todas las empresas</option>
+            {empresas.map((e) => (
+              <option key={e.id} value={e.id}>{e.nombre}</option>
+            ))}
+          </select>
+        )}
         <select
           aria-label="Filtrar por estado"
-          className="min-h-[2rem] rounded-lg border border-input bg-transparent px-2.5 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+          className={SELECT_CLASS}
           value={estado}
           onChange={(e) => handleEstado(e.target.value)}
         >
@@ -156,6 +211,7 @@ export default function EmpleadosPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Nombre</TableHead>
+              {!empresaActivaId && <TableHead>Empresa</TableHead>}
               <TableHead>Área</TableHead>
               <TableHead>Cargo</TableHead>
               <TableHead>Modalidad</TableHead>
@@ -172,6 +228,11 @@ export default function EmpleadosPage() {
                 <TableCell className="font-medium">
                   {emp.nombre} {emp.apellido}
                 </TableCell>
+                {!empresaActivaId && (
+                  <TableCell className="text-muted-foreground">
+                    {emp.empresa_nombre ?? "—"}
+                  </TableCell>
+                )}
                 <TableCell className="text-muted-foreground">{emp.area_nombre ?? "—"}</TableCell>
                 <TableCell>{emp.cargo}</TableCell>
                 <TableCell className="capitalize">{emp.modalidad_trabajo}</TableCell>

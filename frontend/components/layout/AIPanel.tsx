@@ -16,7 +16,7 @@ interface Message {
 
 const SUGGESTIONS = [
   "¿Qué empleados están en onboarding?",
-  "Mostrá el resumen del assessment de Ana García",
+  "Mostrá los empleados activos del área de Sistemas",
   "¿Cuáles son las vacantes activas?",
   "¿Quiénes están en zona verde en el 9-box?",
 ]

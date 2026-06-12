@@ -236,6 +236,8 @@ export default function EmpleadoDetailPage() {
         </Section>
 
         <Section title="Datos laborales">
+          <Field label="Empresa" value={empleado.empresa_nombre} />
+          <Field label="Área" value={empleado.area_nombre} />
           <Field label="Cargo" value={empleado.cargo} />
           <Field label="Legajo" value={empleado.legajo} />
           <Field label="Modalidad" value={empleado.modalidad_trabajo} />

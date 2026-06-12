@@ -9,6 +9,8 @@ export type EtapaPipeline =
 
 export interface Vacante {
   id: string
+  empresa_id: string | null
+  empresa_nombre: string | null
   titulo: string
   area_id: string
   area_nombre: string | null
@@ -42,6 +44,7 @@ export interface EmailCandidato {
 }
 
 export interface VacanteCreate {
+  empresa_id: string
   titulo: string
   area_id: string
   descripcion?: string

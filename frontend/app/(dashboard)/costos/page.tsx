@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { DollarSign, FileText, Pencil, TrendingUp, Upload, Users } from "lucide-react"
+import { DollarSign, FileSpreadsheet, FileText, Pencil, TrendingUp, Upload, Users } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -29,7 +29,9 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { NominaModal } from "@/components/features/costos/NominaModal"
+import { ImportarNominaCSVModal } from "@/components/features/costos/ImportarNominaCSVModal"
 import { cargarNomina, fetchDashboardCostos, fetchNominaMes } from "@/services/costos"
+import { getEmpresaActivaId } from "@/services/empresaStore"
 import type { DashboardCostos, EvolucionMes, Nomina } from "@/types/costo"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -193,12 +195,17 @@ function DashboardSkeleton() {
 
 export default function CostosPage() {
   const now = new Date()
+  // empresa activa del topbar — estable (el topbar recarga la página al cambiar)
+  const [empresaActivaId] = useState<string | null>(() =>
+    typeof window !== "undefined" ? getEmpresaActivaId() : null
+  )
   const [mes, setMes] = useState(now.getMonth() + 1)
   const [anio, setAnio] = useState(now.getFullYear())
   const [dashboard, setDashboard] = useState<DashboardCostos | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [nominaOpen, setNominaOpen] = useState(false)
+  const [importarNominaOpen, setImportarNominaOpen] = useState(false)
 
   const [nomina, setNomina] = useState<Nomina[]>([])
   const [nominaListLoading, setNominaListLoading] = useState(true)
@@ -332,6 +339,10 @@ export default function CostosPage() {
               onChangeMes={setMes}
               onChangeAnio={setAnio}
             />
+            <Button variant="outline" className="min-h-11 gap-1.5" onClick={() => setImportarNominaOpen(true)}>
+              <FileSpreadsheet className="size-4" />
+              Importar CSV
+            </Button>
             <Button className="min-h-11 gap-1.5" onClick={() => setNominaOpen(true)}>
               <Upload className="size-4" />
               Cargar nómina
@@ -390,6 +401,7 @@ export default function CostosPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  {!empresaActivaId && <TableHead>Empresa</TableHead>}
                   <TableHead>Área</TableHead>
                   <TableHead className="text-right">Empleados</TableHead>
                   <TableHead className="text-right">Costo mensual</TableHead>
@@ -401,7 +413,10 @@ export default function CostosPage() {
               </TableHeader>
               <TableBody>
                 {areas.map((a) => (
-                  <TableRow key={a.area_nombre}>
+                  <TableRow key={`${a.empresa_nombre ?? ""}${a.area_nombre}`}>
+                    {!empresaActivaId && (
+                      <TableCell className="text-muted-foreground">{a.empresa_nombre ?? "—"}</TableCell>
+                    )}
                     <TableCell className="font-medium">{a.area_nombre}</TableCell>
                     <TableCell className="text-right text-muted-foreground">
                       {a.empleados}
@@ -434,6 +449,7 @@ export default function CostosPage() {
               </TableBody>
               <TableFooter>
                 <TableRow>
+                  {!empresaActivaId && <TableCell />}
                   <TableCell className="font-semibold">Total</TableCell>
                   <TableCell className="text-right font-semibold">{totalEmpleados}</TableCell>
                   <TableCell className="text-right font-semibold">
@@ -493,6 +509,7 @@ export default function CostosPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Empleado</TableHead>
+                  {!empresaActivaId && <TableHead>Empresa</TableHead>}
                   <TableHead>Área</TableHead>
                   <TableHead className="text-right">Monto bruto</TableHead>
                   <TableHead className="text-right">Monto neto</TableHead>
@@ -503,6 +520,9 @@ export default function CostosPage() {
                 {nomina.map((n) => (
                   <TableRow key={n.id}>
                     <TableCell className="font-medium">{n.empleado_nombre}</TableCell>
+                    {!empresaActivaId && (
+                      <TableCell className="text-muted-foreground">{n.empresa_nombre ?? "—"}</TableCell>
+                    )}
                     <TableCell className="text-muted-foreground">{n.area_nombre}</TableCell>
                     <TableCell className="text-right">{pesos(n.monto_bruto)}</TableCell>
                     <TableCell className="text-right">{pesos(n.monto_neto)}</TableCell>
@@ -530,6 +550,16 @@ export default function CostosPage() {
         onClose={() => setNominaOpen(false)}
         onSuccess={() => {
           setNominaOpen(false)
+          load()
+          loadNomina()
+        }}
+      />
+
+      <ImportarNominaCSVModal
+        open={importarNominaOpen}
+        onClose={() => setImportarNominaOpen(false)}
+        onSuccess={() => {
+          setImportarNominaOpen(false)
           load()
           loadNomina()
         }}

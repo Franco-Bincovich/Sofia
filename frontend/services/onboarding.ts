@@ -33,7 +33,7 @@ export async function fetchTemplate(id: string): Promise<OnboardingTemplate> {
   return apiFetch<OnboardingTemplate>(`/api/onboarding/templates/${id}`)
 }
 
-export async function createTemplate(data: { nombre: string; descripcion?: string }): Promise<OnboardingTemplate> {
+export async function createTemplate(data: { nombre: string; empresa_id: string; descripcion?: string }): Promise<OnboardingTemplate> {
   return apiFetch<OnboardingTemplate>("/api/onboarding/templates", {
     method: "POST",
     body: JSON.stringify(data),

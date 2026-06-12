@@ -9,6 +9,8 @@ export interface NominaCreate {
 export interface Nomina {
   id: string
   empleado_id: string
+  empresa_id: string | null
+  empresa_nombre: string | null
   empleado_nombre: string
   area_nombre: string
   mes: number
@@ -35,6 +37,7 @@ export interface Presupuesto {
 }
 
 export interface CostoArea {
+  empresa_nombre: string | null
   area_nombre: string
   empleados: number
   costo_mensual: number

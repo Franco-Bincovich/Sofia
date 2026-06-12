@@ -14,7 +14,7 @@ _NOM = "costos_nomina"
 _PRE = "presupuesto_areas"
 _NOM_SEL = (
     "id,empleado_id,mes,anio,salario_bruto,cargas_sociales,total,"
-    "empleados(nombre,apellido,areas!empleados_area_id_fkey(nombre))"
+    "empleados!costos_nomina_empleado_emp_fkey(nombre,apellido,areas!empleados_area_id_fkey(nombre))"
 )
 
 
@@ -73,7 +73,7 @@ class CostoRepo:
     def get_presupuesto_area(self, area_id: str, mes: int, anio: int) -> Optional[PresupuestoResponse]:
         res = (
             supabase_admin.table(_PRE)
-            .select("id,area_id,mes,anio,monto_presupuestado,areas(nombre)")
+            .select("id,area_id,mes,anio,monto_presupuestado,areas!presupuesto_areas_area_emp_fkey(nombre)")
             .eq("area_id", area_id).eq("mes", mes).eq("anio", anio).eq("tipo_costo", "nomina")
             .execute()
         )
@@ -99,7 +99,7 @@ class CostoRepo:
     def get_presupuestos_mes(self, mes: int, anio: int) -> dict[str, float]:
         res = (
             supabase_admin.table(_PRE)
-            .select("monto_presupuestado,areas(nombre)")
+            .select("monto_presupuestado,areas!presupuesto_areas_area_emp_fkey(nombre)")
             .eq("mes", mes).eq("anio", anio).eq("tipo_costo", "nomina")
             .execute()
         )

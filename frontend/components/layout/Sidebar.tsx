@@ -1,20 +1,27 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
+  Activity,
+  FolderKanban,
   LayoutDashboard,
-  Layers,
   Users,
   GitBranch,
   Briefcase,
   UserPlus,
   UserMinus,
+  Umbrella,
+  CalendarX2,
   DollarSign,
   TrendingUp,
   ClipboardList,
   BarChart3,
+  GraduationCap,
+  ClipboardCheck,
+  Package,
+  Target,
   Menu,
   X,
   Settings,
@@ -22,6 +29,7 @@ import {
   Building2,
   Moon,
   Sun,
+  ChevronsUpDown,
 } from "lucide-react"
 import { useTheme } from "next-themes"
 
@@ -36,18 +44,29 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { fetchEmpresas } from "@/services/empresas"
+import { getEmpresaActivaId, setEmpresaActivaId } from "@/services/empresaStore"
+import type { Empresa } from "@/types/empresa"
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Áreas", href: "/areas", icon: Layers },
+  { label: "Procesos", href: "/procesos", icon: Activity },
+  { label: "Proyectos", href: "/proyectos", icon: FolderKanban },
+  { label: "Empresas", href: "/empresas", icon: Building2 },
   { label: "Empleados", href: "/empleados", icon: Users },
   { label: "Organigrama", href: "/organigrama", icon: GitBranch },
   { label: "Vacantes", href: "/vacantes", icon: Briefcase },
+  { label: "Vacaciones", href: "/vacaciones", icon: Umbrella },
+  { label: "Ausencias", href: "/ausencias", icon: CalendarX2 },
   { label: "Onboarding", href: "/onboarding", icon: UserPlus },
   { label: "Offboarding", href: "/offboarding", icon: UserMinus },
   { label: "Costos", href: "/costos", icon: DollarSign },
   { label: "Sucesión", href: "/sucesion", icon: TrendingUp },
-  { label: "Assessment", href: "/assessment", icon: ClipboardList },
+  // { label: "Assessment", href: "/assessment", icon: ClipboardList }, // HIDDEN — reactivar cuando se habilite el módulo
+  { label: "Capacitaciones", href: "/capacitaciones", icon: GraduationCap },
+  { label: "Evaluaciones", href: "/evaluaciones", icon: ClipboardCheck },
+  { label: "Inventario", href: "/inventario", icon: Package },
+  { label: "Objetivos",  href: "/objetivos",  icon: Target  },
   { label: "Reportes", href: "/reportes", icon: BarChart3 },
   { label: "Configuración", href: "/configuracion", icon: Settings },
 ] as const
@@ -93,6 +112,60 @@ function ThemeToggle() {
       <Sun className="size-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
       <Moon className="absolute size-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
     </Button>
+  )
+}
+
+/**
+ * Selector de empresa activa. Persiste en localStorage vía empresaStore.
+ * Al cambiar, recarga la página para que todos los listados usen la nueva empresa.
+ */
+function EmpresaSelector() {
+  const [empresas, setEmpresas] = useState<Empresa[]>([])
+  const [current, setCurrent]   = useState<string>("todas")
+
+  useEffect(() => {
+    setCurrent(getEmpresaActivaId() ?? "todas")
+    fetchEmpresas()
+      .then((res) => setEmpresas(res.items.filter((e) => e.activa)))
+      .catch(() => {})
+  }, [])
+
+  if (empresas.length === 0) return null
+
+  function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const val = e.target.value
+    setEmpresaActivaId(val === "todas" ? null : val)
+    window.location.reload()
+  }
+
+  return (
+    <div className="px-3 pb-2">
+      <div className="relative">
+        <div className="pointer-events-none absolute inset-y-0 left-2.5 flex items-center">
+          <Building2 className="size-3.5 text-sidebar-foreground/60" />
+        </div>
+        <select
+          value={current}
+          onChange={handleChange}
+          aria-label="Empresa activa"
+          className={cn(
+            "w-full appearance-none rounded-lg border border-sidebar-border",
+            "bg-sidebar-accent py-1.5 pl-7 pr-7 text-xs font-medium",
+            "text-sidebar-foreground transition-colors",
+            "hover:bg-sidebar-accent/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            "cursor-pointer",
+          )}
+        >
+          <option value="todas">Todas las empresas</option>
+          {empresas.map((e) => (
+            <option key={e.id} value={e.id}>{e.nombre}</option>
+          ))}
+        </select>
+        <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+          <ChevronsUpDown className="size-3 text-sidebar-foreground/60" />
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -179,6 +252,13 @@ export function Sidebar() {
               <X className="size-4" />
             </button>
           </div>
+        </div>
+
+        <Separator />
+
+        {/* Selector de empresa activa */}
+        <div className="px-0 pt-2">
+          <EmpresaSelector />
         </div>
 
         <Separator />

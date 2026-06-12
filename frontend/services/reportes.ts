@@ -1,6 +1,6 @@
 import { apiFetch, API_BASE, authHeaders } from "./api"
 
-export type TipoReporte = "headcount" | "rotacion" | "costos" | "vacantes" | "onboarding" | "adhoc"
+export type TipoReporte = "headcount" | "rotacion" | "costos" | "vacantes" | "onboarding" | "adhoc" | "anual_consolidado"
 
 export interface ReporteGenerarRequest {
   tipo: TipoReporte
@@ -24,6 +24,8 @@ export interface HistorialItem {
   tipo: string
   generado_por: string
   created_at: string
+  empresa_id: string | null
+  empresa_nombre: string | null
 }
 
 export function generarReporte(body: ReporteGenerarRequest): Promise<ReporteResponse> {

@@ -22,6 +22,7 @@ class AlertaResponse(BaseModel):
 
 
 class HeadcountAreaResponse(BaseModel):
+    area_id: str
     area: str
     total: int
 

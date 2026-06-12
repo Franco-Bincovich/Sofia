@@ -13,17 +13,11 @@ _SELECT = "*, empleados!fk_areas_responsable(nombre, apellido)"
 
 
 def _counts_by_area() -> dict[str, int]:
-    # Excluye solo 'baja': licencia sigue siendo headcount del área
-    res = (
-        supabase_admin.table(_EMPLEADOS_TABLE)
-        .select("area_id")
-        .neq("estado", "baja")
-        .execute()
-    )
+    # Excluye 'baja': licencia sigue siendo headcount del área
+    rows = supabase_admin.table(_EMPLEADOS_TABLE).select("area_id").neq("estado", "baja").execute().data or []
     counts: dict[str, int] = {}
-    for row in (res.data or []):
-        aid = row.get("area_id")
-        if aid:
+    for row in rows:
+        if aid := row.get("area_id"):
             counts[aid] = counts.get(aid, 0) + 1
     return counts
 
@@ -35,6 +29,7 @@ def _to_response(row: dict, counts: dict[str, int]) -> AreaResponse:
     )
     return AreaResponse(
         id=str(row["id"]),
+        empresa_id=str(row["empresa_id"]) if row.get("empresa_id") else None,
         nombre=row["nombre"],
         descripcion=row.get("descripcion"),
         responsable_id=str(row["responsable_id"]) if row.get("responsable_id") else None,
@@ -45,30 +40,25 @@ def _to_response(row: dict, counts: dict[str, int]) -> AreaResponse:
 
 
 class AreaRepo:
-    def find_all(self) -> List[AreaResponse]:
-        res = (
+    def find_all(self, empresa_id: Optional[str] = None) -> List[AreaResponse]:
+        """Retorna áreas activas, opcionalmente filtradas por empresa_id."""
+        query = (
             supabase_admin.table(_TABLE)
             .select(_SELECT)
             .eq("activo", True)
             .order("nombre")
-            .execute()
         )
+        if empresa_id:
+            query = query.eq("empresa_id", empresa_id)
+        res = query.execute()
         counts = _counts_by_area()
         return [_to_response(r, counts) for r in (res.data or [])]
 
     def find_by_id(self, id: str) -> Optional[AreaResponse]:
-        res = (
-            supabase_admin.table(_TABLE)
-            .select(_SELECT)
-            .eq("id", id)
-            .eq("activo", True)
-            .single()
-            .execute()
-        )
+        res = supabase_admin.table(_TABLE).select(_SELECT).eq("id", id).eq("activo", True).single().execute()
         if not res.data:
             return None
-        counts = _counts_by_area()
-        return _to_response(res.data, counts)
+        return _to_response(res.data, _counts_by_area())
 
     def save(self, data: AreaCreate) -> AreaResponse:
         payload = data.model_dump(exclude_none=True)

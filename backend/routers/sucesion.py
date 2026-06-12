@@ -1,10 +1,12 @@
 """
 Router de sucesión — mapa de talento y planes de carrera.
 Rutas protegidas por AuthMiddleware.
+empresa_id para lecturas: header X-Empresa-Id (filtro de vista, None = todas).
+empresa_id para CREATE: heredada del empleado (el service la resuelve internamente).
 """
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
 from schemas.sucesion import (
     EmpleadoAnalisisResponse, EmpleadoMapaResponse,
@@ -12,6 +14,7 @@ from schemas.sucesion import (
     PlanCarreraCreate, PlanCarreraResponse, ReadinessUpdate,
 )
 from services.sucesion_service import SucesionService
+from utils.empresa import get_empresa_id
 
 router = APIRouter()
 
@@ -21,20 +24,20 @@ def _svc() -> SucesionService:
 
 
 @router.get("/mapa", response_model=list[EmpleadoMapaResponse])
-async def get_mapa_talento(svc: SucesionService = Depends(_svc)) -> list[EmpleadoMapaResponse]:
-    return svc.get_mapa_talento()
+async def get_mapa_talento(request: Request, svc: SucesionService = Depends(_svc)) -> list[EmpleadoMapaResponse]:
+    return svc.get_mapa_talento(get_empresa_id(request))
 
 
 @router.get("/analisis", response_model=list[EmpleadoAnalisisResponse])
 async def get_analisis_posicion(
-    area_id: UUID, posicion: str = "", svc: SucesionService = Depends(_svc),
+    request: Request, area_id: UUID, posicion: str = "", svc: SucesionService = Depends(_svc),
 ) -> list[EmpleadoAnalisisResponse]:
-    return svc.get_analisis_posicion(area_id, posicion)
+    return svc.get_analisis_posicion(area_id, posicion, get_empresa_id(request))
 
 
 @router.get("/planes", response_model=list[PlanCarreraResponse])
-async def get_planes_carrera(svc: SucesionService = Depends(_svc)) -> list[PlanCarreraResponse]:
-    return svc.get_planes_carrera()
+async def get_planes_carrera(request: Request, svc: SucesionService = Depends(_svc)) -> list[PlanCarreraResponse]:
+    return svc.get_planes_carrera(get_empresa_id(request))
 
 
 @router.post("/planes", response_model=PlanCarreraResponse, status_code=201)

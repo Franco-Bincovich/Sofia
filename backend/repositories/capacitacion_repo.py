@@ -1,0 +1,88 @@
+"""Repositorio de catálogo de capacitaciones. Acceso a Supabase con supabase_admin."""
+from typing import List, Optional
+from uuid import UUID
+
+from integrations.supabase_client import supabase_admin
+from schemas.capacitacion import CapacitacionCreate, CapacitacionResponse
+from utils.errors import AppError
+from utils.logger import logger
+
+_T = "capacitaciones"
+
+
+def _build(rows: List[dict]) -> List[CapacitacionResponse]:
+    """Enriquece filas con empresa_nombre."""
+    if not rows:
+        return []
+    emp_map = {
+        e["id"]: e["nombre"]
+        for e in supabase_admin.table("empresas").select("id, nombre")
+        .in_("id", list({r["empresa_id"] for r in rows})).execute().data or []
+    }
+    return [
+        CapacitacionResponse.model_validate({**r, "empresa_nombre": emp_map.get(r["empresa_id"])})
+        for r in rows
+    ]
+
+
+class CapacitacionRepo:
+    def find_all(self, empresa_id: Optional[UUID] = None, solo_activos: bool = True) -> List[CapacitacionResponse]:
+        """Retorna capacitaciones ordenadas por nombre, filtradas por empresa y/o solo activas."""
+        q = supabase_admin.table(_T).select("*").order("nombre")
+        if empresa_id:
+            q = q.eq("empresa_id", str(empresa_id))
+        if solo_activos:
+            q = q.eq("activo", True)
+        return _build(q.execute().data or [])
+
+    def find_by_id(self, id: str, empresa_id: Optional[UUID] = None) -> Optional[CapacitacionResponse]:
+        q = supabase_admin.table(_T).select("*").eq("id", id)
+        if empresa_id:
+            q = q.eq("empresa_id", str(empresa_id))
+        res = q.maybe_single().execute()
+        return _build([res.data])[0] if res.data else None
+
+    def save(self, data: CapacitacionCreate) -> CapacitacionResponse:
+        """Inserta una capacitación y retorna el registro enriquecido."""
+        res = supabase_admin.table(_T).insert({
+            "empresa_id": str(data.empresa_id),
+            "nombre": data.nombre.strip(),
+            "descripcion": data.descripcion,
+            "categoria": data.categoria,
+            "duracion_horas": data.duracion_horas,
+            "obligatoria": data.obligatoria,
+        }).execute()
+        if not res.data:
+            logger.error("Supabase insert vacío en capacitaciones")
+            raise AppError("Error al crear la capacitación", "DB_ERROR", 500)
+        return self.find_by_id(str(res.data[0]["id"]))  # type: ignore[return-value]
+
+    def update(self, id: str, empresa_id: Optional[UUID], payload: dict) -> Optional[CapacitacionResponse]:
+        if payload:
+            q = supabase_admin.table(_T).update(payload).eq("id", id)
+            if empresa_id:
+                q = q.eq("empresa_id", str(empresa_id))
+            q.execute()
+        return self.find_by_id(id, empresa_id)
+
+    def delete(self, id: str, empresa_id: Optional[UUID] = None) -> bool:
+        q = supabase_admin.table(_T).delete().eq("id", id)
+        if empresa_id:
+            q = q.eq("empresa_id", str(empresa_id))
+        return bool(q.execute().data)
+
+    def set_activo(self, id: str, empresa_id: Optional[UUID], activo: bool) -> bool:
+        q = supabase_admin.table(_T).update({"activo": activo}).eq("id", id)
+        if empresa_id:
+            q = q.eq("empresa_id", str(empresa_id))
+        return bool(q.execute().data)
+
+    def has_asignaciones(self, id: str) -> bool:
+        """Retorna True si hay al menos una asignación para esta capacitación."""
+        res = supabase_admin.table("empleado_capacitacion").select("id").eq("capacitacion_id", id).limit(1).execute()
+        return bool(res.data)
+
+    def find_empresa_for(self, id: str) -> Optional[str]:
+        """Retorna el empresa_id de la capacitación, o None si no existe."""
+        res = supabase_admin.table(_T).select("empresa_id").eq("id", id).maybe_single().execute()
+        return str(res.data["empresa_id"]) if res.data else None

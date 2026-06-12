@@ -18,6 +18,8 @@ class NominaCreate(BaseModel):
 class NominaResponse(BaseModel):
     id: str
     empleado_id: str
+    empresa_id: Optional[str] = None
+    empresa_nombre: Optional[str] = None
     empleado_nombre: str
     area_nombre: str
     mes: int
@@ -44,6 +46,7 @@ class PresupuestoResponse(BaseModel):
 
 
 class CostoArea(BaseModel):
+    empresa_nombre: Optional[str] = None
     area_nombre: str
     empleados: int
     costo_mensual: float

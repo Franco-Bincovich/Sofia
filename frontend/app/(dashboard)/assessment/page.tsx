@@ -21,6 +21,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { fetchCampanas, fetchResultados } from "@/services/assessment"
+import { getEmpresaActivaId } from "@/services/empresaStore"
 import type { Campana, Resultado } from "@/types/assessment"
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -69,6 +70,13 @@ function TableSkeleton({ cols, rows = 4 }: { cols: number; rows?: number }) {
 export default function AssessmentPage() {
   const router = useRouter()
 
+  // HIDDEN — módulo desactivado temporalmente; redirige sin renderizar el resto
+  useEffect(() => { router.replace("/dashboard") }, [router])
+  return null
+
+  // eslint-disable-next-line no-unreachable
+  const [empresaActivaId] = useState<string | null>(() => getEmpresaActivaId())
+
   const [campanas, setCampanas]   = useState<Campana[]>([])
   const [resultados, setResultados] = useState<Resultado[]>([])
   const [loadingC, setLoadingC]   = useState(true)
@@ -76,6 +84,8 @@ export default function AssessmentPage() {
   const [errorC, setErrorC]       = useState(false)
   const [errorR, setErrorR]       = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
+
+  const mostrarEmpresa = !empresaActivaId
 
   useEffect(() => {
     fetchCampanas()
@@ -122,6 +132,7 @@ export default function AssessmentPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nombre</TableHead>
+                  {mostrarEmpresa && <TableHead>Empresa</TableHead>}
                   <TableHead>Tipo</TableHead>
                   <TableHead>Creada</TableHead>
                   <TableHead className="text-right">Links</TableHead>
@@ -131,16 +142,19 @@ export default function AssessmentPage() {
               </TableHeader>
               <TableBody>
                 {loadingC ? (
-                  <TableSkeleton cols={6} />
+                  <TableSkeleton cols={mostrarEmpresa ? 7 : 6} />
                 ) : campanas.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6}>
+                    <TableCell colSpan={mostrarEmpresa ? 7 : 6}>
                       <EmptyState icon={<Plus />} title="Sin campañas" description="Creá la primera campaña de assessment." />
                     </TableCell>
                   </TableRow>
                 ) : campanas.map((c) => (
                   <TableRow key={c.id}>
                     <TableCell className="font-medium">{c.nombre}</TableCell>
+                    {mostrarEmpresa && (
+                      <TableCell className="text-muted-foreground">{c.empresa_nombre ?? "—"}</TableCell>
+                    )}
                     <TableCell className="text-muted-foreground">{TIPO_LABEL[c.tipo] ?? c.tipo}</TableCell>
                     <TableCell className="text-muted-foreground">{fmtDate(c.created_at)}</TableCell>
                     <TableCell className="text-right text-muted-foreground">{c.links_enviados}</TableCell>
@@ -171,6 +185,7 @@ export default function AssessmentPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Evaluado</TableHead>
+                  {mostrarEmpresa && <TableHead>Empresa</TableHead>}
                   <TableHead>Tipo</TableHead>
                   <TableHead>Fecha</TableHead>
                   <TableHead>Perfil dominante</TableHead>
@@ -179,10 +194,10 @@ export default function AssessmentPage() {
               </TableHeader>
               <TableBody>
                 {loadingR ? (
-                  <TableSkeleton cols={5} />
+                  <TableSkeleton cols={mostrarEmpresa ? 6 : 5} />
                 ) : resultados.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5}>
+                    <TableCell colSpan={mostrarEmpresa ? 6 : 5}>
                       <EmptyState icon={<Plus />} title="Sin resultados" description="Todavía no hay evaluaciones completadas." />
                     </TableCell>
                   </TableRow>
@@ -193,6 +208,9 @@ export default function AssessmentPage() {
                     onClick={() => router.push(`/assessment/${r.id}`)}
                   >
                     <TableCell className="font-medium">{r.evaluado_nombre}</TableCell>
+                    {mostrarEmpresa && (
+                      <TableCell className="text-muted-foreground">{r.empresa_nombre ?? "—"}</TableCell>
+                    )}
                     <TableCell className="text-muted-foreground">{TIPO_LABEL[r.tipo] ?? r.tipo}</TableCell>
                     <TableCell className="text-muted-foreground">
                       {r.fecha_completado ? fmtDate(r.fecha_completado) : "—"}

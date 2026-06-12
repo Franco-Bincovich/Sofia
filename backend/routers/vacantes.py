@@ -1,19 +1,22 @@
 """
 Router de vacantes y pipeline de candidatos.
 Rutas protegidas por AuthMiddleware (requieren JWT válido).
+empresa_id para lecturas: header X-Empresa-Id (get_empresa_id).
+empresa_id para CREATE de vacante: body.empresa_id (dato explícito, igual que empleados).
+empresa_id para candidatos: se hereda de la vacante — no se solicita al usuario.
 """
 from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
 
-from schemas.vacante import CandidatoCreate, CandidatoResponse, CandidatoDesdeEmailRequest, EmailCandidatoResponse, EtapaUpdate, PublicarLinkedinRequest, PublicarLinkedinResponse, VacanteCreate, VacanteResponse, VacanteUpdate
+from schemas.vacante import CandidatoCreate, CandidatoResponse, CandidatoDesdeEmailRequest, EmailCandidatoResponse, PublicarLinkedinRequest, PublicarLinkedinResponse, VacanteCreate, VacanteResponse, VacanteUpdate
 from services.gmail_service import GmailService
 from services.vacante_service import VacanteService
 from services.zernio_service import ZernioService
+from utils.empresa import get_empresa_id
 
 router = APIRouter()
-candidatos_router = APIRouter()
 
 
 def _svc() -> VacanteService:
@@ -22,14 +25,14 @@ def _svc() -> VacanteService:
 
 @router.get("", response_model=List[VacanteResponse])
 async def list_vacantes(
-    estado: Optional[str] = Query(None), service: VacanteService = Depends(_svc)
+    request: Request, estado: Optional[str] = Query(None), service: VacanteService = Depends(_svc)
 ) -> List[VacanteResponse]:
-    return service.get_vacantes(estado)
+    return service.get_vacantes(estado, get_empresa_id(request))
 
 
 @router.get("/{id}", response_model=VacanteResponse)
-async def get_vacante(id: UUID, service: VacanteService = Depends(_svc)) -> VacanteResponse:
-    return service.get_vacante(id)
+async def get_vacante(id: UUID, request: Request, service: VacanteService = Depends(_svc)) -> VacanteResponse:
+    return service.get_vacante(id, get_empresa_id(request))
 
 
 @router.post("", response_model=VacanteResponse, status_code=201)
@@ -41,28 +44,21 @@ async def create_vacante(
 
 @router.put("/{id}", response_model=VacanteResponse)
 async def update_vacante(
-    id: UUID, body: VacanteUpdate, service: VacanteService = Depends(_svc)
+    id: UUID, body: VacanteUpdate, request: Request, service: VacanteService = Depends(_svc)
 ) -> VacanteResponse:
-    return service.update_vacante(id, body)
+    return service.update_vacante(id, body, get_empresa_id(request))
 
 
 @router.get("/{id}/candidatos", response_model=List[CandidatoResponse])
-async def list_candidatos(id: UUID, service: VacanteService = Depends(_svc)) -> List[CandidatoResponse]:
-    return service.get_candidatos(id)
+async def list_candidatos(id: UUID, request: Request, service: VacanteService = Depends(_svc)) -> List[CandidatoResponse]:
+    return service.get_candidatos(id, get_empresa_id(request))
 
 
 @router.post("/{id}/candidatos", response_model=CandidatoResponse, status_code=201)
 async def add_candidato(
-    id: UUID, body: CandidatoCreate, service: VacanteService = Depends(_svc)
+    id: UUID, body: CandidatoCreate, request: Request, service: VacanteService = Depends(_svc)
 ) -> CandidatoResponse:
-    return service.add_candidato(id, body)
-
-
-@candidatos_router.put("/{id}/etapa", response_model=CandidatoResponse)
-async def mover_candidato(
-    id: UUID, body: EtapaUpdate, service: VacanteService = Depends(_svc)
-) -> CandidatoResponse:
-    return service.mover_candidato(id, body.etapa)
+    return service.add_candidato(id, body, get_empresa_id(request))
 
 
 @router.post("/{id}/publicar-linkedin", response_model=PublicarLinkedinResponse)

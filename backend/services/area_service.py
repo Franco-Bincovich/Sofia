@@ -15,14 +15,18 @@ class AreaService:
     def __init__(self, repo: Optional[AreaRepo] = None) -> None:
         self._repo = repo or AreaRepo()
 
-    def get_areas(self) -> List[AreaResponse]:
+    def get_areas(self, empresa_id: Optional[str] = None) -> List[AreaResponse]:
         """
-        Retorna la lista completa de áreas activas con su cantidad de empleados.
+        Retorna la lista de áreas activas con su cantidad de empleados.
+
+        Args:
+            empresa_id: Si se provee, filtra las áreas de esa empresa.
+                        Si es None, retorna todas las áreas.
 
         Returns:
             Lista de AreaResponse ordenada por nombre.
         """
-        return self._repo.find_all()
+        return self._repo.find_all(empresa_id)
 
     def get_area(self, id: UUID) -> AreaResponse:
         """
@@ -47,7 +51,7 @@ class AreaService:
         Crea una nueva área en el sistema.
 
         Args:
-            data: Datos del área a crear (validados por Pydantic).
+            data: Datos del área a crear (empresa_id + nombre requeridos).
             created_by: ID del usuario que realiza la operación (trazabilidad).
 
         Returns:

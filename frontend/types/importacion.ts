@@ -10,8 +10,10 @@ export interface FilaPreview {
   tipo_contrato: string
   modalidad_trabajo: string
   fecha_ingreso: string
+  dni: string
   cuil: string | null
   legajo: string | null
+  es_actualizacion: boolean
 }
 
 export interface FilaError {
@@ -32,5 +34,31 @@ export interface ConfirmarError {
 
 export interface ImportacionResult {
   importados: number
+  actualizados: number
+  errores: ConfirmarError[]
+}
+
+// ─── Nómina ───────────────────────────────────────────────────────────────────
+
+export interface FilaNominaPreview {
+  fila: number
+  dni: string
+  nombre_empleado: string
+  empleado_id: string
+  anio: number
+  mes: number
+  salario_bruto: number
+  neto: number
+  es_actualizacion: boolean
+}
+
+export interface ImportacionNominaPreview {
+  filas_validas: FilaNominaPreview[]
+  errores: FilaError[]
+}
+
+export interface ImportacionNominaResult {
+  importados: number
+  actualizados: number
   errores: ConfirmarError[]
 }

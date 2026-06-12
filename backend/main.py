@@ -24,10 +24,27 @@ from routers.assessment import router as assessment_router
 from routers.dashboard import router as dashboard_router
 from routers.organigrama import router as organigrama_router
 from routers.importacion import router as importacion_router
+from routers.importacion_nomina import router as importacion_nomina_router
 from routers.integraciones import router as integraciones_router
 from routers.reportes import router as reportes_router
 from routers.sucesion import router as sucesion_router
-from routers.vacantes import candidatos_router, router as vacantes_router
+from routers.candidatos import router as candidatos_router
+from routers.ausencias import router as ausencias_router
+from routers.vacaciones import router as vacaciones_router
+from routers.vacantes import router as vacantes_router
+from routers.capacitaciones import router as capacitaciones_router
+from routers.asignaciones_capacitacion import router as asignaciones_cap_router
+from routers.ev_plantillas import router as ev_plantillas_router
+from routers.ev_ciclos import router as ev_ciclos_router
+from routers.ev_instancias import router as ev_instancias_router
+from routers.inventario_items import router as inventario_items_router
+from routers.inventario_asignaciones import router as inventario_asignaciones_router
+from routers.objetivos import router as objetivos_router
+from routers.usuarios import router as usuarios_router
+from routers.procesos import router as procesos_router
+from routers.proyectos import router as proyectos_router
+from routers.proyecto_asignaciones import router as proyecto_asignaciones_router
+from routers.proyecto_horas import router as proyecto_horas_router
 
 app = FastAPI(
     title="HR Karstec API",
@@ -40,16 +57,17 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# ── Middlewares (LIFO: el último agregado se ejecuta primero en el request) ────
-app.add_middleware(AuthMiddleware)
-app.add_middleware(SecurityHeadersMiddleware)
+# Middlewares — orden de ejecución al recibir un request: CORS (más externo) → SecurityHeaders → Auth (más interno).
+# add_middleware hace prepend, así que el último agregado es el más externo.
+app.add_middleware(AuthMiddleware)             # se ejecuta ÚLTIMO (más interno)
+app.add_middleware(SecurityHeadersMiddleware)  # 2°
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins_list,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type"],
-)
+    allow_headers=["Authorization", "Content-Type", "X-Empresa-Id"],
+)  # se ejecuta PRIMERO (más externo)
 app.add_exception_handler(Exception, global_error_handler)
 
 # ── Health check (ruta pública) ────────────────────────────────────────────────
@@ -61,6 +79,8 @@ async def health_check():
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(areas_router, prefix="/api/areas", tags=["areas"])
 app.include_router(empleados_router, prefix="/api/empleados", tags=["empleados"])
+app.include_router(ausencias_router, prefix="/api/ausencias", tags=["ausencias"])
+app.include_router(vacaciones_router, prefix="/api/vacaciones", tags=["vacaciones"])
 app.include_router(vacantes_router, prefix="/api/vacantes", tags=["vacantes"])
 app.include_router(candidatos_router, prefix="/api/candidatos", tags=["candidatos"])
 app.include_router(onboarding_templates_router, prefix="/api/onboarding/templates", tags=["onboarding"])
@@ -71,7 +91,21 @@ app.include_router(sucesion_router, prefix="/api/sucesion", tags=["sucesion"])
 app.include_router(assessment_router, prefix="/api/assessment", tags=["assessment"])
 app.include_router(organigrama_router, prefix="/api/organigrama", tags=["organigrama"])
 app.include_router(dashboard_router, prefix="/api/dashboard", tags=["dashboard"])
-app.include_router(empresa_router, prefix="/api/empresa", tags=["empresa"])
+app.include_router(empresa_router, prefix="/api/empresas", tags=["empresa"])
 app.include_router(reportes_router, prefix="/api/reportes", tags=["reportes"])
 app.include_router(importacion_router, prefix="/api/importacion", tags=["importacion"])
+app.include_router(importacion_nomina_router, prefix="/api/importacion", tags=["importacion"])
 app.include_router(integraciones_router, prefix="/api/integraciones", tags=["integraciones"])
+app.include_router(capacitaciones_router, prefix="/api/capacitaciones", tags=["capacitaciones"])
+app.include_router(asignaciones_cap_router, prefix="/api/capacitaciones/asignaciones", tags=["capacitaciones"])
+app.include_router(ev_plantillas_router, prefix="/api/evaluaciones/plantillas", tags=["evaluaciones"])
+app.include_router(ev_ciclos_router, prefix="/api/evaluaciones/ciclos", tags=["evaluaciones"])
+app.include_router(ev_instancias_router, prefix="/api/evaluaciones/instancias", tags=["evaluaciones"])
+app.include_router(inventario_items_router, prefix="/api/inventario/items", tags=["inventario"])
+app.include_router(inventario_asignaciones_router, prefix="/api/inventario/asignaciones", tags=["inventario"])
+app.include_router(objetivos_router, prefix="/api/objetivos", tags=["objetivos"])
+app.include_router(usuarios_router, prefix="/api/usuarios", tags=["usuarios"])
+app.include_router(procesos_router, prefix="/api/procesos", tags=["procesos"])
+app.include_router(proyectos_router, prefix="/api/proyectos", tags=["proyectos"])
+app.include_router(proyecto_asignaciones_router, prefix="/api/proyectos", tags=["proyectos"])
+app.include_router(proyecto_horas_router, prefix="/api/proyectos", tags=["proyectos"])

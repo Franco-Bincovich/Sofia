@@ -1,6 +1,9 @@
 """
 Router de Reportes — generación, consulta del historial y exportación.
 Rutas protegidas por AuthMiddleware (requieren JWT válido).
+empresa_id: header X-Empresa-Id.
+  - generar: si hay empresa activa, el reporte queda atado a ella; si es "Todas" → consolidado (null).
+  - historial: empresa activa muestra sus reportes + consolidados; "Todas" muestra todo.
 """
 import re
 from typing import List, Literal
@@ -12,6 +15,7 @@ from fastapi.responses import Response
 from schemas.reporte import HistorialItem, ReporteGenerarRequest, ReporteResponse
 from services.reporte_export_service import ReporteExportService
 from services.reporte_service import ReporteService
+from utils.empresa import get_empresa_id
 
 router = APIRouter()
 
@@ -33,20 +37,24 @@ async def generar_reporte(
     service: ReporteService = Depends(_service),
 ) -> ReporteResponse:
     generado_por = getattr(request.state, "user", {}).get("email", "Sistema")
+    empresa_id = get_empresa_id(request)
     return service.generar(
         tipo=body.tipo,
         mes=body.mes,
         anio=body.anio,
         prompt=body.prompt,
         generado_por=generado_por,
+        empresa_id=empresa_id,
     )
 
 
 @router.get("/historial", response_model=List[HistorialItem])
 async def get_historial(
+    request: Request,
     service: ReporteService = Depends(_service),
 ) -> List[HistorialItem]:
-    return service.get_historial()
+    empresa_id = get_empresa_id(request)
+    return service.get_historial(empresa_id)
 
 
 @router.get("/{reporte_id}/exportar")

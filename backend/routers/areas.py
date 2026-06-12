@@ -2,10 +2,10 @@
 Router de áreas — CRUD completo.
 Rutas protegidas por AuthMiddleware (requieren JWT válido).
 """
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 
 from schemas.area import AreaCreate, AreaResponse, AreaUpdate
 from services.area_service import AreaService
@@ -19,9 +19,10 @@ def _service() -> AreaService:
 
 @router.get("", response_model=List[AreaResponse])
 async def list_areas(
+    empresa_id: Optional[str] = Query(None, description="Filtrar por empresa"),
     service: AreaService = Depends(_service),
 ) -> List[AreaResponse]:
-    return service.get_areas()
+    return service.get_areas(empresa_id)
 
 
 @router.get("/{id}", response_model=AreaResponse)

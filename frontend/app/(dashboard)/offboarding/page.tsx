@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { cn } from "@/lib/utils"
 import { fetchOffboardings, marcarActivoDevuelto } from "@/services/offboarding"
+import { getEmpresaActivaId } from "@/services/empresaStore"
 import type { ActivoResponse, MotivoEgreso, OffboardingInstancia } from "@/types/offboarding"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -50,6 +51,7 @@ export default function OffboardingPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState<string | null>(null)
+  const [empresaActivaId] = useState<string | null>(() => getEmpresaActivaId())
 
   useEffect(() => {
     fetchOffboardings()
@@ -114,6 +116,9 @@ export default function OffboardingPage() {
     return Math.round((done / activos.length) * 100)
   }
 
+  // mostrar empresa solo cuando el topbar está en "Todas"
+  const mostrarEmpresa = !empresaActivaId
+
   // ─── Loading skeleton ────────────────────────────────────────────────────────
 
   if (loading) {
@@ -170,12 +175,18 @@ export default function OffboardingPage() {
                       Egreso: {inst.fecha_inicio}
                     </p>
                   </div>
-                  <Badge
-                    variant={MOTIVO_VARIANT[motivo] ?? "secondary"}
-                    className="shrink-0"
-                  >
-                    {MOTIVO_LABEL[motivo] ?? motivo}
-                  </Badge>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {mostrarEmpresa && inst.empresa_nombre && (
+                      <Badge variant="outline" className="text-xs">
+                        {inst.empresa_nombre}
+                      </Badge>
+                    )}
+                    <Badge
+                      variant={MOTIVO_VARIANT[motivo] ?? "secondary"}
+                    >
+                      {MOTIVO_LABEL[motivo] ?? motivo}
+                    </Badge>
+                  </div>
                 </div>
 
                 {/* Progress bar */}

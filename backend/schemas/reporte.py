@@ -32,3 +32,5 @@ class HistorialItem(BaseModel):
     tipo: str
     generado_por: str
     created_at: datetime
+    empresa_id: Optional[UUID] = None
+    empresa_nombre: Optional[str] = None

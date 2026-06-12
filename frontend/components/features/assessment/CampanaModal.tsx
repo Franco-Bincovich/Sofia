@@ -14,8 +14,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { fetchAreas } from "@/services/areas"
 import { createCampana } from "@/services/assessment"
+import { fetchEmpresas } from "@/services/empresas"
+import { getEmpresaActivaId } from "@/services/empresaStore"
 import type { Area } from "@/types/area"
 import type { Campana, CampanaCreate, TipoEval } from "@/types/assessment"
+import type { Empresa } from "@/types/empresa"
 
 interface CampanaModalProps {
   open: boolean
@@ -34,25 +37,50 @@ const SELECT_CLASS =
   "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
 
 export function CampanaModal({ open, onClose, onCreated }: CampanaModalProps) {
+  const empresaActivaId = getEmpresaActivaId()
+
   const [nombre, setNombre]               = useState("")
   const [tipo, setTipo]                   = useState<TipoEval>("completo")
+  const [empresaId, setEmpresaId]         = useState<string>(empresaActivaId ?? "")
   const [areaId, setAreaId]               = useState<string>("")
   const [posicionObjetivo, setPosicion]   = useState("")
+  const [empresas, setEmpresas]           = useState<Empresa[]>([])
   const [areas, setAreas]                 = useState<Area[]>([])
   const [error, setError]                 = useState<string | null>(null)
   const [loading, setLoading]             = useState(false)
 
   useEffect(() => {
-    if (open) {
-      fetchAreas()
-        .then(setAreas)
-        .catch(() => setAreas([]))
+    if (!open) return
+    // Solo cargar empresas cuando topbar = "Todas"
+    if (!empresaActivaId) {
+      fetchEmpresas()
+        .then((res) => {
+          const activas = res.items.filter((e) => e.activa)
+          setEmpresas(activas)
+          if (activas.length > 0 && !empresaId) setEmpresaId(activas[0].id)
+        })
+        .catch(() => {})
     }
-  }, [open])
+    // Cargar áreas filtradas por empresa activa (apiFetch envía X-Empresa-Id automáticamente)
+    fetchAreas()
+      .then(setAreas)
+      .catch(() => setAreas([]))
+  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Cuando cambia la empresa seleccionada, recargar las áreas de esa empresa
+  useEffect(() => {
+    if (!open || empresaActivaId) return
+    if (!empresaId) { setAreas([]); return }
+    fetchAreas(empresaId)
+      .then(setAreas)
+      .catch(() => setAreas([]))
+    setAreaId("")
+  }, [empresaId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleClose() {
     setNombre("")
     setTipo("completo")
+    setEmpresaId(empresaActivaId ?? "")
     setAreaId("")
     setPosicion("")
     setError(null)
@@ -61,16 +89,15 @@ export function CampanaModal({ open, onClose, onCreated }: CampanaModalProps) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!nombre.trim()) {
-      setError("El nombre es obligatorio.")
-      return
-    }
+    if (!nombre.trim()) { setError("El nombre es obligatorio."); return }
+    if (!empresaId) { setError("Seleccioná una empresa."); return }
     setError(null)
     setLoading(true)
     try {
       const data: CampanaCreate = {
         nombre: nombre.trim(),
         tipo,
+        empresa_id: empresaId,
         ...(areaId && { area_id: areaId }),
         ...(posicionObjetivo.trim() && { posicion_objetivo: posicionObjetivo.trim() }),
       }
@@ -92,6 +119,24 @@ export function CampanaModal({ open, onClose, onCreated }: CampanaModalProps) {
         </DialogHeader>
 
         <form id="campana-form" onSubmit={handleSubmit} className="space-y-4 py-2">
+          {/* Selector de empresa — solo cuando topbar = "Todas" */}
+          {!empresaActivaId && (
+            <div className="space-y-1.5">
+              <Label htmlFor="campana-empresa">Empresa</Label>
+              <select
+                id="campana-empresa"
+                value={empresaId}
+                onChange={(e) => setEmpresaId(e.target.value)}
+                className={SELECT_CLASS}
+              >
+                <option value="">Seleccioná una empresa…</option>
+                {empresas.map((e) => (
+                  <option key={e.id} value={e.id}>{e.nombre}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div className="space-y-1.5">
             <Label htmlFor="campana-nombre">Nombre</Label>
             <Input

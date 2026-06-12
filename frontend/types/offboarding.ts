@@ -25,6 +25,8 @@ export interface AccesoResponse {
 export interface OffboardingInstancia {
   id: string
   empleado_id: string
+  empresa_id: string | null
+  empresa_nombre: string | null
   empleado_nombre: string
   motivo: MotivoEgreso
   estado: string

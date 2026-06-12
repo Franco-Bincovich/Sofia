@@ -1,0 +1,43 @@
+"""
+Router de horas de proyecto. Comparte prefix /api/proyectos con proyectos.py.
+cargado_por se obtiene de request.state.user (AuthMiddleware).
+"""
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, Request
+
+from schemas.proyectos import HoraCreate, HoraListResponse, HoraResponse
+from services.horas_service import HorasService
+from utils.empresa import get_empresa_id
+
+router = APIRouter()
+
+
+def _svc() -> HorasService:
+    return HorasService()
+
+
+@router.get("/{proyecto_id}/horas", response_model=HoraListResponse)
+async def list_horas(
+    proyecto_id: UUID,
+    service: HorasService = Depends(_svc),
+) -> HoraListResponse:
+    return service.get_by_proyecto(proyecto_id)
+
+
+@router.post("/{proyecto_id}/horas", response_model=HoraResponse, status_code=201)
+async def cargar_horas(
+    proyecto_id: UUID, request: Request, body: HoraCreate,
+    service: HorasService = Depends(_svc),
+) -> HoraResponse:
+    cargado_por = getattr(request.state, "user", {}).get("id")
+    return service.cargar(proyecto_id, body, cargado_por, get_empresa_id(request))
+
+
+@router.delete("/{proyecto_id}/horas/{hora_id}", status_code=200)
+async def delete_hora(
+    proyecto_id: UUID, hora_id: UUID, request: Request,
+    service: HorasService = Depends(_svc),
+) -> dict:
+    service.delete(hora_id, get_empresa_id(request))
+    return {"ok": True}

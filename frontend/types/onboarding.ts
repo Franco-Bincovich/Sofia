@@ -10,6 +10,8 @@ export interface TemplateTarea {
 export interface OnboardingTemplate {
   id: string
   nombre: string
+  empresa_id: string | null
+  empresa_nombre: string | null
   descripcion: string | null
   tareas: TemplateTarea[]
   tareas_total: number
@@ -18,6 +20,8 @@ export interface OnboardingTemplate {
 export interface OnboardingInstancia {
   id: string
   empleado_id: string
+  empresa_id: string | null
+  empresa_nombre: string | null
   empleado_nombre: string
   empleado_cargo: string | null
   empleado_area: string | null

@@ -13,33 +13,43 @@ VALID_TIPO_CONTRATO = {"efectivo", "plazo_fijo", "contratado", "pasantia"}
 VALID_MODALIDAD = {"presencial", "remoto", "hibrido"}
 REQUIRED_FIELDS = {
     "nombre", "apellido", "email_corporativo", "cargo",
-    "area", "tipo_contrato", "modalidad_trabajo", "fecha_ingreso",
+    "area", "tipo_contrato", "modalidad_trabajo", "fecha_ingreso", "dni",
 }
 
 
-def _load_areas() -> dict[str, str]:
-    """Carga todas las áreas activas y retorna un mapa nombre → id."""
+def _load_areas(empresa_id: str) -> dict[str, str]:
+    """Carga áreas activas de la empresa indicada y retorna mapa nombre → id."""
     result = (
         supabase_admin.table("areas")
         .select("id, nombre")
         .eq("activo", True)
+        .eq("empresa_id", empresa_id)
         .execute()
     )
     return {row["nombre"]: str(row["id"]) for row in (result.data or [])}
 
 
-def parse_empleados_csv(content: str) -> tuple[list[dict], list[dict]]:
+def _existing_dnis(empresa_id: str) -> set[str]:
+    """Retorna el conjunto de DNIs ya registrados en empleados de la empresa."""
+    result = supabase_admin.table("empleados").select("dni").eq("empresa_id", empresa_id).execute()
+    return {row["dni"] for row in (result.data or []) if row.get("dni")}
+
+
+def parse_empleados_csv(content: str, empresa_id: str) -> tuple[list[dict], list[dict]]:
     """
-    Parsea y valida el contenido de un CSV de empleados.
+    Parsea y valida el contenido de un CSV de empleados para la empresa indicada.
 
     Args:
         content: String con el contenido del archivo CSV (header + filas de datos).
+        empresa_id: ID de la empresa destino; filtra las áreas disponibles y detecta
+                    DNIs que ya existen para marcar filas como actualizaciones (UPSERT).
 
     Returns:
-        Tupla (filas_validas, errores). Las filas válidas incluyen area_id resuelto.
-        Cada error contiene {fila, campo, error}.
+        Tupla (filas_validas, errores). Cada fila válida incluye area_id resuelto,
+        dni y es_actualizacion=True si el DNI ya existe en la empresa.
     """
-    areas_map = _load_areas()
+    areas_map = _load_areas(empresa_id)
+    existing_dnis = _existing_dnis(empresa_id)
 
     try:
         reader = csv.DictReader(io.StringIO(content))
@@ -120,17 +130,18 @@ def parse_empleados_csv(content: str) -> tuple[list[dict], list[dict]]:
                 })
                 continue
 
-            # área → id
+            # área → id (filtrada por empresa)
             area_nombre = row["area"]
             area_id = areas_map.get(area_nombre)
             if not area_id:
                 errores.append({
                     "fila": fila_num,
                     "campo": "area",
-                    "error": f"Área '{area_nombre}' no encontrada en el sistema",
+                    "error": f"Área '{area_nombre}' no encontrada en la empresa seleccionada",
                 })
                 continue
 
+            dni = row["dni"]
             validas.append({
                 "fila": fila_num,
                 "nombre": row["nombre"],
@@ -143,13 +154,15 @@ def parse_empleados_csv(content: str) -> tuple[list[dict], list[dict]]:
                 "tipo_contrato": row["tipo_contrato"],
                 "modalidad_trabajo": row["modalidad_trabajo"],
                 "fecha_ingreso": str(fecha),
+                "dni": dni,
                 "cuil": row.get("cuil") or None,
                 "legajo": row.get("legajo") or None,
+                "es_actualizacion": dni in existing_dnis,
             })
 
         logger.info(
             "CSV de empleados parseado",
-            extra={"validas": len(validas), "errores": len(errores)},
+            extra={"validas": len(validas), "errores": len(errores), "empresa_id": empresa_id},
         )
         return validas, errores
 

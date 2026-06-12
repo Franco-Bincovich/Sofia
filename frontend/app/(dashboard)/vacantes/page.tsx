@@ -20,7 +20,10 @@ import {
 } from "@/components/ui/table"
 import { VacanteModal } from "@/components/features/vacantes/VacanteModal"
 import { fetchVacantes } from "@/services/vacantes"
+import { fetchEmpresas } from "@/services/empresas"
+import { getEmpresaActivaId } from "@/services/empresaStore"
 import type { EstadoVacante, Vacante } from "@/types/vacantes"
+import type { Empresa } from "@/types/empresa"
 
 const ESTADO_LABELS: Record<EstadoVacante, string> = {
   nueva: "Nueva",
@@ -35,6 +38,10 @@ const ESTADO_VARIANTS: Record<EstadoVacante, "default" | "secondary" | "destruct
   con_candidatos: "secondary",
   cerrada: "destructive",
 }
+
+const SELECT_CLASS =
+  "min-h-[2rem] rounded-lg border border-input bg-transparent px-2.5 text-sm text-foreground " +
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
 
 function TableSkeleton() {
   return (
@@ -54,28 +61,50 @@ function formatFecha(raw: string | null): string {
 
 export default function VacantesPage() {
   const router = useRouter()
+
+  // empresa activa del topbar — estable durante la sesión (recarga al cambiar)
+  const [empresaActivaId, setEmpresaActivaIdLocal] = useState<string | null>(null)
+
   const [vacantes, setVacantes] = useState<Vacante[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [estadoFilter, setEstadoFilter] = useState<EstadoVacante | "">("")
   const [modalOpen, setModalOpen] = useState(false)
 
+  // filtro de empresa en columna (solo activo cuando topbar = "Todas")
+  const [empresaFiltro, setEmpresaFiltro] = useState("")
+  const [empresas, setEmpresas] = useState<Empresa[]>([])
+
+  useEffect(() => {
+    const id = getEmpresaActivaId()
+    setEmpresaActivaIdLocal(id)
+    if (!id) {
+      fetchEmpresas()
+        .then((res) => setEmpresas(res.items.filter((e) => e.activa)))
+        .catch(() => {})
+    }
+  }, [])
+
   const load = useCallback(async () => {
     setLoading(true)
     setError(false)
     try {
-      const data = await fetchVacantes(estadoFilter || undefined)
+      // si topbar = "Todas" y hay filtro de columna activo, pasar override
+      const empresaOverride = !empresaActivaId && empresaFiltro ? empresaFiltro : undefined
+      const data = await fetchVacantes(estadoFilter || undefined, empresaOverride)
       setVacantes(data)
     } catch {
       setError(true)
     } finally {
       setLoading(false)
     }
-  }, [estadoFilter])
+  }, [estadoFilter, empresaActivaId, empresaFiltro])
 
   useEffect(() => {
     load()
   }, [load])
+
+  const mostrarFiltroEmpresa = !empresaActivaId && empresas.length > 0
 
   return (
     <div>
@@ -90,10 +119,23 @@ export default function VacantesPage() {
         }
       />
 
-      <div className="mb-4">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row">
+        {mostrarFiltroEmpresa && (
+          <select
+            aria-label="Filtrar por empresa"
+            className={SELECT_CLASS}
+            value={empresaFiltro}
+            onChange={(e) => { setEmpresaFiltro(e.target.value) }}
+          >
+            <option value="">Todas las empresas</option>
+            {empresas.map((e) => (
+              <option key={e.id} value={e.id}>{e.nombre}</option>
+            ))}
+          </select>
+        )}
         <select
           aria-label="Filtrar por estado"
-          className="min-h-[2rem] rounded-lg border border-input bg-transparent px-2.5 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+          className={SELECT_CLASS}
           value={estadoFilter}
           onChange={(e) => setEstadoFilter(e.target.value as EstadoVacante | "")}
         >
@@ -122,6 +164,7 @@ export default function VacantesPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Título</TableHead>
+              {!empresaActivaId && <TableHead>Empresa</TableHead>}
               <TableHead>Área</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead>Fecha de apertura</TableHead>
@@ -135,6 +178,11 @@ export default function VacantesPage() {
                 onClick={() => router.push(`/vacantes/${vacante.id}`)}
               >
                 <TableCell className="font-medium">{vacante.titulo}</TableCell>
+                {!empresaActivaId && (
+                  <TableCell className="text-muted-foreground">
+                    {vacante.empresa_nombre ?? "—"}
+                  </TableCell>
+                )}
                 <TableCell className="text-muted-foreground">
                   {vacante.area_nombre ?? "—"}
                 </TableCell>

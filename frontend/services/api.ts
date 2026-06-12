@@ -1,4 +1,5 @@
 import type { Session } from "@/types/auth"
+import { getEmpresaActivaId } from "@/services/empresaStore"
 
 export type { Session }
 
@@ -33,6 +34,8 @@ export function authHeaders(): Record<string, string> {
   if (session?.access_token) {
     headers["Authorization"] = `Bearer ${session.access_token}`
   }
+  const empresaId = getEmpresaActivaId()
+  headers["X-Empresa-Id"] = empresaId ?? "todas"
   return headers
 }
 

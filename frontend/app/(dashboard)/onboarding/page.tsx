@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/ui/EmptyState"
 import { OnboardingChecklist } from "@/components/features/onboarding/OnboardingChecklist"
 import { fetchEmpleados } from "@/services/empleados"
 import { fetchOnboardingEmpleado, fetchOnboardings, fetchTemplates, iniciarOnboarding } from "@/services/onboarding"
+import { getEmpresaActivaId } from "@/services/empresaStore"
 import type { Empleado } from "@/types/empleado"
 import type { OnboardingDetalle, OnboardingInstancia, OnboardingTemplate } from "@/types/onboarding"
 
@@ -48,11 +49,25 @@ function IniciarModal({ activos, onClose, onSuccess }: IniciarModalProps) {
       .then(([emps, tmpls]) => {
         setEmpleados(emps.items.filter((e) => !ids.has(e.id)))
         setTemplates(tmpls)
-        if (tmpls.length > 0) setSelectedTemplateId(tmpls[0].id)
       })
       .catch(() => setError("No se pudieron cargar los datos"))
       .finally(() => setLoadingEmp(false))
   }, [activos])
+
+  // Filtra templates para mostrar solo los de la misma empresa que el empleado elegido
+  const selectedEmpleado = empleados.find((e) => e.id === selectedId)
+  const filteredTemplates =
+    selectedId && selectedEmpleado?.empresa_id
+      ? templates.filter((t) => t.empresa_id === selectedEmpleado.empresa_id)
+      : templates
+
+  useEffect(() => {
+    if (filteredTemplates.length > 0) {
+      setSelectedTemplateId(filteredTemplates[0].id)
+    } else {
+      setSelectedTemplateId("")
+    }
+  }, [selectedId])
 
   async function handleIniciar() {
     if (!selectedId || iniciando) return
@@ -135,7 +150,7 @@ function IniciarModal({ activos, onClose, onSuccess }: IniciarModalProps) {
             )}
           </div>
 
-          {!loadingEmp && templates.length > 0 && (
+          {!loadingEmp && selectedId && (
             <div>
               <label
                 htmlFor="tmpl-select"
@@ -143,18 +158,24 @@ function IniciarModal({ activos, onClose, onSuccess }: IniciarModalProps) {
               >
                 Template
               </label>
-              <select
-                id="tmpl-select"
-                value={selectedTemplateId}
-                onChange={(e) => setSelectedTemplateId(e.target.value)}
-                className="w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                {templates.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.nombre}
-                  </option>
-                ))}
-              </select>
+              {filteredTemplates.length > 0 ? (
+                <select
+                  id="tmpl-select"
+                  value={selectedTemplateId}
+                  onChange={(e) => setSelectedTemplateId(e.target.value)}
+                  className="w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  {filteredTemplates.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.nombre}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  No hay templates configurados para la empresa de este empleado.
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -175,7 +196,7 @@ function IniciarModal({ activos, onClose, onSuccess }: IniciarModalProps) {
           <button
             type="button"
             onClick={handleIniciar}
-            disabled={!selectedId || iniciando || loadingEmp}
+            disabled={!selectedId || !selectedTemplateId || iniciando || loadingEmp}
             className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
           >
             {iniciando ? "Iniciando…" : "Iniciar"}
@@ -195,6 +216,7 @@ export default function OnboardingPage() {
   const [detalle, setDetalle] = useState<OnboardingDetalle | null>(null)
   const [loadingDetalle, setLoadingDetalle] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
+  const [empresaActivaId] = useState<string | null>(() => getEmpresaActivaId())
 
   useEffect(() => {
     fetchOnboardings()
@@ -241,6 +263,9 @@ export default function OnboardingPage() {
     setOnboardings((prev) => [instancia, ...prev])
     setModalOpen(false)
   }
+
+  // mostrar columna empresa solo cuando el topbar está en "Todas"
+  const mostrarEmpresa = !empresaActivaId
 
   // ─── Loading skeleton ────────────────────────────────────────────────────────
 
@@ -321,6 +346,11 @@ export default function OnboardingPage() {
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
+                    {mostrarEmpresa && inst.empresa_nombre && (
+                      <Badge variant="outline" className="text-xs">
+                        {inst.empresa_nombre}
+                      </Badge>
+                    )}
                     <Badge variant="secondary">{semanaLabel(inst)}</Badge>
                     <ChevronRight className="size-4 text-muted-foreground" />
                   </div>

@@ -1,8 +1,9 @@
 import type { Area, AreaCreate, AreaUpdate } from "@/types/area"
 import { apiFetch } from "@/services/api"
 
-export async function fetchAreas(): Promise<Area[]> {
-  return apiFetch<Area[]>("/api/areas")
+export async function fetchAreas(empresaId?: string): Promise<Area[]> {
+  const params = empresaId ? `?empresa_id=${empresaId}` : ""
+  return apiFetch<Area[]>(`/api/areas${params}`)
 }
 
 export async function fetchArea(id: string): Promise<Area> {

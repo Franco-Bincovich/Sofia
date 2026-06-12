@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { fetchEmpleados } from "@/services/empleados"
 import { createArea, updateArea } from "@/services/areas"
+import { getEmpresaActivaId } from "@/services/empresaStore"
 import type { Empleado } from "@/types/empleado"
 import type { Area, AreaCreate } from "@/types/area"
 
@@ -23,6 +24,8 @@ interface AreaModalProps {
   onClose: () => void
   onSuccess: () => void
   area?: Area
+  /** empresa_id explícito (tab de empresa). Si no se pasa, usa la empresa activa. */
+  empresaId?: string
 }
 
 type FormData = {
@@ -46,7 +49,7 @@ function validate(form: FormData): FormErrors {
   return errors
 }
 
-export function AreaModal({ open, onClose, onSuccess, area }: AreaModalProps) {
+export function AreaModal({ open, onClose, onSuccess, area, empresaId }: AreaModalProps) {
   const isEdit = Boolean(area)
   const [form, setForm]             = useState<FormData>(EMPTY)
   const [errors, setErrors]         = useState<FormErrors>({})
@@ -56,10 +59,10 @@ export function AreaModal({ open, onClose, onSuccess, area }: AreaModalProps) {
 
   useEffect(() => {
     if (!open) return
-    fetchEmpleados(1, 100, undefined, "activo")
+    fetchEmpleados(1, 100, undefined, "activo", empresaId)
       .then((res) => setEmpleados(res.items))
       .catch(() => setEmpleados([]))
-  }, [open])
+  }, [open, empresaId])
 
   useEffect(() => {
     if (area) {
@@ -101,6 +104,7 @@ export function AreaModal({ open, onClose, onSuccess, area }: AreaModalProps) {
         })
       } else {
         const payload: AreaCreate = {
+          empresa_id: empresaId ?? getEmpresaActivaId() ?? "",
           nombre: form.nombre.trim(),
           descripcion: form.descripcion.trim() || undefined,
           responsable_id: form.responsable_id || undefined,

@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cargarNomina } from "@/services/costos"
 import { fetchEmpleados } from "@/services/empleados"
+import { getEmpresaActivaId } from "@/services/empresaStore"
 import type { Empleado } from "@/types/empleado"
 
 const MESES_LARGOS = [
@@ -40,6 +41,7 @@ export interface NominaModalProps {
 
 export function NominaModal({ open, onClose, onSuccess }: NominaModalProps) {
   const now = new Date()
+  const empresaActivaId = typeof window !== "undefined" ? getEmpresaActivaId() : null
   const [mes, setMes] = useState(now.getMonth() + 1)
   const [anio, setAnio] = useState(now.getFullYear())
   const [empleados, setEmpleados] = useState<Empleado[]>([])
@@ -195,6 +197,9 @@ export function NominaModal({ open, onClose, onSuccess }: NominaModalProps) {
               <thead>
                 <tr className="border-b">
                   <th className="pb-2 pr-4 text-left font-medium text-muted-foreground">Empleado</th>
+                  {!empresaActivaId && (
+                    <th className="pb-2 pr-4 text-left font-medium text-muted-foreground">Empresa</th>
+                  )}
                   <th className="pb-2 pr-4 text-left font-medium text-muted-foreground">Área</th>
                   <th className="pb-2 pr-4 text-left font-medium text-muted-foreground">Bruto ($)</th>
                   <th className="pb-2 text-left font-medium text-muted-foreground">Neto ($)</th>
@@ -206,6 +211,11 @@ export function NominaModal({ open, onClose, onSuccess }: NominaModalProps) {
                     <td className="py-2 pr-4 font-medium">
                       {emp.nombre} {emp.apellido}
                     </td>
+                    {!empresaActivaId && (
+                      <td className="py-2 pr-4 text-muted-foreground">
+                        {emp.empresa_nombre ?? "—"}
+                      </td>
+                    )}
                     <td className="py-2 pr-4 text-muted-foreground">
                       {emp.area_nombre ?? "—"}
                     </td>

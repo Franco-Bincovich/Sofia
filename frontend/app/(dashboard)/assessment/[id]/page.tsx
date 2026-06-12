@@ -66,6 +66,11 @@ export default function AssessmentDetailPage() {
   const router  = useRouter()
   const id      = params.id as string
 
+  // HIDDEN — módulo desactivado temporalmente; redirige sin renderizar el resto
+  useEffect(() => { router.replace("/dashboard") }, [router])
+  return null
+
+  // eslint-disable-next-line no-unreachable
   const [resultado, setResultado] = useState<ResultadoDetalle | null>(null)
   const [loading, setLoading]     = useState(true)
   const [error, setError]         = useState(false)

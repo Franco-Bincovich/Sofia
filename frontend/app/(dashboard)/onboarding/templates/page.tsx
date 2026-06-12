@@ -8,27 +8,37 @@ import { PageHeader } from "@/components/layout/PageHeader"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { ErrorState } from "@/components/ui/ErrorState"
 import { createTemplate, deleteTemplate, fetchTemplates } from "@/services/onboarding"
+import { fetchEmpresas } from "@/services/empresas"
+import { getEmpresaActivaId } from "@/services/empresaStore"
 import type { OnboardingTemplate } from "@/types/onboarding"
+import type { Empresa } from "@/types/empresa"
 
 // ─── NuevoTemplateModal ────────────────────────────────────────────────────────
 
 interface NuevoModalProps {
+  empresas: Empresa[]
+  empresaActivaId: string | null
   onClose: () => void
   onSuccess: (t: OnboardingTemplate) => void
 }
 
-function NuevoTemplateModal({ onClose, onSuccess }: NuevoModalProps) {
+function NuevoTemplateModal({ empresas, empresaActivaId, onClose, onSuccess }: NuevoModalProps) {
   const [nombre, setNombre] = useState("")
   const [descripcion, setDescripcion] = useState("")
+  const [empresaId, setEmpresaId] = useState<string>(empresaActivaId ?? empresas[0]?.id ?? "")
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function handleGuardar() {
-    if (!nombre.trim() || guardando) return
+    if (!nombre.trim() || !empresaId || guardando) return
     setGuardando(true)
     setError(null)
     try {
-      const t = await createTemplate({ nombre: nombre.trim(), descripcion: descripcion.trim() || undefined })
+      const t = await createTemplate({
+        nombre: nombre.trim(),
+        empresa_id: empresaId,
+        descripcion: descripcion.trim() || undefined,
+      })
       onSuccess(t)
     } catch {
       setError("No se pudo crear el template. Intentá de nuevo.")
@@ -60,6 +70,25 @@ function NuevoTemplateModal({ onClose, onSuccess }: NuevoModalProps) {
         </div>
 
         <div className="space-y-4">
+          {/* Selector de empresa — solo visible cuando topbar = "Todas" */}
+          {!empresaActivaId && empresas.length > 0 && (
+            <div>
+              <label htmlFor="tmpl-empresa" className="mb-1.5 block text-sm font-medium text-foreground">
+                Empresa
+              </label>
+              <select
+                id="tmpl-empresa"
+                value={empresaId}
+                onChange={(e) => setEmpresaId(e.target.value)}
+                className="w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                {empresas.map((e) => (
+                  <option key={e.id} value={e.id}>{e.nombre}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div>
             <label htmlFor="tmpl-nombre" className="mb-1.5 block text-sm font-medium text-foreground">
               Nombre
@@ -101,7 +130,7 @@ function NuevoTemplateModal({ onClose, onSuccess }: NuevoModalProps) {
           <button
             type="button"
             onClick={handleGuardar}
-            disabled={!nombre.trim() || guardando}
+            disabled={!nombre.trim() || !empresaId || guardando}
             className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
           >
             {guardando ? "Creando…" : "Crear template"}
@@ -116,18 +145,27 @@ function NuevoTemplateModal({ onClose, onSuccess }: NuevoModalProps) {
 
 export default function TemplatesPage() {
   const router = useRouter()
+  const [empresaActivaId] = useState<string | null>(() => getEmpresaActivaId())
   const [templates, setTemplates] = useState<OnboardingTemplate[]>([])
+  const [empresas, setEmpresas] = useState<Empresa[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchTemplates()
-      .then(setTemplates)
+    const tasks: Promise<unknown>[] = [
+      fetchTemplates().then(setTemplates),
+    ]
+    if (!empresaActivaId) {
+      tasks.push(
+        fetchEmpresas().then((res) => setEmpresas(res.items.filter((e) => e.activa))).catch(() => {}),
+      )
+    }
+    Promise.all(tasks)
       .catch(() => setError("No se pudieron cargar los templates"))
       .finally(() => setLoading(false))
-  }, [])
+  }, [empresaActivaId])
 
   async function handleDelete(e: React.MouseEvent, id: string) {
     e.stopPropagation()
@@ -142,6 +180,8 @@ export default function TemplatesPage() {
       setDeletingId(null)
     }
   }
+
+  const mostrarEmpresa = !empresaActivaId
 
   if (loading) {
     return (
@@ -205,6 +245,9 @@ export default function TemplatesPage() {
                     )}
                     <p className="mt-1 text-xs text-muted-foreground">
                       {t.tareas_total} tarea{t.tareas_total !== 1 ? "s" : ""}
+                      {mostrarEmpresa && t.empresa_nombre && (
+                        <span className="ml-2 text-muted-foreground/70">· {t.empresa_nombre}</span>
+                      )}
                     </p>
                   </div>
                   <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
@@ -226,6 +269,8 @@ export default function TemplatesPage() {
 
       {modalOpen && (
         <NuevoTemplateModal
+          empresas={empresas}
+          empresaActivaId={empresaActivaId}
           onClose={() => setModalOpen(false)}
           onSuccess={(t) => {
             setTemplates((prev) => [t, ...prev])

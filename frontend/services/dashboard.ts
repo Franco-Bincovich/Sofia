@@ -16,6 +16,7 @@ export interface AlertaDashboard {
 }
 
 export interface HeadcountArea {
+  area_id: string
   area: string
   total: number
 }

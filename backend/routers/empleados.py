@@ -1,6 +1,8 @@
 """
 Router de empleados — CRUD con paginación y filtros.
 Rutas protegidas por AuthMiddleware (requieren JWT válido).
+empresa_id para lecturas: header X-Empresa-Id (filtro de vista).
+empresa_id para CREATE: body.empresa_id (dato del empleado, no contexto de sesión).
 """
 from typing import Optional
 from uuid import UUID
@@ -14,6 +16,7 @@ from schemas.empleado import (
     EmpleadoUpdate,
 )
 from services.empleado_service import EmpleadoService
+from utils.empresa import get_empresa_id
 
 router = APIRouter()
 
@@ -24,6 +27,7 @@ def _service() -> EmpleadoService:
 
 @router.get("", response_model=EmpleadoListResponse)
 async def list_empleados(
+    request: Request,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     area_id: Optional[str] = Query(None),
@@ -31,15 +35,18 @@ async def list_empleados(
     search: Optional[str] = Query(None),
     service: EmpleadoService = Depends(_service),
 ) -> EmpleadoListResponse:
-    return service.get_empleados(page, page_size, area_id, estado, search)
+    empresa_id = get_empresa_id(request)
+    return service.get_empleados(page, page_size, empresa_id, area_id, estado, search)
 
 
 @router.get("/{id}", response_model=EmpleadoResponse)
 async def get_empleado(
     id: UUID,
+    request: Request,
     service: EmpleadoService = Depends(_service),
 ) -> EmpleadoResponse:
-    return service.get_empleado(id)
+    empresa_id = get_empresa_id(request)
+    return service.get_empleado(id, empresa_id)
 
 
 @router.post("", response_model=EmpleadoResponse, status_code=201)
@@ -49,21 +56,26 @@ async def create_empleado(
     service: EmpleadoService = Depends(_service),
 ) -> EmpleadoResponse:
     created_by = request.state.user.get("id", "system")
-    return service.create_empleado(body, created_by)
+    # empresa_id viene del body (dato del empleado), no del header X-Empresa-Id
+    return service.create_empleado(body, created_by, body.empresa_id)
 
 
 @router.put("/{id}", response_model=EmpleadoResponse)
 async def update_empleado(
     id: UUID,
+    request: Request,
     body: EmpleadoUpdate,
     service: EmpleadoService = Depends(_service),
 ) -> EmpleadoResponse:
-    return service.update_empleado(id, body)
+    empresa_id = get_empresa_id(request)
+    return service.update_empleado(id, body, empresa_id)
 
 
 @router.delete("/{id}", status_code=204)
 async def delete_empleado(
     id: UUID,
+    request: Request,
     service: EmpleadoService = Depends(_service),
 ) -> None:
-    service.deactivate_empleado(id)
+    empresa_id = get_empresa_id(request)
+    service.deactivate_empleado(id, empresa_id)

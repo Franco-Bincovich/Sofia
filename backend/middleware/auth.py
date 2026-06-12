@@ -1,10 +1,12 @@
 """
 Middleware de autenticación JWT.
 Decodifica el token Supabase sin verificar firma (PyJWT) y expone
-el user_id y rol en request.state.user para los handlers.
+el user_id, rol y empresa_id en request.state para los handlers.
+empresa_id proviene del header X-Empresa-Id (UUID) o queda None si viene "todas" o ausente.
 """
 import re
 from typing import Optional
+from uuid import UUID
 
 import jwt
 from fastapi.responses import JSONResponse
@@ -42,6 +44,8 @@ def _extract_token(request: Request) -> Optional[str]:
 
 class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
+        if request.method == "OPTIONS":
+            return await call_next(request)
         if _is_public(request.url.path):
             return await call_next(request)
 
@@ -78,4 +82,15 @@ class AuthMiddleware(BaseHTTPMiddleware):
             rol = None
 
         request.state.user = {"id": user_id, "rol": rol}
+
+        empresa_header = request.headers.get("X-Empresa-Id", "").strip()
+        if empresa_header and empresa_header != "todas":
+            try:
+                UUID(empresa_header)
+                request.state.empresa_id = empresa_header
+            except ValueError:
+                request.state.empresa_id = None
+        else:
+            request.state.empresa_id = None
+
         return await call_next(request)

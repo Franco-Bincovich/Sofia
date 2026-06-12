@@ -1,0 +1,45 @@
+"""
+Router de asignaciones de inventario. Montado en /api/inventario/asignaciones.
+empresa_id para lecturas: X-Empresa-Id. Para asignar: heredado del ítem en el service.
+"""
+from typing import Optional
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, Query, Request
+
+from schemas.inventario import (
+    AsignacionCreate, AsignacionListResponse, AsignacionResponse, DevolucionRequest,
+)
+from services.inventario_asignaciones_service import InventarioAsignacionesService
+from utils.empresa import get_empresa_id
+
+router = APIRouter()
+
+
+def _svc() -> InventarioAsignacionesService:
+    return InventarioAsignacionesService()
+
+
+@router.get("", response_model=AsignacionListResponse)
+async def list_asignaciones(
+    request: Request,
+    empleado_id: Optional[str] = Query(None),
+    service: InventarioAsignacionesService = Depends(_svc),
+) -> AsignacionListResponse:
+    return service.get_all(get_empresa_id(request), empleado_id)
+
+
+@router.post("", response_model=AsignacionResponse, status_code=201)
+async def asignar_item(
+    request: Request, body: AsignacionCreate,
+    service: InventarioAsignacionesService = Depends(_svc),
+) -> AsignacionResponse:
+    return service.asignar(body, request.state.user.get("id", "system"))
+
+
+@router.post("/{id}/devolver", response_model=AsignacionResponse)
+async def devolver_item(
+    id: UUID, body: DevolucionRequest,
+    service: InventarioAsignacionesService = Depends(_svc),
+) -> AsignacionResponse:
+    return service.devolver(id, body)

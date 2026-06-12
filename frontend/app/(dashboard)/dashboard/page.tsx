@@ -192,7 +192,7 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-4">
                 {data.headcount_por_area.map((row) => (
-                  <HeadcountBar key={row.area} {...row} max={maxHeadcount} />
+                  <HeadcountBar key={row.area_id} {...row} max={maxHeadcount} />
                 ))}
               </div>
             )}

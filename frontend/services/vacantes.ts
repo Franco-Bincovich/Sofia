@@ -1,11 +1,14 @@
 import type { Candidato, CandidatoCreate, EmailCandidato, EtapaPipeline, LinkedinPublicarRequest, LinkedinPublicarResponse, Vacante, VacanteCreate, VacanteUpdate } from "@/types/vacantes"
 import { apiFetch } from "@/services/api"
 
-export async function fetchVacantes(estado?: string): Promise<Vacante[]> {
+export async function fetchVacantes(estado?: string, empresaIdOverride?: string): Promise<Vacante[]> {
   const params = new URLSearchParams()
   if (estado) params.set("estado", estado)
   const query = params.toString() ? `?${params}` : ""
-  return apiFetch<Vacante[]>(`/api/vacantes${query}`)
+  return apiFetch<Vacante[]>(
+    `/api/vacantes${query}`,
+    empresaIdOverride ? { headers: { "X-Empresa-Id": empresaIdOverride } } : {},
+  )
 }
 
 export async function fetchVacante(id: string): Promise<Vacante> {

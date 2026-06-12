@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 
 class VacanteCreate(BaseModel):
+    empresa_id: UUID  # empresa de la vacante — viaja en el body, no en el header
     titulo: str
     area_id: UUID
     descripcion: Optional[str] = None
@@ -29,6 +30,8 @@ class VacanteUpdate(BaseModel):
 
 class VacanteResponse(BaseModel):
     id: str
+    empresa_id: Optional[str] = None
+    empresa_nombre: Optional[str] = None
     titulo: str
     area_id: str
     area_nombre: Optional[str] = None

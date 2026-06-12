@@ -141,9 +141,9 @@ def _build_pdf(nombre: str, datos: Dict[str, Any]) -> bytes:
                 story.append(Paragraph(f"• {item}", label_style))
         story.append(Spacer(1, 0.4*cm))
 
-    # ── Dicts simples ──────────────────────────────────────────────────────────
+    # ── Dicts simples (excluye claves privadas como _sheets) ──────────────────
     for key, val in datos.items():
-        if not isinstance(val, dict):
+        if key.startswith("_") or not isinstance(val, dict):
             continue
         story.append(Paragraph(key.replace("_", " ").capitalize(), h2_style))
         for k, v in val.items():
@@ -157,6 +157,11 @@ def _build_pdf(nombre: str, datos: Dict[str, Any]) -> bytes:
 # ── Excel builder ──────────────────────────────────────────────────────────────
 
 def _build_excel(nombre: str, datos: Dict[str, Any]) -> bytes:
+    # Despacha a multi-hoja si datos contiene _sheets (ej. anual_consolidado)
+    sheets = datos.get("_sheets")
+    if isinstance(sheets, dict):
+        return _build_excel_multisheet(nombre, sheets)
+
     import openpyxl
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
@@ -250,6 +255,77 @@ def _build_excel(nombre: str, datos: Dict[str, Any]) -> bytes:
     for col in ws.columns:
         max_len = max((len(str(c.value)) for c in col if c.value), default=10)
         ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 60)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+# ── Excel multi-hoja ───────────────────────────────────────────────────────────
+
+def _build_excel_multisheet(nombre: str, sheets: Dict[str, Any]) -> bytes:
+    """
+    Genera un workbook Excel con una hoja por clave de `sheets`.
+    Cada valor puede contener escalares (key→value) y listas de dicts (tablas).
+    Usado por el informe anual consolidado.
+    """
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
+    HEADER_FILL = PatternFill("solid", fgColor="1e293b")
+    HEADER_FONT = Font(bold=True, color="FFFFFF", size=10)
+    ALT_FILL = PatternFill("solid", fgColor="f8fafc")
+    BORDER = Border(
+        left=Side(style="thin", color="e2e8f0"),
+        right=Side(style="thin", color="e2e8f0"),
+        top=Side(style="thin", color="e2e8f0"),
+        bottom=Side(style="thin", color="e2e8f0"),
+    )
+
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)  # elimina la hoja vacía por defecto
+
+    for sheet_name, sheet_datos in sheets.items():
+        ws = wb.create_sheet(title=sheet_name[:31])
+        row = 1
+        ws.cell(row=row, column=1, value=sheet_name).font = Font(bold=True, size=12)
+        row += 2
+
+        scalars = {k: v for k, v in sheet_datos.items() if not isinstance(v, (list, dict))}
+        if scalars:
+            for k, v in scalars.items():
+                ws.cell(row=row, column=1, value=str(k)).font = Font(bold=True, size=9)
+                ws.cell(row=row, column=2, value=str(v)).font = Font(size=9)
+                row += 1
+            row += 1
+
+        for key, val in sheet_datos.items():
+            if not isinstance(val, list) or not val:
+                continue
+            ws.cell(row=row, column=1, value=key.replace("_", " ").capitalize()).font = Font(bold=True, size=11)
+            row += 1
+            if isinstance(val[0], dict):
+                headers = list(val[0].keys())
+                for col_idx, h in enumerate(headers, start=1):
+                    cell = ws.cell(row=row, column=col_idx, value=h.replace("_", " ").capitalize())
+                    cell.font = HEADER_FONT
+                    cell.fill = HEADER_FILL
+                    cell.border = BORDER
+                    cell.alignment = Alignment(horizontal="center")
+                row += 1
+                for i, item in enumerate(val):
+                    fill = ALT_FILL if i % 2 == 1 else PatternFill()
+                    for col_idx, h in enumerate(headers, start=1):
+                        cell = ws.cell(row=row, column=col_idx, value=item.get(h, ""))
+                        cell.font = Font(size=9)
+                        cell.fill = fill
+                        cell.border = BORDER
+                    row += 1
+            row += 1
+
+        for col in ws.columns:
+            max_len = max((len(str(c.value)) for c in col if c.value), default=10)
+            ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 60)
 
     buf = io.BytesIO()
     wb.save(buf)

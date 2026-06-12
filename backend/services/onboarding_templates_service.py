@@ -18,34 +18,34 @@ class OnboardingTemplatesService:
     def __init__(self, repo: Optional[OnboardingTemplatesRepo] = None) -> None:
         self._repo = repo or OnboardingTemplatesRepo()
 
-    def get_templates(self) -> list[TemplateResponse]:
-        """Retorna todos los templates activos con conteo de tareas."""
-        return self._repo.get_templates()
+    def get_templates(self, empresa_id: Optional[UUID] = None) -> list[TemplateResponse]:
+        """Retorna todos los templates activos filtrados por empresa (None = todas)."""
+        return self._repo.get_templates(empresa_id)
 
-    def get_template(self, template_id: UUID) -> TemplateResponse:
+    def get_template(self, template_id: UUID, empresa_id: Optional[UUID] = None) -> TemplateResponse:
         """
         Retorna el detalle de un template con sus tareas ordenadas por semana.
 
         Raises:
-            AppError: TEMPLATE_NOT_FOUND (404) si no existe o está inactivo.
+            AppError: TEMPLATE_NOT_FOUND (404) si no existe, está inactivo o no pertenece a la empresa.
         """
-        tmpl = self._repo.get_template(str(template_id))
+        tmpl = self._repo.get_template(str(template_id), empresa_id)
         if not tmpl:
             raise AppError("Template no encontrado", "TEMPLATE_NOT_FOUND", 404)
         return tmpl
 
     def create_template(self, data: TemplateCreate) -> TemplateResponse:
         """
-        Crea un nuevo template de onboarding.
+        Crea un nuevo template de onboarding asociado a la empresa indicada en el body.
 
         Returns:
             TemplateResponse del template recién creado.
         """
-        tmpl = self._repo.create_template(data.nombre, data.descripcion)
-        logger.info("Template creado", extra={"template_id": str(tmpl.id)})
+        tmpl = self._repo.create_template(data.nombre, data.descripcion, data.empresa_id)
+        logger.info("Template creado", extra={"template_id": str(tmpl.id), "empresa_id": str(data.empresa_id)})
         return tmpl
 
-    def update_template(self, template_id: UUID, data: TemplateUpdate) -> TemplateResponse:
+    def update_template(self, template_id: UUID, data: TemplateUpdate, empresa_id: Optional[UUID] = None) -> TemplateResponse:
         """
         Actualiza nombre y/o descripción del template.
 
@@ -54,7 +54,7 @@ class OnboardingTemplatesService:
         """
         payload = {k: v for k, v in data.model_dump().items() if v is not None}
         if not payload:
-            return self.get_template(template_id)
+            return self.get_template(template_id, empresa_id)
         tmpl = self._repo.update_template(str(template_id), payload)
         if not tmpl:
             raise AppError("Template no encontrado", "TEMPLATE_NOT_FOUND", 404)
@@ -72,20 +72,20 @@ class OnboardingTemplatesService:
         logger.info("Template eliminado", extra={"template_id": str(template_id)})
         return True
 
-    def add_tarea(self, template_id: UUID, data: TareaCreate) -> TareaResponse:
+    def add_tarea(self, template_id: UUID, data: TareaCreate, empresa_id: Optional[UUID] = None) -> TareaResponse:
         """
         Agrega una tarea a un template existente.
 
         Raises:
             AppError: TEMPLATE_NOT_FOUND (404) si el template no existe.
         """
-        if not self._repo.get_template(str(template_id)):
+        if not self._repo.get_template(str(template_id), empresa_id):
             raise AppError("Template no encontrado", "TEMPLATE_NOT_FOUND", 404)
         tarea = self._repo.add_tarea(str(template_id), data.model_dump())
         logger.info("Tarea agregada al template", extra={"template_id": str(template_id), "tarea_id": str(tarea.id)})
         return tarea
 
-    def update_tarea(self, template_id: UUID, tarea_id: UUID, data: TareaUpdate) -> TareaResponse:
+    def update_tarea(self, template_id: UUID, tarea_id: UUID, data: TareaUpdate, empresa_id: Optional[UUID] = None) -> TareaResponse:
         """
         Actualiza campos de una tarea del template.
 

@@ -30,6 +30,7 @@ import {
   fetchAnalisisPosicion, fetchHitos, fetchMapaTalento,
   fetchPlanesCarrera, updateReadiness,
 } from "@/services/sucesion"
+import { getEmpresaActivaId } from "@/services/empresaStore"
 import type { Area } from "@/types/area"
 import type { Empleado } from "@/types/empleado"
 import type { EmpleadoAnalisis, EmpleadoMapa, Hito, PlanCarrera } from "@/types/sucesion"
@@ -118,6 +119,9 @@ function PlanesSkeleton() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SucesionPage() {
+  const [empresaActivaId] = useState<string | null>(() => getEmpresaActivaId())
+  const mostrarEmpresa = !empresaActivaId
+
   const [rawEmpleados, setRawEmpleados]   = useState<EmpleadoMapa[]>([])
   const [planes, setPlanes]               = useState<PlanCarrera[]>([])
   const [areas, setAreas]                 = useState<Area[]>([])
@@ -413,7 +417,12 @@ export default function SucesionPage() {
                   <li key={plan.id} className="py-4 first:pt-0 last:pb-0">
                     <div className="flex flex-col gap-3">
                       <div className="flex items-start justify-between gap-3">
-                        <p className="font-semibold text-foreground">{plan.empleado_nombre}</p>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-foreground">{plan.empleado_nombre}</p>
+                          {mostrarEmpresa && plan.empresa_nombre && (
+                            <p className="text-xs text-muted-foreground">{plan.empresa_nombre}</p>
+                          )}
+                        </div>
                         <div className="flex shrink-0 items-center gap-2">
                           <div className="flex items-center gap-1 text-xs text-muted-foreground">
                             <CheckSquare className="size-3.5" />

@@ -1,14 +1,16 @@
 """
 Router de onboarding — instancias activas y completado de tareas.
 Rutas protegidas por AuthMiddleware.
+empresa_id para lecturas: header X-Empresa-Id (filtro de vista, None = todas).
 """
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
 from schemas.onboarding import IniciarOnboardingRequest, InstanciaDetalleResponse, InstanciaResponse
 from services.onboarding_service import OnboardingService
+from utils.empresa import get_empresa_id
 
 router = APIRouter()
 
@@ -19,17 +21,21 @@ def _service() -> OnboardingService:
 
 @router.get("", response_model=list[InstanciaResponse])
 async def list_onboardings(
+    request: Request,
     service: OnboardingService = Depends(_service),
 ) -> list[InstanciaResponse]:
-    return service.get_onboardings_activos()
+    empresa_id = get_empresa_id(request)
+    return service.get_onboardings_activos(empresa_id)
 
 
 @router.get("/{empleado_id}", response_model=InstanciaDetalleResponse)
 async def get_onboarding_empleado(
     empleado_id: UUID,
+    request: Request,
     service: OnboardingService = Depends(_service),
 ) -> InstanciaDetalleResponse:
-    return service.get_onboarding_empleado(empleado_id)
+    empresa_id = get_empresa_id(request)
+    return service.get_onboarding_empleado(empleado_id, empresa_id)
 
 
 @router.post("/{empleado_id}/iniciar", response_model=InstanciaResponse, status_code=201)

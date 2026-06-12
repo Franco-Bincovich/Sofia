@@ -1,24 +1,5 @@
-// Tipos legacy usados por OrgNode y OrgPanel (árbol por manager)
-export type AreaId = "tecnologia" | "producto" | "rrhh" | "general"
-export type Modalidad = "presencial" | "remoto" | "hibrido"
+// ── Vista por empresa: GET /api/organigrama ───────────────────────────────────
 
-export interface OrgEmployee {
-  id: string
-  nombre: string
-  apellido: string
-  cargo: string
-  area: AreaId
-  areaNombre: string
-  email: string
-  modalidad: Modalidad
-}
-
-export interface OrgTreeNode {
-  employee: OrgEmployee
-  children?: OrgTreeNode[]
-}
-
-// Tipos de la API real — GET /api/organigrama
 export interface EmpleadoNodoAPI {
   id: string
   nombre: string
@@ -33,4 +14,45 @@ export interface AreaNodoAPI {
   responsable: EmpleadoNodoAPI | null
   empleados: EmpleadoNodoAPI[]
   total_empleados: number
+}
+
+export interface EmpresaNodoAPI {
+  id: string
+  nombre: string
+  total_empleados: number
+  areas: AreaNodoAPI[]
+}
+
+// ── Vistas por proyecto: GET /api/organigrama/proyectos ───────────────────────
+
+export interface EmpleadoProyectoNodoAPI {
+  id: string
+  nombre: string
+  apellido: string
+  iniciales: string
+  cargo: string | null
+  rol: string
+  empleado_empresa_id: string
+  empleado_empresa_nombre: string | null
+  total_proyectos: number
+}
+
+export interface ProyectoOrgNodoAPI {
+  id: string
+  nombre: string
+  estado: string
+  empresa_id: string
+  empresa_nombre: string | null
+  total_asignados: number
+  empleados: EmpleadoProyectoNodoAPI[]
+}
+
+export interface EmpresaLeyendaAPI {
+  id: string
+  nombre: string
+}
+
+export interface OrgProyectosResponse {
+  proyectos: ProyectoOrgNodoAPI[]
+  empresas_orden: EmpresaLeyendaAPI[]
 }

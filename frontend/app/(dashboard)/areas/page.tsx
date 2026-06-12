@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dialog"
 import { AreaModal } from "@/components/features/areas/AreaModal"
 import { fetchAreas, deleteArea } from "@/services/areas"
+import { getEmpresaActivaId } from "@/services/empresaStore"
 import type { Area } from "@/types/area"
 
 export default function AreasPage() {
@@ -42,7 +43,7 @@ export default function AreasPage() {
     setLoading(true)
     setError(false)
     try {
-      const data = await fetchAreas()
+      const data = await fetchAreas(getEmpresaActivaId() ?? undefined)
       setAreas(data)
     } catch {
       setError(true)
@@ -213,6 +214,7 @@ export default function AreasPage() {
         onClose={() => setModalOpen(false)}
         onSuccess={handleModalSuccess}
         area={editing}
+        empresaId={getEmpresaActivaId() ?? undefined}
       />
 
       <Dialog open={Boolean(confirmDelete)} onOpenChange={(o) => { if (!o) setConfirmDelete(null) }}>

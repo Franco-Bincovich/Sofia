@@ -1,5 +1,6 @@
 export interface Area {
   id: string
+  empresa_id: string | null
   nombre: string
   descripcion: string | null
   responsable_id: string | null
@@ -9,6 +10,7 @@ export interface Area {
 }
 
 export interface AreaCreate {
+  empresa_id: string
   nombre: string
   descripcion?: string
   responsable_id?: string

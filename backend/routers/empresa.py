@@ -1,34 +1,80 @@
 """
-Router de Configuración de Empresa — GET y PUT del perfil de la organización.
+Router de empresas — CRUD completo + upload de logo.
 Rutas protegidas por AuthMiddleware (requieren JWT válido).
 """
-from fastapi import APIRouter, Depends
+from uuid import UUID
 
-from repositories.empresa_repo import EmpresaRepo
-from schemas.empresa import EmpresaResponse, EmpresaUpdate
-from utils.errors import AppError
+from fastapi import APIRouter, Depends, File, Request, UploadFile
+
+from schemas.empresa import (
+    EmpresaActivaToggle,
+    EmpresaCreate,
+    EmpresaListResponse,
+    EmpresaResponse,
+    EmpresaUpdate,
+)
+from services.empresa_service import EmpresaService
 
 router = APIRouter()
 
 
-def _repo() -> EmpresaRepo:
-    return EmpresaRepo()
+def _service() -> EmpresaService:
+    return EmpresaService()
 
 
-@router.get("", response_model=EmpresaResponse)
-async def get_empresa(repo: EmpresaRepo = Depends(_repo)) -> EmpresaResponse:
-    config = repo.get_config()
-    if not config:
-        raise AppError("Configuración de empresa no encontrada", "EMPRESA_NOT_FOUND", 404)
-    return config
+@router.get("", response_model=EmpresaListResponse)
+async def list_empresas(
+    service: EmpresaService = Depends(_service),
+) -> EmpresaListResponse:
+    return service.list_empresas()
 
 
-@router.put("", response_model=EmpresaResponse)
-async def update_empresa(
-    body: EmpresaUpdate,
-    repo: EmpresaRepo = Depends(_repo),
+@router.get("/{id}", response_model=EmpresaResponse)
+async def get_empresa(
+    id: UUID,
+    service: EmpresaService = Depends(_service),
 ) -> EmpresaResponse:
-    updated = repo.update_config(body)
-    if not updated:
-        raise AppError("Configuración de empresa no encontrada", "EMPRESA_NOT_FOUND", 404)
-    return updated
+    return service.get_empresa(str(id))
+
+
+@router.post("", response_model=EmpresaResponse, status_code=201)
+async def create_empresa(
+    request: Request,
+    body: EmpresaCreate,
+    service: EmpresaService = Depends(_service),
+) -> EmpresaResponse:
+    created_by = request.state.user.get("id", "system")
+    return service.create_empresa(body, created_by)
+
+
+@router.put("/{id}", response_model=EmpresaResponse)
+async def update_empresa(
+    id: UUID,
+    body: EmpresaUpdate,
+    service: EmpresaService = Depends(_service),
+) -> EmpresaResponse:
+    return service.update_empresa(str(id), body)
+
+
+@router.patch("/{id}/activa", response_model=EmpresaResponse)
+async def toggle_activa(
+    id: UUID,
+    body: EmpresaActivaToggle,
+    service: EmpresaService = Depends(_service),
+) -> EmpresaResponse:
+    return service.update_empresa(str(id), EmpresaUpdate(activa=body.activa))
+
+
+@router.post("/{id}/logo", response_model=EmpresaResponse)
+async def upload_logo(
+    id: UUID,
+    file: UploadFile = File(...),
+    service: EmpresaService = Depends(_service),
+) -> EmpresaResponse:
+    content = await file.read()
+    return service.upload_logo(
+        str(id),
+        content,
+        file.filename or "logo",
+        file.content_type or "image/jpeg",
+    )

@@ -3,6 +3,8 @@ export interface Empleado {
   nombre: string
   apellido: string
   email_corporativo: string
+  empresa_id: string | null
+  empresa_nombre: string | null
   area_id: string
   area_nombre: string | null
   cargo: string
@@ -14,6 +16,7 @@ export interface Empleado {
   cuil: string | null
   legajo: string | null
   estado: "activo" | "baja" | "licencia"
+  dias_vacaciones_asignados: number
   created_at: string
 }
 
@@ -26,6 +29,7 @@ export interface EmpleadoListResponse {
 }
 
 export interface EmpleadoCreate {
+  empresa_id: string
   nombre: string
   apellido: string
   email_corporativo: string
@@ -39,6 +43,7 @@ export interface EmpleadoCreate {
   cuil?: string
   legajo?: string
   rol?: string
+  dias_vacaciones_asignados?: number
 }
 
 export type EmpleadoUpdate = Partial<EmpleadoCreate> & { estado?: string }
