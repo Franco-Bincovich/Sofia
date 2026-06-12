@@ -31,9 +31,11 @@ def _svc() -> VacacionesService:
 async def list_vacaciones(
     request: Request,
     area_id: Optional[UUID] = Query(None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
     service: VacacionesService = Depends(_svc),
 ) -> SolicitudVacacionesListResponse:
-    return service.get_all(get_empresa_id(request), area_id)
+    return service.get_all(get_empresa_id(request), area_id, page, page_size)
 
 
 # /saldo/{id} debe ir ANTES de /{id} para evitar colisión de rutas

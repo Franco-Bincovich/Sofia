@@ -52,15 +52,15 @@ class AusenciasService:
 
     # ── Ausencias ──────────────────────────────────────────────────────────────
 
-    def get_all(self, empresa_id: Optional[UUID] = None, area_id: Optional[UUID] = None, tipo_id: Optional[UUID] = None) -> AusenciaListResponse:
+    def get_all(self, empresa_id: Optional[UUID] = None, area_id: Optional[UUID] = None, tipo_id: Optional[UUID] = None, page: int = 1, page_size: int = 20) -> AusenciaListResponse:
         """
-        Retorna ausencias filtradas opcionalmente por empresa, área y/o tipo.
+        Retorna una página de ausencias filtradas opcionalmente por empresa, área y/o tipo.
 
         Args:
             empresa_id: None = vista consolidada (todas las empresas).
         """
-        items = self._repo.find_all(empresa_id, area_id, tipo_id)
-        return AusenciaListResponse(items=items, total=len(items))
+        rows, total = self._repo.find_all(empresa_id, area_id, tipo_id, page, page_size)
+        return AusenciaListResponse(items=rows, total=total)
 
     def get_by_id(self, id: UUID, empresa_id: Optional[UUID] = None) -> AusenciaResponse:
         """

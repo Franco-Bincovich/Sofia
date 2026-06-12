@@ -29,11 +29,12 @@ class VacacionesService:
     def __init__(self, repo: Optional[VacacionesRepo] = None) -> None:
         self._repo = repo or VacacionesRepo()
 
-    def get_all(self, empresa_id: Optional[UUID] = None, area_id: Optional[UUID] = None) -> SolicitudVacacionesListResponse:
-        """Retorna todas las solicitudes con estado derivado, filtradas por empresa y/o área. None = todas."""
+    def get_all(self, empresa_id: Optional[UUID] = None, area_id: Optional[UUID] = None, page: int = 1, page_size: int = 20) -> SolicitudVacacionesListResponse:
+        """Retorna una página de solicitudes con estado derivado, filtradas por empresa/área. total = count real del filtro."""
         today = date.today()
-        items = [self._derive_estado(r, today) for r in self._repo.find_all(empresa_id, area_id)]
-        return SolicitudVacacionesListResponse(items=items, total=len(items))
+        rows, total = self._repo.find_all(empresa_id, area_id, page, page_size)
+        items = [self._derive_estado(r, today) for r in rows]
+        return SolicitudVacacionesListResponse(items=items, total=total)
 
     def get_by_id(self, id: UUID, empresa_id: Optional[UUID] = None) -> SolicitudVacacionesResponse:
         """Retorna el detalle de una solicitud. Raises VACACION_NOT_FOUND (404) si no existe."""

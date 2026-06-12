@@ -37,9 +37,11 @@ async def list_ausencias(
     request: Request,
     area_id: Optional[UUID] = Query(None),
     tipo_id: Optional[UUID] = Query(None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
     service: AusenciasService = Depends(_svc),
 ) -> AusenciaListResponse:
-    return service.get_all(get_empresa_id(request), area_id, tipo_id)
+    return service.get_all(get_empresa_id(request), area_id, tipo_id, page, page_size)
 
 
 @router.get("/{id}", response_model=AusenciaResponse)

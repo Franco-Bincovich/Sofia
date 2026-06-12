@@ -1,6 +1,6 @@
 """Repositorio de ausencias. Acceso a Supabase con supabase_admin."""
 from datetime import date
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from uuid import UUID
 
 from integrations.supabase_client import supabase_admin
@@ -41,8 +41,8 @@ def _build(rows: List[dict]) -> List[AusenciaResponse]:
 
 
 class AusenciasRepo:
-    def find_all(self, empresa_id: Optional[UUID] = None, area_id: Optional[UUID] = None, tipo_id: Optional[UUID] = None) -> List[AusenciaResponse]:
-        """Retorna ausencias filtradas por empresa, área y/o tipo."""
+    def find_all(self, empresa_id: Optional[UUID] = None, area_id: Optional[UUID] = None, tipo_id: Optional[UUID] = None, page: int = 1, page_size: int = 20) -> Tuple[List[AusenciaResponse], int]:
+        """Retorna (página de ausencias filtradas por empresa/área/tipo, total real del filtro)."""
         emp_ids: Optional[List[str]] = None
         if area_id:
             q = supabase_admin.table("empleados").select("id").eq("area_id", str(area_id))
@@ -50,16 +50,17 @@ class AusenciasRepo:
                 q = q.eq("empresa_id", str(empresa_id))
             data = q.execute().data or []
             if not data:
-                return []
+                return [], 0
             emp_ids = [e["id"] for e in data]
-        q = supabase_admin.table(_T).select("*").order("fecha_desde", desc=True)
+        q = supabase_admin.table(_T).select("*", count="exact").order("fecha_desde", desc=True)
         if empresa_id:
             q = q.eq("empresa_id", str(empresa_id))
         if emp_ids:
             q = q.in_("empleado_id", emp_ids)
         if tipo_id:
             q = q.eq("tipo_id", str(tipo_id))
-        return _build(q.execute().data or [])
+        res = q.range((page - 1) * page_size, page * page_size - 1).execute()
+        return _build(res.data or []), res.count or 0
 
     def find_by_id(self, id: str, empresa_id: Optional[UUID] = None) -> Optional[AusenciaResponse]:
         q = supabase_admin.table(_T).select("*").eq("id", id)

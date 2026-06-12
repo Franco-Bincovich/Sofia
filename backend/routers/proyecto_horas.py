@@ -4,7 +4,7 @@ cargado_por se obtiene de request.state.user (AuthMiddleware).
 """
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 
 from schemas.proyectos import HoraCreate, HoraListResponse, HoraResponse
 from services.horas_service import HorasService
@@ -20,9 +20,11 @@ def _svc() -> HorasService:
 @router.get("/{proyecto_id}/horas", response_model=HoraListResponse)
 async def list_horas(
     proyecto_id: UUID,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
     service: HorasService = Depends(_svc),
 ) -> HoraListResponse:
-    return service.get_by_proyecto(proyecto_id)
+    return service.get_by_proyecto(proyecto_id, page, page_size)
 
 
 @router.post("/{proyecto_id}/horas", response_model=HoraResponse, status_code=201)

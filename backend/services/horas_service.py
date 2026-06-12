@@ -29,10 +29,10 @@ class HorasService:
         self._asig = asig_repo or AsignacionesRepo()
         self._proyectos = proyectos_repo or ProyectosRepo()
 
-    def get_by_proyecto(self, proyecto_id: UUID) -> HoraListResponse:
-        """Todas las horas del proyecto, más reciente primero."""
-        items = self._repo.find_by_proyecto(str(proyecto_id))
-        return HoraListResponse(items=items, total=len(items))
+    def get_by_proyecto(self, proyecto_id: UUID, page: int = 1, page_size: int = 20) -> HoraListResponse:
+        """Una página de horas del proyecto, más reciente primero. total = count real."""
+        rows, total = self._repo.find_by_proyecto(str(proyecto_id), page, page_size)
+        return HoraListResponse(items=rows, total=total)
 
     def get_by_asignacion(self, asignacion_id: UUID) -> HoraListResponse:
         """Horas de una asignación específica."""

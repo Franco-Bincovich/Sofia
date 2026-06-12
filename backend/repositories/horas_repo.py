@@ -1,5 +1,5 @@
 """Repositorio de horas_proyecto. Acceso a Supabase con supabase_admin."""
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from integrations.supabase_client import supabase_admin
 from schemas.proyectos import HoraResponse
@@ -46,11 +46,12 @@ def _build(rows: List[dict]) -> List[HoraResponse]:
 
 
 class HorasRepo:
-    def find_by_proyecto(self, proyecto_id: str) -> List[HoraResponse]:
-        """Horas del proyecto, más reciente primero."""
-        rows = (supabase_admin.table(_T).select("*")
-                .eq("proyecto_id", proyecto_id).order("fecha", desc=True).execute().data or [])
-        return _build(rows)
+    def find_by_proyecto(self, proyecto_id: str, page: int = 1, page_size: int = 20) -> Tuple[List[HoraResponse], int]:
+        """Retorna (página de horas del proyecto, más reciente primero, total real)."""
+        res = (supabase_admin.table(_T).select("*", count="exact")
+               .eq("proyecto_id", proyecto_id).order("fecha", desc=True)
+               .range((page - 1) * page_size, page * page_size - 1).execute())
+        return _build(res.data or []), res.count or 0
 
     def find_by_asignacion(self, asignacion_id: str) -> List[HoraResponse]:
         rows = (supabase_admin.table(_T).select("*")
