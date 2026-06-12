@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react"
 import { AlertCircle, Download, Pencil, Plus, Trash2 } from "lucide-react"
+import { toast } from "sonner"
 
 import { PageHeader } from "@/components/layout/PageHeader"
 import { EmptyState } from "@/components/ui/EmptyState"
@@ -95,7 +96,7 @@ export default function AusenciasPage() {
       await deleteAusencia(id)
       await load()
     } catch {
-      // silencioso — el usuario puede reintentar
+      toast.error("No se pudo eliminar la ausencia. Intentá de nuevo.")
     } finally {
       setDeletingId(null)
     }

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { Download, Plus } from "lucide-react"
+import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
@@ -54,13 +55,13 @@ export default function ObjetivosPage() {
   async function handleMover(id: string, estado: EstadoObjetivo) {
     setMoviendo(id)
     try { await cambiarEstadoObjetivo(id, { estado }); await load() }
-    catch { /* silencioso */ } finally { setMoviendo(null) }
+    catch { toast.error("No se pudo mover el objetivo. Intentá de nuevo.") } finally { setMoviendo(null) }
   }
 
   async function handleDelete(id: string) {
     setDeletingId(id)
     try { await deleteObjetivo(id); await load() }
-    catch { /* silencioso */ } finally { setDeletingId(null) }
+    catch { toast.error("No se pudo eliminar el objetivo. Intentá de nuevo.") } finally { setDeletingId(null) }
   }
 
   async function exportarTerminados() {

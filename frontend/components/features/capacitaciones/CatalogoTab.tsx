@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { AlertCircle, Pencil, Plus, Trash2 } from "lucide-react"
+import { toast } from "sonner"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { ErrorState } from "@/components/ui/ErrorState"
 import { Badge } from "@/components/ui/badge"
@@ -62,7 +63,7 @@ export function CatalogoTab() {
   async function handleDelete(id: string) {
     setDeletingId(id)
     try { await deleteCapacitacion(id); await load() }
-    catch { /* silencioso */ }
+    catch { toast.error("No se pudo eliminar el curso. Intentá de nuevo.") }
     finally { setDeletingId(null) }
   }
 

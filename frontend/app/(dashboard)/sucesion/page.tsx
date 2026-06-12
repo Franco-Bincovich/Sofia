@@ -6,6 +6,7 @@ import {
   Filter, Layers, Plus, Search, TrendingUp, X,
 } from "lucide-react"
 import { Tabs } from "@base-ui/react/tabs"
+import { toast } from "sonner"
 
 import { PageHeader } from "@/components/layout/PageHeader"
 import { EmptyState } from "@/components/ui/EmptyState"
@@ -242,7 +243,9 @@ export default function SucesionPage() {
         setSelectedPlan(updated)
         setPlanes((prev) => prev.map((p) => p.id === updated.id ? updated : p))
       }
-    } catch { /* silently ignore */ }
+    } catch {
+      toast.error("No se pudo completar el hito. Intentá de nuevo.")
+    }
   }
 
   async function handleNuevoHito() {
@@ -276,7 +279,9 @@ export default function SucesionPage() {
       const updated = await updateReadiness(selectedPlan.id, readinessEdit)
       setSelectedPlan(updated)
       setPlanes((prev) => prev.map((p) => p.id === updated.id ? updated : p))
-    } catch { /* silently ignore */ }
+    } catch {
+      toast.error("No se pudo guardar el readiness. Intentá de nuevo.")
+    }
     finally { setReadinessSaving(false) }
   }
 

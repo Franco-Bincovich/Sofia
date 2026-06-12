@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { Plus, Search, Layers, Pencil, Trash2 } from "lucide-react"
+import { toast } from "sonner"
 
 import { PageHeader } from "@/components/layout/PageHeader"
 import { EmptyState } from "@/components/ui/EmptyState"
@@ -83,7 +84,7 @@ export default function AreasPage() {
       setConfirmDelete(null)
       void load()
     } catch {
-      // error silencioso — el usuario puede reintentar
+      toast.error("No se pudo eliminar el área. Intentá de nuevo.")
     } finally {
       setDeleting(false)
     }

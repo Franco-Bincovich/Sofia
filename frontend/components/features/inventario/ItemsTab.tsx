@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { AlertCircle, History, Pencil, Plus, Trash2 } from "lucide-react"
+import { toast } from "sonner"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { ErrorState } from "@/components/ui/ErrorState"
 import { Badge } from "@/components/ui/badge"
@@ -65,7 +66,7 @@ export function ItemsTab() {
 
   async function handleDelete(id: string) {
     setDeletingId(id)
-    try { await deleteItem(id); await load() } catch { /* silencioso */ } finally { setDeletingId(null) }
+    try { await deleteItem(id); await load() } catch { toast.error("No se pudo eliminar el ítem. Intentá de nuevo.") } finally { setDeletingId(null) }
   }
 
   const mostrarEmpresa = !empresaActivaId

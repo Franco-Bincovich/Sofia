@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react"
 import { Umbrella, Plus, Download } from "lucide-react"
+import { toast } from "sonner"
 
 import { PageHeader } from "@/components/layout/PageHeader"
 import { EmptyState } from "@/components/ui/EmptyState"
@@ -118,7 +119,7 @@ export default function VacacionesPage() {
       await cancelarVacacion(id)
       await load()
     } catch {
-      // silencioso — el usuario puede reintentar
+      toast.error("No se pudo cancelar la solicitud. Intentá de nuevo.")
     } finally {
       setCancelingId(null)
     }

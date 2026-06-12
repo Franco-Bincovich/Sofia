@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { UserMinus } from "lucide-react"
+import { toast } from "sonner"
 
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
@@ -91,6 +92,7 @@ export default function OffboardingPage() {
     try {
       await marcarActivoDevuelto(instanciaId, activo.id, newDevuelto)
     } catch {
+      toast.error("No se pudo actualizar el activo. Intentá de nuevo.")
       // Revert on failure
       setOffboardings((prev) =>
         prev.map((o) =>

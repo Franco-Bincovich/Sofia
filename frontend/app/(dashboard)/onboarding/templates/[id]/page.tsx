@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { ArrowLeft, Check, Pencil, Plus, Trash2, X } from "lucide-react"
+import { toast } from "sonner"
 
 import { ErrorState } from "@/components/ui/ErrorState"
 import {
@@ -42,6 +43,8 @@ function InlineEdit({ value, onSave, className = "", multiline = false, placehol
     setSaving(true)
     try {
       await onSave(draft)
+    } catch {
+      toast.error("No se pudo guardar el cambio. Intentá de nuevo.")
     } finally {
       setSaving(false)
       setEditing(false)

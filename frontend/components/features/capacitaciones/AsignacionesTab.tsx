@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { AlertCircle, Download, Pencil, Plus, Trash2 } from "lucide-react"
+import { toast } from "sonner"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { ErrorState } from "@/components/ui/ErrorState"
 import { Badge } from "@/components/ui/badge"
@@ -90,7 +91,7 @@ export function AsignacionesTab() {
   async function handleDelete(id: string) {
     setDeletingId(id)
     try { await deleteAsignacion(id); await load() }
-    catch { /* silencioso */ }
+    catch { toast.error("No se pudo eliminar la asignación. Intentá de nuevo.") }
     finally { setDeletingId(null) }
   }
 
