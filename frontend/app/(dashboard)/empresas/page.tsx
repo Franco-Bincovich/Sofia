@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Building2, Pencil, Plus, Power, PowerOff } from "lucide-react"
+import { toast } from "sonner"
 
 import { PageHeader } from "@/components/layout/PageHeader"
 import { EmptyState } from "@/components/ui/EmptyState"
@@ -61,7 +62,7 @@ export default function EmpresasPage() {
       await toggleEmpresaActiva(empresa.id, !empresa.activa)
       void load()
     } catch {
-      // error silencioso — el usuario puede reintentar
+      toast.error("No se pudo cambiar el estado de la empresa. Intentá de nuevo.")
     } finally {
       setTogglingId(null)
     }
