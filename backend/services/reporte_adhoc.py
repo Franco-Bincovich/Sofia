@@ -7,9 +7,7 @@ from datetime import date
 from typing import Any, Dict, Optional
 from uuid import UUID
 
-import anthropic
-
-from config.settings import settings
+from integrations.anthropic_client import anthropic_client
 from integrations.supabase_client import supabase_admin
 from utils.errors import AppError
 
@@ -67,8 +65,7 @@ def generate_adhoc(prompt: str, empresa_id: Optional[UUID] = None) -> Dict[str, 
         f"- Onboardings en curso: {onboardings}\n"
     )
 
-    client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-    message = client.messages.create(
+    message = anthropic_client.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=1500,
         messages=[
