@@ -14,6 +14,7 @@ from schemas.empresa import (
     EmpresaUpdate,
 )
 from services.empresa_service import EmpresaService
+from utils.files import ALLOWED_TYPES_IMAGEN, MAX_SIZE_LOGO, validate_upload
 
 router = APIRouter()
 
@@ -72,9 +73,5 @@ async def upload_logo(
     service: EmpresaService = Depends(_service),
 ) -> EmpresaResponse:
     content = await file.read()
-    return service.upload_logo(
-        str(id),
-        content,
-        file.filename or "logo",
-        file.content_type or "image/jpeg",
-    )
+    validate_upload(content, file.content_type, ALLOWED_TYPES_IMAGEN, MAX_SIZE_LOGO, "logo")
+    return service.upload_logo(str(id), content, file.filename or "logo", file.content_type or "image/jpeg")

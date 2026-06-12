@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
 from schemas.capacitacion import AsignacionCreate, AsignacionListResponse, AsignacionResponse, AsignacionUpdate
 from services.asignacion_service import AsignacionService
 from utils.empresa import get_empresa_id
+from utils.files import ALLOWED_TYPES_CERTIFICADO, MAX_SIZE_CERTIFICADO, validate_upload
 
 router = APIRouter()
 def _svc() -> AsignacionService: return AsignacionService()
@@ -61,6 +62,7 @@ async def upload_certificado(
     service: AsignacionService = Depends(_svc),
 ) -> AsignacionResponse:
     content = await file.read()
+    validate_upload(content, file.content_type, ALLOWED_TYPES_CERTIFICADO, MAX_SIZE_CERTIFICADO, "certificado")
     return service.upload_certificado(
         str(id), get_empresa_id(request),
         content, file.filename or "certificado", file.content_type or "application/pdf",

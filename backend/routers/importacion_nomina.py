@@ -8,6 +8,7 @@ from schemas.importacion import (
     ImportacionNominaPreviewResponse,
 )
 from services.nomina_csv_service import parse_nomina_csv
+from utils.files import ALLOWED_TYPES_CSV, MAX_SIZE_CSV, validate_upload
 from utils.logger import logger
 
 router = APIRouter()
@@ -24,6 +25,7 @@ async def preview_nomina(
 ) -> ImportacionNominaPreviewResponse:
     """Parsea el CSV de nómina: resuelve DNI→empleado y marca duplicados (anio, mes)."""
     content = await file.read()
+    validate_upload(content, file.content_type, ALLOWED_TYPES_CSV, MAX_SIZE_CSV, "archivo CSV de nómina")
     try:
         text = content.decode("utf-8-sig")
     except UnicodeDecodeError:

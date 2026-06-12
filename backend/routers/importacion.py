@@ -9,6 +9,7 @@ from schemas.importacion import (
     ImportacionPreviewResponse,
 )
 from services.csv_service import parse_empleados_csv
+from utils.files import ALLOWED_TYPES_CSV, MAX_SIZE_CSV, validate_upload
 from utils.logger import logger
 
 router = APIRouter()
@@ -26,6 +27,7 @@ async def preview_csv(
     """Parsea y valida el CSV devolviendo vista previa sin guardar nada.
     Filtra áreas por la empresa elegida y marca DNIs ya existentes (es_actualizacion)."""
     content = await file.read()
+    validate_upload(content, file.content_type, ALLOWED_TYPES_CSV, MAX_SIZE_CSV, "archivo CSV")
     try:
         text = content.decode("utf-8-sig")
     except UnicodeDecodeError:
