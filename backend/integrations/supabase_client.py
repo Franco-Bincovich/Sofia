@@ -1,24 +1,94 @@
 """
-Clientes de Supabase para el backend.
+Clientes de Supabase resilientes a conexiones muertas.
 
-- supabase_client: usa la anon key, respeta RLS. Para operaciones autenticadas del usuario.
-- supabase_admin: usa la service key, bypasea RLS. Solo para operaciones administrativas
-  que requieren acceso sin restricción de políticas (ej. leer perfil tras login).
+- supabase_client: anon key, respeta RLS. Para operaciones autenticadas del usuario.
+- supabase_admin: service key, bypasea RLS. Solo para operaciones administrativas.
+
+Se exportan como proxies transparentes. En Vercel serverless las lambdas warm reutilizan
+el proceso y la conexión HTTP subyacente puede quedar muerta entre invocaciones, lanzando
+httpx.RemoteProtocolError en la primera operación. El proxy detecta ese error, recrea el
+cliente interno y reproduce la cadena de operaciones una sola vez; si el reintento también
+falla, propaga el error original sin silenciarlo.
 """
+from typing import Any, Callable, List, Tuple
+
+from httpx import RemoteProtocolError
 from supabase import Client, create_client
 
 from config.settings import settings
+from utils.logger import logger
+
+# Módulos del ecosistema Supabase cuyos objetos son parte de la cadena fluida (se envuelven).
+_CHAINABLE_ROOTS = frozenset({"postgrest", "gotrue", "storage3", "supafunc", "supabase", "realtime"})
+
+_Op = Tuple  # un paso de la cadena: ("attr", nombre) o ("call", args, kwargs)
 
 
-def _create_anon_client() -> Client:
-    """Instancia el cliente público con la anon key. Respeta RLS."""
-    return create_client(settings.supabase_url, settings.supabase_anon_key)
+def _replay(client: Client, ops: List[_Op]) -> Any:
+    """Reproduce una cadena de operaciones registrada contra un cliente fresco."""
+    obj: Any = client
+    for op in ops:
+        obj = getattr(obj, op[1]) if op[0] == "attr" else obj(*op[1], **op[2])
+    return obj
 
 
-def _create_admin_client() -> Client:
-    """Instancia el cliente admin con la service key. Bypasea RLS — usar con criterio."""
-    return create_client(settings.supabase_url, settings.supabase_service_key)
+def _wrap(root: "_RootProxy", ops: List[_Op], value: Any) -> Any:
+    """Envuelve un valor de la cadena fluida; devuelve datos crudos en las hojas."""
+    if callable(value):
+        return _MethodProxy(root, ops, value)
+    if (type(value).__module__ or "").split(".")[0] in _CHAINABLE_ROOTS:
+        return _NodeProxy(root, ops, value)
+    return value
 
 
-supabase_client: Client = _create_anon_client()
-supabase_admin: Client = _create_admin_client()
+class _NodeProxy:
+    """Envoltura de un objeto intermedio (builder o sub-cliente) de Supabase."""
+
+    def __init__(self, root: "_RootProxy", ops: List[_Op], value: Any) -> None:
+        """Guarda el proxy raíz, la cadena de operaciones acumulada y el objeto real."""
+        self._root, self._ops, self._value = root, ops, value
+
+    def __getattr__(self, name: str) -> Any:
+        """Resuelve el atributo en el objeto real y vuelve a envolver el resultado."""
+        return _wrap(self._root, self._ops + [("attr", name)], getattr(self._value, name))
+
+
+class _MethodProxy:
+    """Envoltura de un método; reintenta una sola vez ante RemoteProtocolError."""
+
+    def __init__(self, root: "_RootProxy", ops: List[_Op], func: Callable) -> None:
+        """Guarda el proxy raíz, la cadena acumulada y la función real a invocar."""
+        self._root, self._ops, self._func = root, ops, func
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        """Ejecuta la llamada; si la conexión está muerta recrea el cliente y reintenta."""
+        ops = self._ops + [("call", args, kwargs)]
+        try:
+            result = self._func(*args, **kwargs)
+        except RemoteProtocolError:
+            self._root._recreate()
+            result = _replay(self._root._client, ops)
+        return _wrap(self._root, ops, result)
+
+
+class _RootProxy:
+    """Proxy raíz que mantiene el cliente Supabase interno y permite recrearlo."""
+
+    def __init__(self, factory: Callable[[], Client]) -> None:
+        """Crea el cliente interno a partir de la fábrica y la conserva para recrearlo."""
+        self._factory = factory
+        self._client = factory()
+
+    def _recreate(self) -> None:
+        """Recrea el cliente interno tras una conexión muerta (loguea en WARNING)."""
+        logger.warning("Recreando cliente Supabase tras RemoteProtocolError")
+        self._client = self._factory()
+
+    def __getattr__(self, name: str) -> Any:
+        """Delega el acceso de atributos al cliente real, envuelto por el proxy."""
+        return _wrap(self, [("attr", name)], getattr(self._client, name))
+
+
+# anon key: respeta RLS · service key: bypasea RLS — usar con criterio.
+supabase_client: Any = _RootProxy(lambda: create_client(settings.supabase_url, settings.supabase_anon_key))
+supabase_admin: Any = _RootProxy(lambda: create_client(settings.supabase_url, settings.supabase_service_key))
