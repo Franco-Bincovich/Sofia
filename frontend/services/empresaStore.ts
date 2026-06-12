@@ -2,7 +2,6 @@
  * Estado global de la empresa activa.
  * null = "todas las empresas" (vista consolidada, sin filtro de empresa en el backend).
  *
- * TODO: migrar a Zustand cuando se construya el selector visual de empresa en el topbar.
  * Por ahora usa localStorage para persistir entre recargas, consistente con el manejo de sesión.
  */
 

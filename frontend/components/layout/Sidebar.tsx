@@ -16,7 +16,6 @@ import {
   CalendarX2,
   DollarSign,
   TrendingUp,
-  ClipboardList,
   BarChart3,
   GraduationCap,
   ClipboardCheck,
@@ -165,6 +164,11 @@ function EmpresaSelector() {
           <ChevronsUpDown className="size-3 text-sidebar-foreground/60" />
         </div>
       </div>
+      {current !== "todas" && (
+        <p className="text-xs text-muted-foreground mt-1 truncate px-1">
+          {empresas.find((e) => e.id === current)?.nombre}
+        </p>
+      )}
     </div>
   )
 }
