@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { fetchEmpresas } from "@/services/empresas"
@@ -58,6 +59,8 @@ export function ProyectoModal({ open, proyecto, onClose, onSave }: Props) {
         fecha_inicio: fechaInicio || undefined, fecha_fin: fechaFin || undefined,
       }
       await onSave(isEdit ? base : { ...base, empresa_id })
+    } catch {
+      toast.error("No se pudo guardar el proyecto. Intentá de nuevo.")
     } finally { setSaving(false) }
   }
 

@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { CheckCircle2, KeyRound, LogOut, Unlink, UserCircle } from "lucide-react"
+import { toast } from "sonner"
 
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
@@ -109,6 +110,8 @@ export default function ConfiguracionPage() {
     try {
       await disconnectIntegracion("google")
       await load()
+    } catch {
+      toast.error("No se pudo desconectar la cuenta de Google. Intentá de nuevo.")
     } finally {
       setDisconnectingGoogle(false)
     }
@@ -121,6 +124,8 @@ export default function ConfiguracionPage() {
       await saveAnthropicKey(apiKey.trim())
       setApiKey("")
       await load()
+    } catch {
+      toast.error("No se pudo guardar la clave de API. Intentá de nuevo.")
     } finally {
       setSavingKey(false)
     }
@@ -133,6 +138,8 @@ export default function ConfiguracionPage() {
       await saveZernioKey(zernioKey.trim())
       setZernioKey("")
       await load()
+    } catch {
+      toast.error("No se pudo guardar la clave de Zernio. Intentá de nuevo.")
     } finally {
       setSavingZernioKey(false)
     }

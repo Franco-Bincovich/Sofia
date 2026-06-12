@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import type { Asignacion, HoraCreate } from "@/types/proyecto"
@@ -42,6 +43,8 @@ export function HoraModal({ open, asignaciones, onClose, onSave }: Props) {
         horas: parseFloat(horas),
         descripcion: descripcion || undefined,
       })
+    } catch {
+      toast.error("No se pudo registrar la hora. Intentá de nuevo.")
     } finally { setSaving(false) }
   }
 

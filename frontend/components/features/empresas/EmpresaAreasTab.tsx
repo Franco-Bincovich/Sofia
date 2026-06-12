@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Plus, Pencil, Trash2, Layers } from "lucide-react"
+import { toast } from "sonner"
 
 import { EmptyState } from "@/components/ui/EmptyState"
 import { ErrorState } from "@/components/ui/ErrorState"
@@ -72,7 +73,7 @@ export function EmpresaAreasTab({ empresaId }: EmpresaAreasTabProps) {
       setConfirmDelete(null)
       void load()
     } catch {
-      // error silencioso — el usuario puede reintentar
+      toast.error("No se pudo eliminar el área. Intentá de nuevo.")
     } finally {
       setDeleting(false)
     }

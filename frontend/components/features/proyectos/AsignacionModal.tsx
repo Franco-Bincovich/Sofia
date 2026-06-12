@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { fetchEmpleados } from "@/services/empleados"
@@ -62,6 +63,8 @@ export function AsignacionModal({ open, asignacion, onClose, onSave }: Props) {
         fecha_hasta: fechaHasta || undefined,
       }
       await onSave(isEdit ? base : { ...base, empleado_id: empleadoId } as AsignacionCreate)
+    } catch {
+      toast.error("No se pudo guardar la asignación. Intentá de nuevo.")
     } finally { setSaving(false) }
   }
 
