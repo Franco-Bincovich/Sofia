@@ -1,10 +1,7 @@
 """Router de importación masiva de empleados via CSV. Rutas protegidas por AuthMiddleware."""
-from datetime import date
-from uuid import UUID
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 
-from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
-
-from schemas.empleado import EmpleadoCreate, EmpleadoUpdate
+from repositories.empleado_import_repo import EmpleadoImportRepo
 from schemas.importacion import (
     ConfirmarError,
     ImportacionConfirmarRequest,
@@ -12,14 +9,13 @@ from schemas.importacion import (
     ImportacionPreviewResponse,
 )
 from services.csv_service import parse_empleados_csv
-from services.empleado_service import EmpleadoService
 from utils.logger import logger
 
 router = APIRouter()
 
 
-def _service() -> EmpleadoService:
-    return EmpleadoService()
+def _repo() -> EmpleadoImportRepo:
+    return EmpleadoImportRepo()
 
 
 @router.post("/empleados/preview", response_model=ImportacionPreviewResponse)
@@ -41,48 +37,23 @@ async def preview_csv(
 
 @router.post("/empleados/confirmar", response_model=ImportacionConfirmarResponse)
 async def confirmar_importacion(
-    request: Request,
     body: ImportacionConfirmarRequest,
-    service: EmpleadoService = Depends(_service),
+    repo: EmpleadoImportRepo = Depends(_repo),
 ) -> ImportacionConfirmarResponse:
-    """UPSERT por (empresa_id, dni): INSERT para filas nuevas, UPDATE para DNIs existentes."""
-    empresa_id = UUID(body.empresa_id)
-    created_by = request.state.user.get("id", "importacion_csv")
-    importados = 0
-    actualizados = 0
-    errores: list[ConfirmarError] = []
+    """UPSERT en batch: INSERT para filas nuevas, UPDATE por PK para DNIs existentes."""
+    filas = [{**f.model_dump(), "empresa_id": body.empresa_id} for f in body.filas]
+    aplicados = {r.get("dni") for r in repo.batch_upsert_empleados(filas)}
 
-    for fila in body.filas:
-        try:
-            if fila.es_actualizacion:
-                upd = EmpleadoUpdate(
-                    nombre=fila.nombre, apellido=fila.apellido,
-                    email_corporativo=fila.email_corporativo,
-                    area_id=UUID(fila.area_id), cargo=fila.cargo,
-                    modalidad_trabajo=fila.modalidad_trabajo,
-                    tipo_contrato=fila.tipo_contrato,
-                    fecha_ingreso=date.fromisoformat(fila.fecha_ingreso),
-                    cuil=fila.cuil, legajo=fila.legajo, rol=fila.rol, dni=fila.dni,
-                )
-                result = service.update_empleado_por_dni(fila.dni, empresa_id, upd, created_by)
-                if result:
-                    actualizados += 1
-                else:
-                    errores.append(ConfirmarError(fila=fila.fila, error=f"DNI {fila.dni} ya no existe en la empresa"))
-            else:
-                data = EmpleadoCreate(
-                    nombre=fila.nombre, apellido=fila.apellido,
-                    email_corporativo=fila.email_corporativo,
-                    area_id=UUID(fila.area_id), empresa_id=empresa_id, cargo=fila.cargo,
-                    modalidad_trabajo=fila.modalidad_trabajo,
-                    tipo_contrato=fila.tipo_contrato,
-                    fecha_ingreso=date.fromisoformat(fila.fecha_ingreso),
-                    cuil=fila.cuil, legajo=fila.legajo, rol=fila.rol, dni=fila.dni,
-                )
-                service.create_empleado(data, created_by, empresa_id)
-                importados += 1
-        except Exception as exc:
-            errores.append(ConfirmarError(fila=fila.fila, error=str(exc)))
+    importados = sum(1 for f in body.filas if not f.es_actualizacion and f.dni in aplicados)
+    actualizados = sum(1 for f in body.filas if f.es_actualizacion and f.dni in aplicados)
+    errores = [
+        ConfirmarError(fila=f.fila, error=f"DNI {f.dni} ya no existe en la empresa")
+        for f in body.filas
+        if f.es_actualizacion and f.dni not in aplicados
+    ]
 
-    logger.info("Importación CSV confirmada", extra={"importados": importados, "actualizados": actualizados, "errores": len(errores)})
+    logger.info(
+        "Importación CSV confirmada",
+        extra={"importados": importados, "actualizados": actualizados, "errores": len(errores)},
+    )
     return ImportacionConfirmarResponse(importados=importados, actualizados=actualizados, errores=errores)
