@@ -79,9 +79,10 @@ class OnboardingTemplatesService:
         Raises:
             AppError: TEMPLATE_NOT_FOUND (404) si el template no existe.
         """
-        if not self._repo.get_template(str(template_id), empresa_id):
+        tmpl = self._repo.get_template(str(template_id), empresa_id)
+        if not tmpl:
             raise AppError("Template no encontrado", "TEMPLATE_NOT_FOUND", 404)
-        tarea = self._repo.add_tarea(str(template_id), data.model_dump())
+        tarea = self._repo.add_tarea(str(template_id), data.model_dump(), str(tmpl.empresa_id))
         logger.info("Tarea agregada al template", extra={"template_id": str(template_id), "tarea_id": str(tarea.id)})
         return tarea
 

@@ -71,10 +71,10 @@ class OnboardingTemplatesRepo:
             supabase_admin.table(_TMPL).delete().eq("id", template_id).execute()
         return True
 
-    def add_tarea(self, template_id: str, data: dict) -> TareaResponse:
-        """Agrega una tarea al template."""
+    def add_tarea(self, template_id: str, data: dict, empresa_id: str) -> TareaResponse:
+        """Agrega una tarea al template, heredando el empresa_id de la plantilla."""
         res = supabase_admin.table(_TT).insert({
-            "template_id": template_id, "nombre": data["titulo"],
+            "template_id": template_id, "empresa_id": str(empresa_id), "nombre": data["titulo"],
             "descripcion": data.get("descripcion"), "semana": data["semana"],
             "orden": data["orden"], "responsable_tipo": data.get("responsable_tipo", "rrhh"),
             "dias_limite": data.get("dias_limite", 1),
