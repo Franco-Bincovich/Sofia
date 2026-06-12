@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { X } from "lucide-react"
+import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
@@ -67,6 +68,7 @@ export function OnboardingChecklist({
       try {
         await completarTarea(String(detalle.id), tareaId)
       } catch {
+        toast.error("No se pudo guardar el progreso. Intentá de nuevo.")
         setChecks((prev) => ({ ...prev, [tareaId]: currentState }))
         onTareaToggled(tareaId, currentState)
       } finally {
