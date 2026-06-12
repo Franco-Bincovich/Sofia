@@ -3,6 +3,7 @@ Repositorio de empleados — queries reales a Supabase.
 Interfaz pública: find_all · find_by_id · save · update · soft_delete
 Todas las operaciones reciben empresa_id para filtrado multiempresa.
 """
+from datetime import date
 from typing import List, Optional, Tuple
 from uuid import UUID
 
@@ -129,4 +130,26 @@ class EmpleadoRepo:
     def soft_delete(self, id: str, empresa_id: Optional[UUID] = None) -> bool:
         """Marca el empleado como baja sin eliminar el registro. Si empresa_id se provee, restringe el WHERE."""
         stmt = _with_empresa(supabase_admin.table(_TABLE).update({"estado": "baja"}).eq("id", id), empresa_id)
+        return bool(stmt.execute().data)
+
+    def dar_de_baja(self, empleado_id: str, fecha_egreso: date, empresa_id: Optional[UUID] = None) -> bool:
+        """Da de baja a un empleado: setea estado='baja' y fecha_egreso en un solo UPDATE.
+
+        Usado al iniciar un offboarding. A diferencia de soft_delete, registra también
+        la fecha de egreso, como exige MODELO_DATOS.md (baja = estado + fecha_egreso).
+
+        Args:
+            empleado_id: UUID (str) del empleado a dar de baja.
+            fecha_egreso: fecha de egreso a registrar.
+            empresa_id: si se provee, restringe el WHERE a esa empresa.
+
+        Returns:
+            True si se actualizó alguna fila; False si el empleado no existe o no pertenece a la empresa.
+        """
+        stmt = _with_empresa(
+            supabase_admin.table(_TABLE)
+            .update({"estado": "baja", "fecha_egreso": str(fecha_egreso)})
+            .eq("id", empleado_id),
+            empresa_id,
+        )
         return bool(stmt.execute().data)

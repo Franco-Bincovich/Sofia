@@ -2,6 +2,7 @@
 Servicio de offboarding. Lógica de negocio del módulo de Offboarding.
 Flujo: router → service → repository → DB
 """
+from datetime import date, timedelta
 from typing import Optional
 from uuid import UUID
 
@@ -63,6 +64,18 @@ class OffboardingService:
 
         empresa_id_str = empleado.empresa_id or ""
         offboarding = self._repo.create_offboarding(data, empresa_id_str)
+
+        fecha_egreso = data.fecha_ultimo_dia or (date.today() + timedelta(days=30))
+        empresa_uuid = UUID(empresa_id_str) if empresa_id_str else None
+        if not self._empleado_repo.dar_de_baja(str(data.empleado_id), fecha_egreso, empresa_uuid):
+            logger.warning(
+                "Offboarding iniciado pero no se pudo actualizar estado del empleado",
+                extra={
+                    "empleado_id": str(data.empleado_id),
+                    "instancia_id": str(offboarding.id),
+                },
+            )
+
         logger.info(
             "Offboarding iniciado",
             extra={
