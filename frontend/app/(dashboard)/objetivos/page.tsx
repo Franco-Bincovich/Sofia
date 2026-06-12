@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import { KanbanView } from "@/components/features/objetivos/KanbanView"
 import { ListView } from "@/components/features/objetivos/ListView"
 import { ObjetivoModal } from "@/components/features/objetivos/ObjetivoModal"
@@ -17,6 +18,16 @@ import type { Empresa } from "@/types/empresa"
 
 type Vista = "tablero" | "lista"
 const SEL = "min-h-[2rem] rounded-lg border border-input bg-transparent px-2.5 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+
+function TableSkeleton() {
+  return (
+    <div className="space-y-2">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <Skeleton key={i} className="h-12 w-full rounded-lg" />
+      ))}
+    </div>
+  )
+}
 
 export default function ObjetivosPage() {
   const [empresaActivaId] = useState<string | null>(getEmpresaActivaId)
@@ -138,7 +149,7 @@ export default function ObjetivosPage() {
         ))}
       </div>
 
-      {loading && <div className="py-12 text-center text-sm text-muted-foreground">Cargando...</div>}
+      {loading && <TableSkeleton />}
       {!loading && error && <div className="py-12 text-center text-sm text-destructive">Error al cargar. <button onClick={load} className="underline">Reintentar</button></div>}
       {!loading && !error && vista === "tablero" && (
         <KanbanView objetivos={objetivos} onMover={handleMover} moviendo={moviendo}

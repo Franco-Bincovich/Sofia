@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
@@ -18,6 +19,16 @@ import {
   finalizarInstancia, updateResultado,
 } from "@/services/evaluacionesService"
 import type { Ciclo, Instancia, InstanciaDetalle, ResultadoUpdate } from "@/types/evaluaciones"
+
+function TableSkeleton() {
+  return (
+    <div className="space-y-2">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <Skeleton key={i} className="h-12 w-full rounded-lg" />
+      ))}
+    </div>
+  )
+}
 
 // ── Modal de evaluación ───────────────────────────────────────────────────────
 
@@ -61,7 +72,7 @@ function EvaluacionForm({ instanciaId, onClose, onSaved }: EvaluacionFormProps) 
     } finally { setFinalizing(false) }
   }
 
-  if (loading) return <div className="py-8 text-center text-muted-foreground">Cargando…</div>
+  if (loading) return <TableSkeleton />
   if (!instancia) return <div className="py-8 text-center text-destructive">{error || "No encontrada"}</div>
 
   const esNumerica = instancia.plantilla_tipo_escala === "numerica"
@@ -190,7 +201,7 @@ export function EvaluacionesTab() {
     finally { setExportLoading(false) }
   }
 
-  if (loading) return <div className="py-12 text-center text-muted-foreground">Cargando evaluaciones…</div>
+  if (loading) return <TableSkeleton />
   if (error) return <div className="py-12 text-center text-destructive">{error}</div>
 
   return (

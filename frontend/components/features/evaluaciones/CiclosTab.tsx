@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
@@ -18,6 +19,16 @@ import {
 import { apiFetch } from "@/services/api"
 import type { Ciclo, CicloCreate } from "@/types/evaluaciones"
 import type { Empleado } from "@/types/empleado"
+
+function TableSkeleton() {
+  return (
+    <div className="space-y-2">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <Skeleton key={i} className="h-12 w-full rounded-lg" />
+      ))}
+    </div>
+  )
+}
 
 // ── Formulario de ciclo ───────────────────────────────────────────────────────
 
@@ -142,7 +153,7 @@ function AsignarEmpleadosModal({ ciclo, onClose, onSaved }: AsignarProps) {
     <div className="space-y-4">
       <Input placeholder="Buscar empleado…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
       {loading ? (
-        <p className="py-4 text-center text-sm text-muted-foreground">Cargando empleados…</p>
+        <TableSkeleton />
       ) : (
         <div className="max-h-64 overflow-y-auto rounded-md border">
           {filtered.map((e) => (
@@ -197,7 +208,7 @@ export function CiclosTab() {
     void load()
   }
 
-  if (loading) return <div className="py-12 text-center text-muted-foreground">Cargando ciclos…</div>
+  if (loading) return <TableSkeleton />
   if (error) return <div className="py-12 text-center text-destructive">{error}</div>
 
   return (
