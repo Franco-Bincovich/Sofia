@@ -18,3 +18,5 @@ frontend/node_modules/
 *.log
 
 backend/venv/
+
+AUDITORIA_FUNCIONAL.md

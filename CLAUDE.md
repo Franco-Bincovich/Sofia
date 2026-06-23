@@ -1,17 +1,17 @@
 # CLAUDE.md — Sofia (HR Karstec)
 
-> **Ubicación:** raíz del repo (`RRHH/`), junto a `.claude/`.
+> **Ubicación:** raíz de `RRHH/Sofia/`, junto a `backend/` y `frontend/`.
 > Claude Code lo lee al inicio de cada sesión. No moverlo a subdirectorios.
 
 ---
 
 ## Documentos de referencia (leer cuando aplique)
 
-- `Sofia/docs/MODELO_DATOS.md` — fuente de verdad del schema. Si algo contradice una tabla, manda este doc.
-- `Sofia/docs/BASES-DE-DESARROLLO.md` — convenciones de arquitectura, errores, logging, testing.
-- `Sofia/docs/ORDEN-Y-LEGIBILIDAD.md` — límites de archivo, naming, estructura de carpetas.
-- `Sofia/docs/SEGURIDAD-PENTEST.md` — autenticación, validación, rate limiting, secrets.
-- `Sofia/docs/UX-UI.md` — componentes, responsive, accesibilidad, design system.
+- `docs/MODELO_DATOS.md` — fuente de verdad del schema. Si algo contradice una tabla, manda este doc.
+- `docs/BASES-DE-DESARROLLO.md` — convenciones de arquitectura, errores, logging, testing.
+- `docs/ORDEN-Y-LEGIBILIDAD.md` — límites de archivo, naming, estructura de carpetas.
+- `docs/SEGURIDAD-PENTEST.md` — autenticación, validación, rate limiting, secrets.
+- `docs/UX-UI.md` — componentes, responsive, accesibilidad, design system.
 
 ---
 
@@ -25,13 +25,13 @@ Módulos: empleados, organigrama, onboarding/offboarding, vacantes, costos, suce
 
 ## Stack
 
-- **Frontend**: Next.js 15 (App Router) · TypeScript estricto · Tailwind CSS · Shadcn/ui — Vercel
+- **Frontend**: Next.js 16.2.4 (App Router) · TypeScript estricto · Tailwind CSS · Shadcn/ui — Vercel
 - **Backend**: Python 3.11 · FastAPI · arquitectura por capas — Vercel (serverless), migración a AWS planificada
-- **Base de datos**: Supabase (PostgreSQL) · RLS activo en la mayoría de tablas
-- **Auth**: Supabase Auth · JWT · refresh token con rotación (delegado a Supabase Auth)
+- **Base de datos**: Supabase (PostgreSQL) · RLS activo en todas las tablas
+- **Auth**: Supabase Auth · JWT ES256 verificado vía `supabase_admin.auth.get_user(token)`
 - **Storage**: Supabase Storage — buckets: `documentos`, `cvs`, `avatars`, `reportes`
-- **IA**: Anthropic Claude Sonnet · tool use tipado
-- **Email**: Resend — instalado en requirements.txt, pendiente de conectar
+- **IA**: Anthropic Claude Sonnet · cliente singleton en `integrations/anthropic_client.py` · timeout 25s
+- **Email**: Resend — instalado en requirements.txt, pendiente de conectar módulo por módulo
 - **Exportaciones**: openpyxl (export), reportlab (PDF)
 
 ---
@@ -39,41 +39,47 @@ Módulos: empleados, organigrama, onboarding/offboarding, vacantes, costos, suce
 ## Estructura de carpetas
 
 ```
-RRHH/                          ← raíz del repo
+Sofia/                         ← raíz del repo (acá va este CLAUDE.md)
 ├── CLAUDE.md                  ← este archivo
-├── .claude/
-└── Sofia/
-    ├── backend/
-    │   ├── main.py            ← punto de entrada, registra los 33 routers
-    │   ├── config/
-    │   │   └── settings.py    ← única fuente de variables de entorno
-    │   ├── routers/           ← endpoints HTTP (max 80 líneas)
-    │   ├── controllers/       ← VACÍO — capa no implementada, no usar
-    │   ├── services/          ← lógica de negocio (max 150 líneas)
-    │   ├── repositories/      ← acceso a DB via Supabase ORM (max 100 líneas)
-    │   ├── integrations/      ← supabase_client.py, anthropic_client.py
-    │   ├── schemas/           ← modelos Pydantic
-    │   ├── middleware/        ← auth.py, error_handler.py, security_headers.py
-    │   ├── utils/
-    │   │   ├── errors.py      ← AppError centralizado
-    │   │   └── logger.py      ← logger JSON estructurado
-    │   ├── migrations/        ← 54 archivos SQL numerados (000–053)
-    │   └── tests/
-    └── frontend/
-        ├── app/
-        │   ├── (auth)/        ← login, cambio de contraseña
-        │   ├── (dashboard)/   ← 28 rutas protegidas (todos los módulos)
-        │   └── assessment/[token] ← evaluación pública sin login
-        ├── components/
-        │   ├── ui/            ← genéricos: Button, Input, Table, Modal
-        │   ├── layout/        ← Sidebar, PageHeader, ThemeProvider
-        │   └── features/      ← componentes específicos por módulo
-        ├── hooks/
-        ├── services/          ← llamadas a la API + empresaStore.ts
-        ├── types/
-        ├── styles/
-        │   └── design-system.ts
-        └── utils/
+├── .env.example               ← todas las variables documentadas
+├── backend/
+│   ├── main.py                ← punto de entrada, registra todos los routers
+│   ├── config/
+│   │   └── settings.py        ← única fuente de variables de entorno
+│   ├── routers/               ← endpoints HTTP (max 80 líneas)
+│   ├── controllers/           ← VACÍO — capa no implementada, no usar
+│   ├── services/              ← lógica de negocio (max 150 líneas)
+│   ├── repositories/          ← acceso a DB via Supabase ORM (max 100 líneas)
+│   ├── integrations/
+│   │   ├── supabase_client.py ← proxy resiliente con recreación ante RemoteProtocolError
+│   │   └── anthropic_client.py ← singleton con timeout=25s, max_retries=0
+│   ├── schemas/               ← modelos Pydantic
+│   ├── middleware/            ← auth.py, error_handler.py, security_headers.py
+│   ├── utils/
+│   │   ├── errors.py          ← AppError centralizado
+│   │   ├── logger.py          ← logger JSON estructurado
+│   │   ├── empresa.py         ← get_empresa_id / require_empresa_id
+│   │   └── files.py           ← validate_upload (MIME + tamaño)
+│   ├── migrations/            ← 57 archivos SQL numerados (000–056)
+│   └── tests/
+└── frontend/
+    ├── app/
+    │   ├── (auth)/            ← login, cambio de contraseña
+    │   ├── (dashboard)/       ← 28 rutas protegidas (todos los módulos)
+    │   ├── assessment/[token] ← evaluación pública sin login
+    │   ├── error.tsx          ← error boundary (Next.js 16, "use client", unstable_retry)
+    │   ├── not-found.tsx      ← página 404
+    │   └── global-error.tsx   ← error boundary global con html/body propio
+    ├── components/
+    │   ├── ui/                ← genéricos: Button, Input, Table, Modal, Skeleton
+    │   ├── layout/            ← Sidebar (con EmpresaSelector), PageHeader, ThemeProvider
+    │   └── features/          ← componentes específicos por módulo
+    ├── hooks/
+    ├── services/              ← llamadas a la API + empresaStore.ts
+    ├── types/
+    ├── styles/
+    │   └── design-system.ts
+    └── utils/
 ```
 
 ---
@@ -98,7 +104,7 @@ Nunca saltear capas. El router no llama al repository directamente. El service n
 ### Backend (Python)
 
 - **Flujo obligatorio**: `router → service → repository`. Sin controllers.
-- **Errores**: siempre `AppError(message, code, status_code)` desde `utils/errors.py`. Nunca devolver formatos distintos.
+- **Errores**: siempre `AppError(message, code, status_code)` desde `utils/errors.py`.
 - **Logs**: solo eventos de negocio importantes. Nunca `print()`. Usar `logger` de `utils/logger.py`.
 - **Config**: nunca `os.environ` directamente. Solo `from config.settings import settings`.
 - **Docstrings**: obligatorios en todos los métodos de `services/` e `integrations/`.
@@ -108,16 +114,19 @@ Nunca saltear capas. El router no llama al repository directamente. El service n
 - **IDs**: siempre `UUID` tipado en path params, nunca `str`.
 - **DB**: siempre vía ORM de Supabase (`.eq()`, `.select()`, `.insert()`). Nunca concatenar strings en queries.
 - **Secrets**: nunca hardcodeados. Solo vía `settings`.
+- **Uploads**: todo endpoint que reciba `UploadFile` debe llamar a `validate_upload()` de `utils/files.py` después de `await file.read()`.
+- **Paginación**: los endpoints de listado usan `page: int = Query(default=1, ge=1)` y `page_size: int = Query(default=20, ge=1, le=100)`. Los repos usan `.select("*", count="exact")` y `.range()`.
 
 ### Frontend (TypeScript)
 
 - Nunca usar `any`. TypeScript estricto en todo el proyecto.
 - **Naming**: componentes `PascalCase` · hooks con prefijo `use` · constantes `UPPER_SNAKE_CASE`.
 - **Estados obligatorios**: todo componente que carga datos implementa skeleton (cargando), EmptyState (vacío), ErrorState (error) y vista con datos.
-- **Feedback de acciones**: usar Sonner (`toast.success`, `toast.error`) después de cada mutación. No dejar acciones que fallen silenciosamente.
+- **Feedback de acciones**: usar Sonner (`toast.success`, `toast.error`) después de cada mutación. Nunca `catch {}` vacío ni silencioso.
 - **Formularios**: label siempre visible, validación en tiempo real, errores específicos y accionables.
 - **Touch targets**: mínimo 44×44px en mobile.
 - **Mobile-first**: estilos base para mobile, `md:` y `lg:` para pantallas más grandes.
+- **Next.js 16**: las páginas `error.tsx` y `global-error.tsx` usan `"use client"` y la firma `{ error, unstable_retry }`. Leer `node_modules/next/dist/docs/` antes de crear páginas de error.
 
 ### Multiempresa
 
@@ -129,20 +138,20 @@ Nunca saltear capas. El router no llama al repository directamente. El service n
 ### Seguridad
 
 - CORS configurado con lista blanca desde `settings.allowed_origins_list`. Nunca `allow_origins=["*"]`.
-- Rate limiting con `slowapi` en endpoints sensibles.
-- Validar MIME type y tamaño máximo en todo endpoint que reciba archivos.
+- Rate limiting con `slowapi` — ver `utils/rate_limiter.py`.
+- Validar MIME type y tamaño máximo en todo endpoint que reciba archivos — usar `utils/files.py`.
 - RLS habilitado en todas las tablas nuevas. Sin excepción.
-- Los mensajes de error de auth son siempre genéricos — no revelar si el usuario existe o el motivo del rechazo.
+- Los mensajes de error de auth son siempre genéricos.
 
 ---
 
 ## Reglas para Claude Code (OBLIGATORIAS)
 
 1. **Leer este archivo completo antes de escribir cualquier código.**
-2. **No modificar archivos fuera del scope de la tarea.** Si la tarea es el router de empleados, no tocar settings.py ni el frontend.
+2. **No modificar archivos fuera del scope de la tarea.**
 3. **Si un archivo va a superar su límite de líneas, proponer cómo dividirlo ANTES de escribir.**
 4. **Nunca usar `print()` ni `console.log()`. Usar el logger centralizado.**
-5. **Ante dos enfoques válidos, preguntar antes de implementar.**
+5. **Ante dos enfoques válidos, elegir el más seguro, escalable y performante. Consultar solo si hay tradeoff real de funcionalidad.**
 6. **Nunca duplicar lógica que ya existe en otro módulo. Revisar antes de crear.**
 7. **Los schemas Pydantic van en `schemas/`, nunca inline.**
 8. **Los IDs son siempre `UUID` tipado, nunca `str`.**
@@ -151,40 +160,60 @@ Nunca saltear capas. El router no llama al repository directamente. El service n
 11. **No crear la capa `controllers/` — no existe en la arquitectura real del proyecto.**
 12. **Cada sesión implementa una sola tarea atómica. No mezclar features.**
 13. **Verificar que el código nuevo no rompe módulos existentes antes de terminar.**
+14. **Todo endpoint que reciba UploadFile debe llamar a validate_upload() de utils/files.py.**
 
 ---
 
 ## Estado del proyecto (junio 2026)
 
-### Métricas del repo
-- **Migraciones SQL**: 54 (000–053)
-- **Routers registrados**: 33 (todos montados en main.py, sin huérfanos)
+### Entrega 1 — Interna técnica ✅ COMPLETA
+
+Todas las tareas verificadas con diagnóstico de Claude Code. Cero bloqueantes.
+
+| Tarea | Descripción | Estado |
+|---|---|---|
+| 01 | Fix cliente Supabase — proxy resiliente ante RemoteProtocolError | ✅ |
+| 02 | Timeout Vercel 300s + cliente Anthropic singleton timeout 25s | ✅ |
+| 03 | Importaciones CSV en batch (empleados + nómina) | ✅ |
+| 04 | Validación MIME + tamaño en los 4 endpoints de upload | ✅ |
+| 05 | Versionar retrofit multiempresa (migraciones 054 + 055) | ✅ |
+| 06 | Completar .env.example con variables de Google OAuth y FRONTEND_URL | ✅ |
+| 07 | Páginas de error personalizadas (error.tsx, not-found.tsx, global-error.tsx) | ✅ |
+| 08 | RLS en 6 tablas sin cubrir (migración 056) | ✅ |
+| 09 | Mismatch assessment_resultados empresa_id | ✅ Resuelto por T05 |
+| 10 | Selector de empresa activa en Sidebar + badge empresa | ✅ |
+| 11 | Onboarding: add_tarea hereda empresa_id del template | ✅ |
+| 12 | Offboarding: dar_de_baja al iniciar proceso | ✅ |
+| 13 | Sonner en todas las mutaciones silenciosas | ✅ |
+| 14 | Paginación backend en vacaciones, ausencias y horas | ✅ |
+| 15 | Skeletons en objetivos y tabs de evaluaciones | ✅ |
+
+### Métricas del repo (post Entrega 1)
+
+- **Migraciones SQL**: 57 (000–056)
+- **Routers registrados**: 33
 - **Services**: 38 archivos
-- **Repositories**: 33 archivos (32 `*_repo.py` + 1 helper `_vacaciones_utils.py`)
+- **Repositories**: 35 archivos (incluyendo empleado_import_repo.py y nomina_import_repo.py)
 - **Rutas frontend**: 28 `page.tsx` en `app/(dashboard)/`
 
 ### Módulos por estado
 
 **Completos (cadena verificada):**
-Vacaciones · Ausencias · Evaluaciones de desempeño · Proyectos · Capacitaciones · Inventario · Objetivos · Empleados · Vacantes · Configuración · Procesos · Dashboard (datos reales, sin mocks) · Reportes con IA (end-to-end funcional)
+Vacaciones · Ausencias · Evaluaciones de desempeño · Proyectos · Capacitaciones · Inventario · Objetivos · Empleados · Vacantes · Configuración · Procesos · Dashboard · Reportes con IA · Empresas/Selector
 
-**Parciales (gaps conocidos):**
-- Empresas/Selector — backend completo, selector visual en topbar no implementado (TODO en `services/empresaStore.ts:5`)
-- Onboarding — cadena completa pero migraciones no tienen `empresa_id` y el código sí filtra por esa columna
-- Offboarding — ídem + `empleado.estado` no pasa a `baja` al iniciar el proceso
-- Costos — ídem mismatch `empresa_id` en migraciones
-- Sucesión — ídem + queries N+1 en `sucesion_repo`
-
-**Rotos:**
-- Assessment — UI deshabilitada por código (`assessment/page.tsx:73-75` redirige a `/dashboard`). Backend completo. Mismatch `empresa_id` en migración 020.
+**Parciales (gaps conocidos — Entrega 3):**
+- Assessment — UI deshabilitada por código (`assessment/page.tsx:73-75` redirige a `/dashboard`)
+- Costos — mismatch `empresa_id` en migraciones históricas
+- Sucesión — queries N+1 en `sucesion_repo` + mismatch `empresa_id`
 
 **No implementados:**
-- Asistencia — no existe ningún archivo relacionado en backend ni frontend
+- Asistencia — no existe ningún archivo relacionado. Requiere decisión de producto.
 
 ### Archivos fuera de límite de líneas
-Los siguientes archivos superan sus límites y deben dividirse antes de modificarlos:
 
-| Archivo | Límite | Líneas reales |
+Deuda pre-existente documentada. Dividir antes de modificar:
+
+| Archivo | Límite | Líneas |
 |---|---|---|
 | `services/reporte_export_service.py` | 150 | 332 |
 | `services/reporte_generators.py` | 150 | 249 |
@@ -192,44 +221,47 @@ Los siguientes archivos superan sus límites y deben dividirse antes de modifica
 | `services/csv_service.py` | 150 | 171 |
 | `services/reporte_anual.py` | 150 | 154 |
 | `repositories/ev_instancias_repo.py` | 100 | 146 |
-| `repositories/ev_plantillas_repo.py` | 100 | 129 |
+| `repositories/empleado_repo.py` | 100 | ~155 |
 | `repositories/assessment_repo.py` | 100 | 130 |
 | `repositories/costo_repo.py` | 100 | 135 |
-| `repositories/empleado_repo.py` | 100 | 132 |
+| `repositories/ev_plantillas_repo.py` | 100 | 129 |
 | `repositories/nomina_repo.py` | 100 | 107 |
 | `repositories/proyectos_repo.py` | 100 | 104 |
-| `routers/importacion.py` | 80 | 88 |
+| `repositories/ausencias_repo.py` | 100 | 101 |
+| `routers/ausencias.py` | 80 | 82 |
 | `routers/ev_plantillas.py` | 80 | 87 |
 | `routers/empleados.py` | 80 | 81 |
 | `frontend/.../empleados/page.tsx` | 150 | 295 |
+| `frontend/.../empresas/page.tsx` | 150 | 194 |
 
 ---
 
-## Plan de entregas (contexto para priorización)
+## Plan de entregas
 
-### Entrega 1 — Interna técnica (en curso)
-Objetivo: estabilidad técnica antes de abrir a usuarios reales.
-- Bloqueantes de producción: fix cliente Supabase, timeouts Vercel, batchear imports, validación uploads, versionar retrofit multiempresa, páginas de error, RLS faltante, mismatch assessment.
-- Módulos parciales: selector de empresa, alinear migraciones de Onboarding/Offboarding/Costos, corregir estado baja en Offboarding.
-- UX técnico: Sonner en todos los módulos, paginación en vacaciones/ausencias/horas, skeletons faltantes.
+### Entrega 1 ✅ COMPLETA
+Estabilidad técnica. Ver tabla arriba.
 
-### Entrega 2 — RRHH mínimo viable
-Roles funcionales · Audit log extendido · Bloqueos por módulo · Legajo ampliado · Adjuntos genéricos · Import/Export en todos los módulos · Features: vacaciones historial, proyectos por equipo, objetivos import.
+### Entrega 2 — RRHH mínimo viable (próxima)
+Roles funcionales (admin_rrhh, gerencia lectura, mandos_medios) · Validación X-Empresa-Id · Audit log extendido + UI · Bloqueos por módulo · Legajo ampliado (campos nuevos + adjuntos) · Tracking de cambios · Import/Export en todos los módulos · Features: vacaciones historial desde ingreso, proyectos por equipo/área, objetivos import masivo.
+
+**Estimación:** 111 hs · 22–28 sesiones Claude Code
 
 ### Entrega 3 — RRHH completo
-Alertas · Plantillas de mail · Filtros completos · Subobjetivos · Estadísticas evaluaciones · Offboarding estructurado · Organigrama rediseñado · Assessment/Costos/Sucesión · AWS.
+Alertas configurables · Plantillas de mail + Resend · Filtros completos por área y proyecto · Subobjetivos · Estadísticas evaluaciones · Offboarding estructurado + estadísticas IA · Organigrama como cards de proyectos · Assessment/Costos/Sucesión · AWS (Dockerfile + CI/CD + ECS).
+
+**Estimación:** 124 hs · 25–31 sesiones Claude Code
 
 ---
 
 ## Deuda técnica activa
 
-- `supabase_client.py:23-24` — singleton sin manejo de `RemoteProtocolError`. Falla en Vercel serverless con conexiones warm. Fix ya implementado en Agent-Admin, pendiente de portar. **[Entrega 1 — tarea 01]**
-- `vercel.json` — `maxDuration: 30` (30 segundos). Insuficiente para reportes IA e imports. **[Entrega 1 — tarea 02]**
-- `migrations/` — el retrofit multiempresa (tabla `empresas` + `empresa_id` en ~12 tablas históricas) se hizo a mano en Supabase y nunca se versionó. `run_all.sql` no reproduce la DB real. **[Entrega 1 — tarea 05]**
-- `assessment/page.tsx:73-75` — redirige a `/dashboard` con código inalcanzable debajo. UI deliberadamente deshabilitada. **[Entrega 3 — tarea 40]**
-- `integracion_service.py:19` — `os.environ.setdefault()` directo dentro de guard `if settings.app_env == "development"`. Viola convención de usar solo `settings`. Baja prioridad.
-- `controllers/` — carpeta vacía documentada en CLAUDE.md anterior como capa obligatoria. No existe en la arquitectura real. No crear controllers.
-- `TODO` activo: `frontend/services/empresaStore.ts:5` — migrar a Zustand cuando se construya el selector visual de empresa en topbar. **[Entrega 1 — tarea 10]**
+- `services/integracion_service.py:19` — `os.environ.setdefault()` directo dentro de guard `if settings.app_env == "development"`. Viola convención. Baja prioridad.
+- `controllers/` — carpeta vacía. No crear controllers.
+- `assessment/page.tsx:73-75` — UI deshabilitada por código (redirect a /dashboard). **[Entrega 3]**
+- `services/assessment_service.py:130` — `save_resultado` puede llamarse sin `empresa_id` siendo columna `NOT NULL`. **[Entrega 3 — al reactivar Assessment]**
+- `exportVacacionesCSV` / `exportAusenciasCSV` — exportan array en memoria (solo la página actual con paginación). Necesitan endpoint propio para exportar todo. **[Entrega 2]**
+- `handleDeleteTarea` en `onboarding/templates/[id]/page.tsx` — usa `alert()` en lugar de Sonner. **[Entrega 2]**
+- 18 archivos fuera de límite de líneas — ver tabla arriba. Dividir antes de modificar.
 
 ---
 
@@ -237,9 +269,9 @@ Alertas · Plantillas de mail · Filtros completos · Subobjetivos · Estadísti
 
 El enum `public.users.rol` (`admin_rrhh` / `management` / `empleado`) existe en DB pero **hoy no diferencia funcionalidad**: no hay checks de rol en el backend. Todo el equipo de RRHH tiene acceso completo.
 
-La capa de permisos real se construye en la Entrega 2: roles funcionales (`admin_rrhh` completo, `gerencia` solo lectura, `mandos_medios` vacaciones + ausencias de su área), tabla `acceso_empresa`, validación de `X-Empresa-Id` contra el acceso del usuario.
+La capa de permisos real se construye en la **Entrega 2**: roles funcionales, tabla `acceso_empresa`, validación de `X-Empresa-Id` contra el acceso del usuario.
 
-**Hasta completar la Entrega 2:** no agregar checks de rol en código nuevo. El sistema lo opera el equipo de RRHH completo.
+**Hasta completar la Entrega 2:** no agregar checks de rol en código nuevo.
 **A partir de la Entrega 2:** seguir el modelo de roles que se implementa en esa entrega.
 
 El empleado nunca es usuario del sistema. Donde necesita aportar datos, lo hace por link público con token, sin login.
