@@ -14,8 +14,10 @@ from schemas.costo import (
 )
 from services.costo_service import CostoService
 from utils.empresa import get_empresa_id
+from utils.permisos import Seccion
 
 router = APIRouter()
+SECCION = Seccion.COSTOS
 
 
 def _service() -> CostoService:

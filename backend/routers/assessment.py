@@ -15,8 +15,10 @@ from schemas.assessment import (
 )
 from services.assessment_service import AssessmentService
 from utils.empresa import get_empresa_id
+from utils.permisos import Seccion
 
 router = APIRouter()
+SECCION = Seccion.ASSESSMENT
 
 
 def _svc() -> AssessmentService:

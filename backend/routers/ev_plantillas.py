@@ -9,9 +9,10 @@ from schemas.evaluaciones import (
 )
 from services.ev_plantillas_service import EvPlantillasService
 from utils.empresa import get_empresa_id
+from utils.permisos import Seccion
 
 router = APIRouter()
-SECCION = "evaluaciones"
+SECCION = Seccion.EVALUACIONES
 
 
 def _svc() -> EvPlantillasService:

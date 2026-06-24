@@ -11,9 +11,10 @@ from fastapi import APIRouter, Depends, Query, Request
 from schemas.inventario import ItemCreate, ItemListResponse, ItemResponse, ItemUpdate
 from services.inventario_items_service import InventarioItemsService
 from utils.empresa import get_empresa_id
+from utils.permisos import Seccion
 
 router = APIRouter()
-SECCION = "inventario"
+SECCION = Seccion.INVENTARIO
 
 
 def _svc() -> InventarioItemsService:

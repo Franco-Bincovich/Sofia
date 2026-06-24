@@ -9,8 +9,10 @@ from fastapi import APIRouter, Depends, Query, Request
 
 from schemas.area import AreaCreate, AreaResponse, AreaUpdate
 from services.area_service import AreaService
+from utils.permisos import Seccion
 
 router = APIRouter()
+SECCION = Seccion.AREAS
 
 
 def _service() -> AreaService:

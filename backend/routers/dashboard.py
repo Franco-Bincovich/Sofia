@@ -8,8 +8,10 @@ from fastapi import APIRouter, Depends, Request
 from schemas.dashboard import DashboardResponse
 from services.dashboard_service import DashboardService
 from utils.empresa import get_empresa_id
+from utils.permisos import Seccion
 
 router = APIRouter()
+SECCION = Seccion.DASHBOARD
 
 
 def _service() -> DashboardService:

@@ -15,8 +15,10 @@ from schemas.sucesion import (
 )
 from services.sucesion_service import SucesionService
 from utils.empresa import get_empresa_id
+from utils.permisos import Seccion
 
 router = APIRouter()
+SECCION = Seccion.SUCESION
 
 
 def _svc() -> SucesionService:

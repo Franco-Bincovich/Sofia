@@ -11,8 +11,10 @@ from fastapi import APIRouter, Depends, Request
 from schemas.offboarding import ActivoUpdate, OffboardingCreate, OffboardingResponse
 from services.offboarding_service import OffboardingService
 from utils.empresa import get_empresa_id
+from utils.permisos import Seccion
 
 router = APIRouter()
+SECCION = Seccion.OFFBOARDING
 
 
 def _service() -> OffboardingService:

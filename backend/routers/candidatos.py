@@ -9,8 +9,10 @@ from fastapi import APIRouter, Depends, Request
 from schemas.vacante import CandidatoResponse, EtapaUpdate
 from services.vacante_service import VacanteService
 from utils.empresa import get_empresa_id
+from utils.permisos import Seccion
 
 router = APIRouter()
+SECCION = Seccion.CANDIDATOS
 
 
 def _svc() -> VacanteService:

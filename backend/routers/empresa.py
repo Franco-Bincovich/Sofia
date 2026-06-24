@@ -15,8 +15,10 @@ from schemas.empresa import (
 )
 from services.empresa_service import EmpresaService
 from utils.files import ALLOWED_TYPES_IMAGEN, MAX_SIZE_LOGO, validate_upload
+from utils.permisos import Seccion
 
 router = APIRouter()
+SECCION = Seccion.EMPRESA
 
 
 def _service() -> EmpresaService:

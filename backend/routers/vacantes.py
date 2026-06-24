@@ -15,8 +15,10 @@ from services.gmail_service import GmailService
 from services.vacante_service import VacanteService
 from services.zernio_service import ZernioService
 from utils.empresa import get_empresa_id
+from utils.permisos import Seccion
 
 router = APIRouter()
+SECCION = Seccion.VACANTES
 
 
 def _svc() -> VacanteService:

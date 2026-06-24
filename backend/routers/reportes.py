@@ -16,8 +16,10 @@ from schemas.reporte import HistorialItem, ReporteGenerarRequest, ReporteRespons
 from services.reporte_export_service import ReporteExportService
 from services.reporte_service import ReporteService
 from utils.empresa import get_empresa_id
+from utils.permisos import Seccion
 
 router = APIRouter()
+SECCION = Seccion.REPORTES
 
 _SAFE_NAME_RE = re.compile(r"[^\w\s\-áéíóúüñÁÉÍÓÚÜÑ]")
 

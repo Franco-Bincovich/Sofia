@@ -9,9 +9,10 @@ from schemas.ausencias import (
 )
 from services.ausencias_service import AusenciasService
 from utils.empresa import get_empresa_id
+from utils.permisos import Seccion
 
 router = APIRouter()
-SECCION = "ausencias"
+SECCION = Seccion.AUSENCIAS
 
 
 def _svc() -> AusenciasService:

@@ -13,9 +13,10 @@ from schemas.objetivo import (
 )
 from services.objetivo_service import ObjetivoService
 from utils.empresa import get_empresa_id
+from utils.permisos import Seccion
 
 router = APIRouter()
-SECCION = "objetivos"
+SECCION = Seccion.OBJETIVOS
 
 
 def _svc() -> ObjetivoService:

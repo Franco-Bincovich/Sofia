@@ -11,9 +11,10 @@ from schemas.capacitacion import (
 )
 from services.capacitacion_service import CapacitacionService
 from utils.empresa import get_empresa_id
+from utils.permisos import Seccion
 
 router = APIRouter()
-SECCION = "capacitaciones"
+SECCION = Seccion.CAPACITACIONES
 
 
 def _svc() -> CapacitacionService:

@@ -17,10 +17,11 @@ from schemas.vacaciones import (
 )
 from services.vacaciones_service import VacacionesService
 from utils.empresa import get_empresa_id
+from utils.permisos import Seccion
 
 router = APIRouter()
 
-SECCION = "vacaciones"
+SECCION = Seccion.VACACIONES
 
 
 def _svc() -> VacacionesService:

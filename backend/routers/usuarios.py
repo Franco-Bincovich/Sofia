@@ -5,8 +5,10 @@ No maneja autenticación ni permisos (eso está en routers/auth.py).
 from fastapi import APIRouter, Request
 
 from integrations.supabase_client import supabase_admin
+from utils.permisos import Seccion
 
 router = APIRouter()
+SECCION = Seccion.USUARIOS
 
 
 @router.get("")

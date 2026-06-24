@@ -17,8 +17,10 @@ from schemas.empleado import (
 )
 from services.empleado_service import EmpleadoService
 from utils.empresa import get_empresa_id
+from utils.permisos import Seccion
 
 router = APIRouter()
+SECCION = Seccion.EMPLEADOS
 
 
 def _service() -> EmpleadoService:

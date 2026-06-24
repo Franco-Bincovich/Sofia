@@ -11,8 +11,10 @@ from fastapi import APIRouter, Depends, Request
 from schemas.onboarding import IniciarOnboardingRequest, InstanciaDetalleResponse, InstanciaResponse
 from services.onboarding_service import OnboardingService
 from utils.empresa import get_empresa_id
+from utils.permisos import Seccion
 
 router = APIRouter()
+SECCION = Seccion.ONBOARDING
 
 
 def _service() -> OnboardingService:

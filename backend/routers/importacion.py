@@ -11,8 +11,10 @@ from schemas.importacion import (
 from services.csv_service import parse_empleados_csv
 from utils.files import ALLOWED_TYPES_CSV, MAX_SIZE_CSV, validate_upload
 from utils.logger import logger
+from utils.permisos import Seccion
 
 router = APIRouter()
+SECCION = Seccion.IMPORTACION
 
 
 def _repo() -> EmpleadoImportRepo:

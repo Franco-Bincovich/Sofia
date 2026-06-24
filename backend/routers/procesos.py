@@ -8,8 +8,10 @@ from fastapi import APIRouter, Depends, Request
 from schemas.procesos import ProcesosResponse
 from services.procesos_service import ProcesosService
 from utils.empresa import get_empresa_id
+from utils.permisos import Seccion
 
 router = APIRouter()
+SECCION = Seccion.PROCESOS
 
 
 def _service() -> ProcesosService:

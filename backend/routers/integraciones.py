@@ -10,8 +10,10 @@ from fastapi.responses import RedirectResponse
 from config.settings import settings
 from schemas.integracion import ApiKeyUpdate, IntegracionResponse
 from services.integracion_service import IntegracionService
+from utils.permisos import Seccion
 
 router = APIRouter()
+SECCION = Seccion.INTEGRACIONES
 
 
 def _service() -> IntegracionService:

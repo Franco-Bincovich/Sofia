@@ -12,8 +12,10 @@ from schemas.organigrama import EmpresaNodoResponse, OrgProyectosResponse
 from services.organigrama_proyectos_service import OrganigramaProyectosService
 from services.organigrama_service import OrganigramaService
 from utils.empresa import get_empresa_id
+from utils.permisos import Seccion
 
 router = APIRouter()
+SECCION = Seccion.ORGANIGRAMA
 
 
 def _svc() -> OrganigramaService:

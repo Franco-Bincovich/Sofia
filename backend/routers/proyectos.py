@@ -13,9 +13,10 @@ from schemas.proyectos import (
 )
 from services.proyectos_service import ProyectosService
 from utils.empresa import get_empresa_id
+from utils.permisos import Seccion
 
 router = APIRouter()
-SECCION = "proyectos"
+SECCION = Seccion.PROYECTOS
 
 
 def _svc() -> ProyectosService:
