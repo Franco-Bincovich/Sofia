@@ -10,15 +10,17 @@ from schemas.importacion import (
 from services.nomina_csv_service import parse_nomina_csv
 from utils.files import ALLOWED_TYPES_CSV, MAX_SIZE_CSV, validate_upload
 from utils.logger import logger
+from utils.permisos import Accion, Seccion, require_permission
 
 router = APIRouter()
+SECCION = Seccion.IMPORTACION
 
 
 def _repo() -> NominaImportRepo:
     return NominaImportRepo()
 
 
-@router.post("/nomina/preview", response_model=ImportacionNominaPreviewResponse)
+@router.post("/nomina/preview", response_model=ImportacionNominaPreviewResponse, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def preview_nomina(
     empresa_id: str = Form(...),
     file: UploadFile = File(...),
@@ -34,7 +36,7 @@ async def preview_nomina(
     return ImportacionNominaPreviewResponse(filas_validas=validas, errores=errores)
 
 
-@router.post("/nomina/confirmar", response_model=ImportacionNominaConfirmarResponse)
+@router.post("/nomina/confirmar", response_model=ImportacionNominaConfirmarResponse, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def confirmar_nomina(
     body: ImportacionNominaConfirmarRequest,
     repo: NominaImportRepo = Depends(_repo),

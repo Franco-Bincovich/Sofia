@@ -16,7 +16,7 @@ from schemas.reporte import HistorialItem, ReporteGenerarRequest, ReporteRespons
 from services.reporte_export_service import ReporteExportService
 from services.reporte_service import ReporteService
 from utils.empresa import get_empresa_id
-from utils.permisos import Seccion
+from utils.permisos import Accion, Seccion, require_permission
 
 router = APIRouter()
 SECCION = Seccion.REPORTES
@@ -32,7 +32,7 @@ def _export_service() -> ReporteExportService:
     return ReporteExportService()
 
 
-@router.post("/generar", response_model=ReporteResponse, status_code=201)
+@router.post("/generar", response_model=ReporteResponse, status_code=201, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def generar_reporte(
     request: Request,
     body: ReporteGenerarRequest,
@@ -50,7 +50,7 @@ async def generar_reporte(
     )
 
 
-@router.get("/historial", response_model=List[HistorialItem])
+@router.get("/historial", response_model=List[HistorialItem], dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def get_historial(
     request: Request,
     service: ReporteService = Depends(_service),
@@ -59,7 +59,7 @@ async def get_historial(
     return service.get_historial(empresa_id)
 
 
-@router.get("/{reporte_id}/exportar")
+@router.get("/{reporte_id}/exportar", dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def exportar_reporte(
     reporte_id: UUID,
     formato: Literal["pdf", "excel"] = Query(...),

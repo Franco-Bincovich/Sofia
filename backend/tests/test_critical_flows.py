@@ -30,10 +30,12 @@ for _k, _v in _TEST_ENV.items():
 import httpx
 import pytest
 
+from types import SimpleNamespace
+
 from config.settings import settings
 from main import app
 from utils.errors import AppError
-from utils.permisos import Accion, Seccion, puede
+from utils.permisos import Accion, Seccion, puede, require_permission
 
 _TRANSPORT = httpx.ASGITransport(app=app)
 
@@ -166,3 +168,48 @@ class TestPermisos:
 
     def test_fail_closed_accion_invalida(self) -> None:
         assert puede("admin_rrhh", Seccion.VACACIONES, "delete") is False
+
+
+# ─── require_permission (dependency wrapper) ────────────────────────────────────
+
+
+def _req(rol: object = "__missing__") -> SimpleNamespace:
+    """Request mínimo: solo .state.user, que es lo que require_permission lee."""
+    if rol == "__missing__":
+        return SimpleNamespace(state=SimpleNamespace())
+    return SimpleNamespace(state=SimpleNamespace(user={"rol": rol} if rol is not None else None))
+
+
+class TestRequirePermission:
+    async def test_gerencia_write_lanza_forbidden(self) -> None:
+        dep = require_permission(Seccion.EMPLEADOS, Accion.WRITE)
+        with pytest.raises(AppError) as exc:
+            await dep(_req("gerencia_lectura"))
+        assert exc.value.code == "FORBIDDEN"
+        assert exc.value.status_code == 403
+
+    async def test_admin_write_no_lanza(self) -> None:
+        dep = require_permission(Seccion.EMPLEADOS, Accion.WRITE)
+        assert await dep(_req("admin_rrhh")) is None
+
+    async def test_mandos_medios_vacaciones_write_no_lanza(self) -> None:
+        dep = require_permission(Seccion.VACACIONES, Accion.WRITE)
+        assert await dep(_req("mandos_medios")) is None
+
+    async def test_mandos_medios_costos_write_lanza_forbidden(self) -> None:
+        dep = require_permission(Seccion.COSTOS, Accion.WRITE)
+        with pytest.raises(AppError) as exc:
+            await dep(_req("mandos_medios"))
+        assert exc.value.code == "FORBIDDEN"
+
+    async def test_fail_closed_sin_user(self) -> None:
+        dep = require_permission(Seccion.VACACIONES, Accion.READ)
+        with pytest.raises(AppError) as exc:
+            await dep(_req())
+        assert exc.value.code == "FORBIDDEN"
+
+    async def test_fail_closed_user_sin_rol(self) -> None:
+        dep = require_permission(Seccion.VACACIONES, Accion.READ)
+        with pytest.raises(AppError) as exc:
+            await dep(_req(None))
+        assert exc.value.code == "FORBIDDEN"

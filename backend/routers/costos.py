@@ -14,7 +14,7 @@ from schemas.costo import (
 )
 from services.costo_service import CostoService
 from utils.empresa import get_empresa_id
-from utils.permisos import Seccion
+from utils.permisos import Accion, Seccion, require_permission
 
 router = APIRouter()
 SECCION = Seccion.COSTOS
@@ -24,7 +24,7 @@ def _service() -> CostoService:
     return CostoService()
 
 
-@router.get("/dashboard", response_model=DashboardCostosResponse)
+@router.get("/dashboard", response_model=DashboardCostosResponse, dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def get_dashboard(
     request: Request,
     mes: int = Query(..., ge=1, le=12),
@@ -34,7 +34,7 @@ async def get_dashboard(
     return service.get_dashboard_costos(mes, anio, get_empresa_id(request))
 
 
-@router.get("/nomina", response_model=List[NominaResponse])
+@router.get("/nomina", response_model=List[NominaResponse], dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def get_nomina(
     request: Request,
     mes: int = Query(..., ge=1, le=12),
@@ -44,7 +44,7 @@ async def get_nomina(
     return service.get_nomina_mes(mes, anio, get_empresa_id(request))
 
 
-@router.post("/nomina", response_model=NominaResponse, status_code=201)
+@router.post("/nomina", response_model=NominaResponse, status_code=201, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def post_nomina(
     request: Request,
     body: NominaCreate,
@@ -53,7 +53,7 @@ async def post_nomina(
     return service.cargar_nomina(body, get_empresa_id(request))
 
 
-@router.post("/presupuesto", response_model=PresupuestoResponse, status_code=201)
+@router.post("/presupuesto", response_model=PresupuestoResponse, status_code=201, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def post_presupuesto(
     request: Request,
     body: PresupuestoCreate,

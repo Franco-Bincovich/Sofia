@@ -11,15 +11,17 @@ from schemas.proyectos import (
 )
 from services.asignaciones_service import AsignacionesService
 from utils.empresa import get_empresa_id
+from utils.permisos import Accion, Seccion, require_permission
 
 router = APIRouter()
+SECCION = Seccion.PROYECTOS
 
 
 def _svc() -> AsignacionesService:
     return AsignacionesService()
 
 
-@router.get("/{proyecto_id}/asignaciones", response_model=AsignacionListResponse)
+@router.get("/{proyecto_id}/asignaciones", response_model=AsignacionListResponse, dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def list_asignaciones(
     proyecto_id: UUID, request: Request,
     service: AsignacionesService = Depends(_svc),
@@ -27,7 +29,7 @@ async def list_asignaciones(
     return service.get_by_proyecto(proyecto_id, get_empresa_id(request))
 
 
-@router.post("/{proyecto_id}/asignaciones", response_model=AsignacionResponse, status_code=201)
+@router.post("/{proyecto_id}/asignaciones", response_model=AsignacionResponse, status_code=201, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def asignar_empleado(
     proyecto_id: UUID, request: Request, body: AsignacionCreate,
     service: AsignacionesService = Depends(_svc),
@@ -35,7 +37,7 @@ async def asignar_empleado(
     return service.asignar(proyecto_id, body, get_empresa_id(request))
 
 
-@router.put("/{proyecto_id}/asignaciones/{asig_id}", response_model=AsignacionResponse)
+@router.put("/{proyecto_id}/asignaciones/{asig_id}", response_model=AsignacionResponse, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def update_asignacion(
     proyecto_id: UUID, asig_id: UUID, body: AsignacionUpdate, request: Request,
     service: AsignacionesService = Depends(_svc),
@@ -43,7 +45,7 @@ async def update_asignacion(
     return service.update(asig_id, body, get_empresa_id(request))
 
 
-@router.delete("/{proyecto_id}/asignaciones/{asig_id}", status_code=200)
+@router.delete("/{proyecto_id}/asignaciones/{asig_id}", status_code=200, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def delete_asignacion(
     proyecto_id: UUID, asig_id: UUID, request: Request,
     service: AsignacionesService = Depends(_svc),

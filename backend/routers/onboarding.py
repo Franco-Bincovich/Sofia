@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, Request
 from schemas.onboarding import IniciarOnboardingRequest, InstanciaDetalleResponse, InstanciaResponse
 from services.onboarding_service import OnboardingService
 from utils.empresa import get_empresa_id
-from utils.permisos import Seccion
+from utils.permisos import Accion, Seccion, require_permission
 
 router = APIRouter()
 SECCION = Seccion.ONBOARDING
@@ -21,7 +21,7 @@ def _service() -> OnboardingService:
     return OnboardingService()
 
 
-@router.get("", response_model=list[InstanciaResponse])
+@router.get("", response_model=list[InstanciaResponse], dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def list_onboardings(
     request: Request,
     service: OnboardingService = Depends(_service),
@@ -30,7 +30,7 @@ async def list_onboardings(
     return service.get_onboardings_activos(empresa_id)
 
 
-@router.get("/{empleado_id}", response_model=InstanciaDetalleResponse)
+@router.get("/{empleado_id}", response_model=InstanciaDetalleResponse, dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def get_onboarding_empleado(
     empleado_id: UUID,
     request: Request,
@@ -40,7 +40,7 @@ async def get_onboarding_empleado(
     return service.get_onboarding_empleado(empleado_id, empresa_id)
 
 
-@router.post("/{empleado_id}/iniciar", response_model=InstanciaResponse, status_code=201)
+@router.post("/{empleado_id}/iniciar", response_model=InstanciaResponse, status_code=201, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def iniciar_onboarding(
     empleado_id: UUID,
     body: Optional[IniciarOnboardingRequest] = None,
@@ -53,6 +53,7 @@ async def iniciar_onboarding(
 @router.put(
     "/{instancia_id}/tareas/{tarea_id}/completar",
     response_model=dict,
+    dependencies=[Depends(require_permission(SECCION, Accion.WRITE))],
 )
 async def completar_tarea(
     instancia_id: UUID,

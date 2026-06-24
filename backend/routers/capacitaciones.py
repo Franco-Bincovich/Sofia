@@ -11,7 +11,7 @@ from schemas.capacitacion import (
 )
 from services.capacitacion_service import CapacitacionService
 from utils.empresa import get_empresa_id
-from utils.permisos import Seccion
+from utils.permisos import Accion, Seccion, require_permission
 
 router = APIRouter()
 SECCION = Seccion.CAPACITACIONES
@@ -21,7 +21,7 @@ def _svc() -> CapacitacionService:
     return CapacitacionService()
 
 
-@router.get("", response_model=CapacitacionListResponse)
+@router.get("", response_model=CapacitacionListResponse, dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def list_capacitaciones(
     request: Request,
     solo_activos: bool = Query(True),
@@ -30,7 +30,7 @@ async def list_capacitaciones(
     return service.get_all(get_empresa_id(request), solo_activos)
 
 
-@router.get("/{id}", response_model=CapacitacionResponse)
+@router.get("/{id}", response_model=CapacitacionResponse, dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def get_capacitacion(
     id: UUID,
     request: Request,
@@ -39,7 +39,7 @@ async def get_capacitacion(
     return service.get_by_id(id, get_empresa_id(request))
 
 
-@router.post("", response_model=CapacitacionResponse, status_code=201)
+@router.post("", response_model=CapacitacionResponse, status_code=201, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def create_capacitacion(
     request: Request,
     body: CapacitacionCreate,
@@ -48,7 +48,7 @@ async def create_capacitacion(
     return service.create(body, request.state.user.get("id", "system"))
 
 
-@router.put("/{id}", response_model=CapacitacionResponse)
+@router.put("/{id}", response_model=CapacitacionResponse, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def update_capacitacion(
     id: UUID,
     request: Request,
@@ -58,7 +58,7 @@ async def update_capacitacion(
     return service.update(id, body, get_empresa_id(request))
 
 
-@router.delete("/{id}", status_code=200)
+@router.delete("/{id}", status_code=200, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def delete_capacitacion(
     id: UUID,
     request: Request,

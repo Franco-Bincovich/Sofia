@@ -12,7 +12,7 @@ from schemas.organigrama import EmpresaNodoResponse, OrgProyectosResponse
 from services.organigrama_proyectos_service import OrganigramaProyectosService
 from services.organigrama_service import OrganigramaService
 from utils.empresa import get_empresa_id
-from utils.permisos import Seccion
+from utils.permisos import Accion, Seccion, require_permission
 
 router = APIRouter()
 SECCION = Seccion.ORGANIGRAMA
@@ -26,7 +26,7 @@ def _proy_svc() -> OrganigramaProyectosService:
     return OrganigramaProyectosService()
 
 
-@router.get("", response_model=List[EmpresaNodoResponse])
+@router.get("", response_model=List[EmpresaNodoResponse], dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def get_organigrama(
     request: Request,
     service: OrganigramaService = Depends(_svc),
@@ -34,7 +34,7 @@ async def get_organigrama(
     return service.get_organigrama_empresa(get_empresa_id(request))
 
 
-@router.get("/proyectos", response_model=OrgProyectosResponse)
+@router.get("/proyectos", response_model=OrgProyectosResponse, dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def get_organigrama_proyectos(
     request: Request,
     service: OrganigramaProyectosService = Depends(_proy_svc),

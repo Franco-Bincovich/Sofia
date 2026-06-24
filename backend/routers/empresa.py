@@ -15,7 +15,7 @@ from schemas.empresa import (
 )
 from services.empresa_service import EmpresaService
 from utils.files import ALLOWED_TYPES_IMAGEN, MAX_SIZE_LOGO, validate_upload
-from utils.permisos import Seccion
+from utils.permisos import Accion, Seccion, require_permission
 
 router = APIRouter()
 SECCION = Seccion.EMPRESA
@@ -25,14 +25,14 @@ def _service() -> EmpresaService:
     return EmpresaService()
 
 
-@router.get("", response_model=EmpresaListResponse)
+@router.get("", response_model=EmpresaListResponse, dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def list_empresas(
     service: EmpresaService = Depends(_service),
 ) -> EmpresaListResponse:
     return service.list_empresas()
 
 
-@router.get("/{id}", response_model=EmpresaResponse)
+@router.get("/{id}", response_model=EmpresaResponse, dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def get_empresa(
     id: UUID,
     service: EmpresaService = Depends(_service),
@@ -40,7 +40,7 @@ async def get_empresa(
     return service.get_empresa(str(id))
 
 
-@router.post("", response_model=EmpresaResponse, status_code=201)
+@router.post("", response_model=EmpresaResponse, status_code=201, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def create_empresa(
     request: Request,
     body: EmpresaCreate,
@@ -50,7 +50,7 @@ async def create_empresa(
     return service.create_empresa(body, created_by)
 
 
-@router.put("/{id}", response_model=EmpresaResponse)
+@router.put("/{id}", response_model=EmpresaResponse, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def update_empresa(
     id: UUID,
     body: EmpresaUpdate,
@@ -59,7 +59,7 @@ async def update_empresa(
     return service.update_empresa(str(id), body)
 
 
-@router.patch("/{id}/activa", response_model=EmpresaResponse)
+@router.patch("/{id}/activa", response_model=EmpresaResponse, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def toggle_activa(
     id: UUID,
     body: EmpresaActivaToggle,
@@ -68,7 +68,7 @@ async def toggle_activa(
     return service.update_empresa(str(id), EmpresaUpdate(activa=body.activa))
 
 
-@router.post("/{id}/logo", response_model=EmpresaResponse)
+@router.post("/{id}/logo", response_model=EmpresaResponse, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def upload_logo(
     id: UUID,
     file: UploadFile = File(...),

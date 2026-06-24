@@ -11,7 +11,7 @@ from schemas.importacion import (
 from services.csv_service import parse_empleados_csv
 from utils.files import ALLOWED_TYPES_CSV, MAX_SIZE_CSV, validate_upload
 from utils.logger import logger
-from utils.permisos import Seccion
+from utils.permisos import Accion, Seccion, require_permission
 
 router = APIRouter()
 SECCION = Seccion.IMPORTACION
@@ -21,7 +21,7 @@ def _repo() -> EmpleadoImportRepo:
     return EmpleadoImportRepo()
 
 
-@router.post("/empleados/preview", response_model=ImportacionPreviewResponse)
+@router.post("/empleados/preview", response_model=ImportacionPreviewResponse, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def preview_csv(
     empresa_id: str = Form(...),
     file: UploadFile = File(...),
@@ -39,7 +39,7 @@ async def preview_csv(
     return ImportacionPreviewResponse(filas_validas=validas, errores=errores)
 
 
-@router.post("/empleados/confirmar", response_model=ImportacionConfirmarResponse)
+@router.post("/empleados/confirmar", response_model=ImportacionConfirmarResponse, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def confirmar_importacion(
     body: ImportacionConfirmarRequest,
     repo: EmpleadoImportRepo = Depends(_repo),

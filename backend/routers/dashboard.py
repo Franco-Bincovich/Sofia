@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Request
 from schemas.dashboard import DashboardResponse
 from services.dashboard_service import DashboardService
 from utils.empresa import get_empresa_id
-from utils.permisos import Seccion
+from utils.permisos import Accion, Seccion, require_permission
 
 router = APIRouter()
 SECCION = Seccion.DASHBOARD
@@ -18,7 +18,7 @@ def _service() -> DashboardService:
     return DashboardService()
 
 
-@router.get("", response_model=DashboardResponse)
+@router.get("", response_model=DashboardResponse, dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def get_dashboard(
     request: Request,
     service: DashboardService = Depends(_service),

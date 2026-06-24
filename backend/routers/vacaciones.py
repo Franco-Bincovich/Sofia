@@ -17,7 +17,7 @@ from schemas.vacaciones import (
 )
 from services.vacaciones_service import VacacionesService
 from utils.empresa import get_empresa_id
-from utils.permisos import Seccion
+from utils.permisos import Accion, Seccion, require_permission
 
 router = APIRouter()
 
@@ -28,7 +28,7 @@ def _svc() -> VacacionesService:
     return VacacionesService()
 
 
-@router.get("", response_model=SolicitudVacacionesListResponse)
+@router.get("", response_model=SolicitudVacacionesListResponse, dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def list_vacaciones(
     request: Request,
     area_id: Optional[UUID] = Query(None),
@@ -40,7 +40,7 @@ async def list_vacaciones(
 
 
 # /saldo/{id} debe ir ANTES de /{id} para evitar colisión de rutas
-@router.get("/saldo/{empleado_id}", response_model=SaldoVacacionesResponse)
+@router.get("/saldo/{empleado_id}", response_model=SaldoVacacionesResponse, dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def get_saldo(
     empleado_id: UUID,
     service: VacacionesService = Depends(_svc),
@@ -48,7 +48,7 @@ async def get_saldo(
     return service.get_saldo(empleado_id)
 
 
-@router.get("/{id}", response_model=SolicitudVacacionesResponse)
+@router.get("/{id}", response_model=SolicitudVacacionesResponse, dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def get_vacacion(
     id: UUID,
     request: Request,
@@ -57,7 +57,7 @@ async def get_vacacion(
     return service.get_by_id(id, get_empresa_id(request))
 
 
-@router.post("", response_model=SolicitudVacacionesResponse, status_code=201)
+@router.post("", response_model=SolicitudVacacionesResponse, status_code=201, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def create_vacacion(
     request: Request,
     body: SolicitudVacacionesCreate,
@@ -66,7 +66,7 @@ async def create_vacacion(
     return service.create(body, request.state.user.get("id", "system"))
 
 
-@router.put("/{id}/cancelar", response_model=SolicitudVacacionesResponse)
+@router.put("/{id}/cancelar", response_model=SolicitudVacacionesResponse, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def cancel_vacacion(
     id: UUID,
     request: Request,

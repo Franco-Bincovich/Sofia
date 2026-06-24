@@ -15,7 +15,7 @@ from services.gmail_service import GmailService
 from services.vacante_service import VacanteService
 from services.zernio_service import ZernioService
 from utils.empresa import get_empresa_id
-from utils.permisos import Seccion
+from utils.permisos import Accion, Seccion, require_permission
 
 router = APIRouter()
 SECCION = Seccion.VACANTES
@@ -25,54 +25,54 @@ def _svc() -> VacanteService:
     return VacanteService()
 
 
-@router.get("", response_model=List[VacanteResponse])
+@router.get("", response_model=List[VacanteResponse], dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def list_vacantes(
     request: Request, estado: Optional[str] = Query(None), service: VacanteService = Depends(_svc)
 ) -> List[VacanteResponse]:
     return service.get_vacantes(estado, get_empresa_id(request))
 
 
-@router.get("/{id}", response_model=VacanteResponse)
+@router.get("/{id}", response_model=VacanteResponse, dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def get_vacante(id: UUID, request: Request, service: VacanteService = Depends(_svc)) -> VacanteResponse:
     return service.get_vacante(id, get_empresa_id(request))
 
 
-@router.post("", response_model=VacanteResponse, status_code=201)
+@router.post("", response_model=VacanteResponse, status_code=201, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def create_vacante(
     request: Request, body: VacanteCreate, service: VacanteService = Depends(_svc)
 ) -> VacanteResponse:
     return service.create_vacante(body, request.state.user.get("id", "system"))
 
 
-@router.put("/{id}", response_model=VacanteResponse)
+@router.put("/{id}", response_model=VacanteResponse, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def update_vacante(
     id: UUID, body: VacanteUpdate, request: Request, service: VacanteService = Depends(_svc)
 ) -> VacanteResponse:
     return service.update_vacante(id, body, get_empresa_id(request))
 
 
-@router.get("/{id}/candidatos", response_model=List[CandidatoResponse])
+@router.get("/{id}/candidatos", response_model=List[CandidatoResponse], dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def list_candidatos(id: UUID, request: Request, service: VacanteService = Depends(_svc)) -> List[CandidatoResponse]:
     return service.get_candidatos(id, get_empresa_id(request))
 
 
-@router.post("/{id}/candidatos", response_model=CandidatoResponse, status_code=201)
+@router.post("/{id}/candidatos", response_model=CandidatoResponse, status_code=201, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def add_candidato(
     id: UUID, body: CandidatoCreate, request: Request, service: VacanteService = Depends(_svc)
 ) -> CandidatoResponse:
     return service.add_candidato(id, body, get_empresa_id(request))
 
 
-@router.post("/{id}/publicar-linkedin", response_model=PublicarLinkedinResponse)
+@router.post("/{id}/publicar-linkedin", response_model=PublicarLinkedinResponse, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def publicar_linkedin(id: UUID, body: PublicarLinkedinRequest, request: Request) -> PublicarLinkedinResponse:
     return ZernioService().publicar_en_vacante(str(id), body.email_contacto, request.state.user["id"])
 
 
-@router.get("/{id}/emails-candidatos", response_model=List[EmailCandidatoResponse])
+@router.get("/{id}/emails-candidatos", response_model=List[EmailCandidatoResponse], dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def get_emails_candidatos(id: UUID, request: Request) -> List[EmailCandidatoResponse]:
     return GmailService().get_emails_candidatos(str(id), request.state.user["id"])
 
 
-@router.post("/{id}/candidatos-desde-email", response_model=CandidatoResponse, status_code=201)
+@router.post("/{id}/candidatos-desde-email", response_model=CandidatoResponse, status_code=201, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def candidato_desde_email(id: UUID, body: CandidatoDesdeEmailRequest, request: Request) -> CandidatoResponse:
     return GmailService().crear_candidato_desde_email(str(id), body.email_id, request.state.user["id"])

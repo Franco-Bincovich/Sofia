@@ -15,7 +15,7 @@ from schemas.assessment import (
 )
 from services.assessment_service import AssessmentService
 from utils.empresa import get_empresa_id
-from utils.permisos import Seccion
+from utils.permisos import Accion, Seccion, require_permission
 
 router = APIRouter()
 SECCION = Seccion.ASSESSMENT
@@ -25,12 +25,12 @@ def _svc() -> AssessmentService:
     return AssessmentService()
 
 
-@router.get("/campanas", response_model=list[CampanaResponse])
+@router.get("/campanas", response_model=list[CampanaResponse], dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def get_campanas(request: Request, svc: AssessmentService = Depends(_svc)) -> list[CampanaResponse]:
     return svc.get_campanas(get_empresa_id(request))
 
 
-@router.post("/campanas", response_model=CampanaResponse, status_code=201)
+@router.post("/campanas", response_model=CampanaResponse, status_code=201, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def create_campana(
     data: CampanaCreate,
     svc: AssessmentService = Depends(_svc),
@@ -38,7 +38,7 @@ async def create_campana(
     return svc.create_campana(data)
 
 
-@router.post("/campanas/{campana_id}/links", response_model=LinkResponse, status_code=201)
+@router.post("/campanas/{campana_id}/links", response_model=LinkResponse, status_code=201, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def create_link(
     campana_id: UUID,
     data: LinkCreate,
@@ -67,12 +67,12 @@ async def submit_evaluacion(
 
 # ── Resultados (autenticados) ─────────────────────────────────────────────────
 
-@router.get("/resultados", response_model=list[ResultadoResponse])
+@router.get("/resultados", response_model=list[ResultadoResponse], dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def get_resultados(request: Request, svc: AssessmentService = Depends(_svc)) -> list[ResultadoResponse]:
     return svc.get_resultados(get_empresa_id(request))
 
 
-@router.get("/resultados/{resultado_id}", response_model=ResultadoResponse)
+@router.get("/resultados/{resultado_id}", response_model=ResultadoResponse, dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def get_resultado(
     resultado_id: UUID,
     svc: AssessmentService = Depends(_svc),

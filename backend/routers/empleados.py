@@ -10,14 +10,11 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, Request
 
 from schemas.empleado import (
-    EmpleadoCreate,
-    EmpleadoListResponse,
-    EmpleadoResponse,
-    EmpleadoUpdate,
+    EmpleadoCreate, EmpleadoListResponse, EmpleadoResponse, EmpleadoUpdate,
 )
 from services.empleado_service import EmpleadoService
 from utils.empresa import get_empresa_id
-from utils.permisos import Seccion
+from utils.permisos import Accion, Seccion, require_permission
 
 router = APIRouter()
 SECCION = Seccion.EMPLEADOS
@@ -27,7 +24,7 @@ def _service() -> EmpleadoService:
     return EmpleadoService()
 
 
-@router.get("", response_model=EmpleadoListResponse)
+@router.get("", response_model=EmpleadoListResponse, dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def list_empleados(
     request: Request,
     page: int = Query(1, ge=1),
@@ -41,17 +38,15 @@ async def list_empleados(
     return service.get_empleados(page, page_size, empresa_id, area_id, estado, search)
 
 
-@router.get("/{id}", response_model=EmpleadoResponse)
+@router.get("/{id}", response_model=EmpleadoResponse, dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def get_empleado(
-    id: UUID,
-    request: Request,
-    service: EmpleadoService = Depends(_service),
+    id: UUID, request: Request, service: EmpleadoService = Depends(_service),
 ) -> EmpleadoResponse:
     empresa_id = get_empresa_id(request)
     return service.get_empleado(id, empresa_id)
 
 
-@router.post("", response_model=EmpleadoResponse, status_code=201)
+@router.post("", response_model=EmpleadoResponse, status_code=201, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def create_empleado(
     request: Request,
     body: EmpleadoCreate,
@@ -62,7 +57,7 @@ async def create_empleado(
     return service.create_empleado(body, created_by, body.empresa_id)
 
 
-@router.put("/{id}", response_model=EmpleadoResponse)
+@router.put("/{id}", response_model=EmpleadoResponse, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def update_empleado(
     id: UUID,
     request: Request,
@@ -73,7 +68,7 @@ async def update_empleado(
     return service.update_empleado(id, body, empresa_id)
 
 
-@router.delete("/{id}", status_code=204)
+@router.delete("/{id}", status_code=204, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def delete_empleado(
     id: UUID,
     request: Request,

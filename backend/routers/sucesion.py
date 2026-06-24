@@ -15,7 +15,7 @@ from schemas.sucesion import (
 )
 from services.sucesion_service import SucesionService
 from utils.empresa import get_empresa_id
-from utils.permisos import Seccion
+from utils.permisos import Accion, Seccion, require_permission
 
 router = APIRouter()
 SECCION = Seccion.SUCESION
@@ -25,52 +25,52 @@ def _svc() -> SucesionService:
     return SucesionService()
 
 
-@router.get("/mapa", response_model=list[EmpleadoMapaResponse])
+@router.get("/mapa", response_model=list[EmpleadoMapaResponse], dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def get_mapa_talento(request: Request, svc: SucesionService = Depends(_svc)) -> list[EmpleadoMapaResponse]:
     return svc.get_mapa_talento(get_empresa_id(request))
 
 
-@router.get("/analisis", response_model=list[EmpleadoAnalisisResponse])
+@router.get("/analisis", response_model=list[EmpleadoAnalisisResponse], dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def get_analisis_posicion(
     request: Request, area_id: UUID, posicion: str = "", svc: SucesionService = Depends(_svc),
 ) -> list[EmpleadoAnalisisResponse]:
     return svc.get_analisis_posicion(area_id, posicion, get_empresa_id(request))
 
 
-@router.get("/planes", response_model=list[PlanCarreraResponse])
+@router.get("/planes", response_model=list[PlanCarreraResponse], dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def get_planes_carrera(request: Request, svc: SucesionService = Depends(_svc)) -> list[PlanCarreraResponse]:
     return svc.get_planes_carrera(get_empresa_id(request))
 
 
-@router.post("/planes", response_model=PlanCarreraResponse, status_code=201)
+@router.post("/planes", response_model=PlanCarreraResponse, status_code=201, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def create_plan_carrera(
     data: PlanCarreraCreate, svc: SucesionService = Depends(_svc),
 ) -> PlanCarreraResponse:
     return svc.create_plan_carrera(data)
 
 
-@router.get("/planes/{plan_id}/hitos", response_model=list[HitoResponse])
+@router.get("/planes/{plan_id}/hitos", response_model=list[HitoResponse], dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def get_hitos(
     plan_id: UUID, svc: SucesionService = Depends(_svc),
 ) -> list[HitoResponse]:
     return svc.get_hitos(plan_id)
 
 
-@router.post("/planes/{plan_id}/hitos", response_model=HitoResponse, status_code=201)
+@router.post("/planes/{plan_id}/hitos", response_model=HitoResponse, status_code=201, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def create_hito(
     plan_id: UUID, data: HitoBodyCreate, svc: SucesionService = Depends(_svc),
 ) -> HitoResponse:
     return svc.create_hito(plan_id, data)
 
 
-@router.put("/planes/{plan_id}/readiness", response_model=PlanCarreraResponse)
+@router.put("/planes/{plan_id}/readiness", response_model=PlanCarreraResponse, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def update_readiness(
     plan_id: UUID, data: ReadinessUpdate, svc: SucesionService = Depends(_svc),
 ) -> PlanCarreraResponse:
     return svc.update_readiness(plan_id, data.readiness)
 
 
-@router.put("/hitos/{hito_id}/completar", response_model=dict)
+@router.put("/hitos/{hito_id}/completar", response_model=dict, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def completar_hito(
     hito_id: UUID, svc: SucesionService = Depends(_svc),
 ) -> dict:

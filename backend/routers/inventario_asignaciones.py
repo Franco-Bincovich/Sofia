@@ -12,15 +12,17 @@ from schemas.inventario import (
 )
 from services.inventario_asignaciones_service import InventarioAsignacionesService
 from utils.empresa import get_empresa_id
+from utils.permisos import Accion, Seccion, require_permission
 
 router = APIRouter()
+SECCION = Seccion.INVENTARIO
 
 
 def _svc() -> InventarioAsignacionesService:
     return InventarioAsignacionesService()
 
 
-@router.get("", response_model=AsignacionListResponse)
+@router.get("", response_model=AsignacionListResponse, dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def list_asignaciones(
     request: Request,
     empleado_id: Optional[str] = Query(None),
@@ -29,7 +31,7 @@ async def list_asignaciones(
     return service.get_all(get_empresa_id(request), empleado_id)
 
 
-@router.post("", response_model=AsignacionResponse, status_code=201)
+@router.post("", response_model=AsignacionResponse, status_code=201, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def asignar_item(
     request: Request, body: AsignacionCreate,
     service: InventarioAsignacionesService = Depends(_svc),
@@ -37,7 +39,7 @@ async def asignar_item(
     return service.asignar(body, request.state.user.get("id", "system"))
 
 
-@router.post("/{id}/devolver", response_model=AsignacionResponse)
+@router.post("/{id}/devolver", response_model=AsignacionResponse, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def devolver_item(
     id: UUID, body: DevolucionRequest,
     service: InventarioAsignacionesService = Depends(_svc),

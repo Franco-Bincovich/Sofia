@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from schemas.inventario import ItemCreate, ItemListResponse, ItemResponse, ItemUpdate
 from services.inventario_items_service import InventarioItemsService
 from utils.empresa import get_empresa_id
-from utils.permisos import Seccion
+from utils.permisos import Accion, Seccion, require_permission
 
 router = APIRouter()
 SECCION = Seccion.INVENTARIO
@@ -21,7 +21,7 @@ def _svc() -> InventarioItemsService:
     return InventarioItemsService()
 
 
-@router.get("", response_model=ItemListResponse)
+@router.get("", response_model=ItemListResponse, dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def list_items(
     request: Request,
     estado: Optional[str] = Query(None),
@@ -30,7 +30,7 @@ async def list_items(
     return service.get_all(get_empresa_id(request), estado)
 
 
-@router.get("/{id}", response_model=ItemResponse)
+@router.get("/{id}", response_model=ItemResponse, dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def get_item(
     id: UUID, request: Request,
     service: InventarioItemsService = Depends(_svc),
@@ -38,7 +38,7 @@ async def get_item(
     return service.get_by_id(id, get_empresa_id(request))
 
 
-@router.get("/{id}/historial")
+@router.get("/{id}/historial", dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def get_historial(
     id: UUID, request: Request,
     service: InventarioItemsService = Depends(_svc),
@@ -47,7 +47,7 @@ async def get_historial(
     return InventarioAsignacionesService().get_historial(id, get_empresa_id(request))
 
 
-@router.post("", response_model=ItemResponse, status_code=201)
+@router.post("", response_model=ItemResponse, status_code=201, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def create_item(
     request: Request, body: ItemCreate,
     service: InventarioItemsService = Depends(_svc),
@@ -55,7 +55,7 @@ async def create_item(
     return service.create(body, request.state.user.get("id", "system"))
 
 
-@router.put("/{id}", response_model=ItemResponse)
+@router.put("/{id}", response_model=ItemResponse, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def update_item(
     id: UUID, request: Request, body: ItemUpdate,
     service: InventarioItemsService = Depends(_svc),
@@ -63,7 +63,7 @@ async def update_item(
     return service.update(id, body, get_empresa_id(request))
 
 
-@router.delete("/{id}", status_code=200)
+@router.delete("/{id}", status_code=200, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def delete_item(
     id: UUID, request: Request,
     service: InventarioItemsService = Depends(_svc),

@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, Request
 from schemas.offboarding import ActivoUpdate, OffboardingCreate, OffboardingResponse
 from services.offboarding_service import OffboardingService
 from utils.empresa import get_empresa_id
-from utils.permisos import Seccion
+from utils.permisos import Accion, Seccion, require_permission
 
 router = APIRouter()
 SECCION = Seccion.OFFBOARDING
@@ -21,7 +21,7 @@ def _service() -> OffboardingService:
     return OffboardingService()
 
 
-@router.get("", response_model=list[OffboardingResponse])
+@router.get("", response_model=list[OffboardingResponse], dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def list_offboardings(
     request: Request,
     service: OffboardingService = Depends(_service),
@@ -30,7 +30,7 @@ async def list_offboardings(
     return service.get_offboardings_activos(empresa_id)
 
 
-@router.post("", response_model=OffboardingResponse, status_code=201)
+@router.post("", response_model=OffboardingResponse, status_code=201, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def crear_offboarding(
     body: OffboardingCreate,
     request: Request,
@@ -42,6 +42,7 @@ async def crear_offboarding(
 @router.put(
     "/{instancia_id}/activos/{activo_id}",
     response_model=dict,
+    dependencies=[Depends(require_permission(SECCION, Accion.WRITE))],
 )
 async def actualizar_activo(
     instancia_id: UUID,

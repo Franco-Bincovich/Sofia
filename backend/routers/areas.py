@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Query, Request
 
 from schemas.area import AreaCreate, AreaResponse, AreaUpdate
 from services.area_service import AreaService
-from utils.permisos import Seccion
+from utils.permisos import Accion, Seccion, require_permission
 
 router = APIRouter()
 SECCION = Seccion.AREAS
@@ -19,7 +19,7 @@ def _service() -> AreaService:
     return AreaService()
 
 
-@router.get("", response_model=List[AreaResponse])
+@router.get("", response_model=List[AreaResponse], dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def list_areas(
     empresa_id: Optional[str] = Query(None, description="Filtrar por empresa"),
     service: AreaService = Depends(_service),
@@ -27,7 +27,7 @@ async def list_areas(
     return service.get_areas(empresa_id)
 
 
-@router.get("/{id}", response_model=AreaResponse)
+@router.get("/{id}", response_model=AreaResponse, dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def get_area(
     id: UUID,
     service: AreaService = Depends(_service),
@@ -35,7 +35,7 @@ async def get_area(
     return service.get_area(id)
 
 
-@router.post("", response_model=AreaResponse, status_code=201)
+@router.post("", response_model=AreaResponse, status_code=201, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def create_area(
     request: Request,
     body: AreaCreate,
@@ -45,7 +45,7 @@ async def create_area(
     return service.create_area(body, created_by)
 
 
-@router.put("/{id}", response_model=AreaResponse)
+@router.put("/{id}", response_model=AreaResponse, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def update_area(
     id: UUID,
     body: AreaUpdate,
@@ -54,7 +54,7 @@ async def update_area(
     return service.update_area(id, body)
 
 
-@router.delete("/{id}", status_code=204)
+@router.delete("/{id}", status_code=204, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def delete_area(
     id: UUID,
     service: AreaService = Depends(_service),

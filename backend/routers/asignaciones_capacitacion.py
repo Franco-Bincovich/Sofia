@@ -8,12 +8,14 @@ from schemas.capacitacion import AsignacionCreate, AsignacionListResponse, Asign
 from services.asignacion_service import AsignacionService
 from utils.empresa import get_empresa_id
 from utils.files import ALLOWED_TYPES_CERTIFICADO, MAX_SIZE_CERTIFICADO, validate_upload
+from utils.permisos import Accion, Seccion, require_permission
 
 router = APIRouter()
+SECCION = Seccion.CAPACITACIONES
 def _svc() -> AsignacionService: return AsignacionService()
 
 
-@router.get("", response_model=AsignacionListResponse)
+@router.get("", response_model=AsignacionListResponse, dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def list_asignaciones(
     request: Request,
     empleado_id: Optional[UUID] = Query(None),
@@ -25,7 +27,7 @@ async def list_asignaciones(
     return service.get_all(get_empresa_id(request), empleado_id, capacitacion_id, estado, area_id)
 
 
-@router.post("", response_model=AsignacionResponse, status_code=201)
+@router.post("", response_model=AsignacionResponse, status_code=201, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def create_asignacion(
     request: Request,
     body: AsignacionCreate,
@@ -34,7 +36,7 @@ async def create_asignacion(
     return service.create(body, request.state.user.get("id", "system"))
 
 
-@router.put("/{id}", response_model=AsignacionResponse)
+@router.put("/{id}", response_model=AsignacionResponse, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def update_asignacion(
     id: UUID,
     request: Request,
@@ -44,7 +46,7 @@ async def update_asignacion(
     return service.update_estado(id, body, get_empresa_id(request))
 
 
-@router.delete("/{id}", status_code=200)
+@router.delete("/{id}", status_code=200, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def delete_asignacion(
     id: UUID,
     request: Request,
@@ -54,7 +56,7 @@ async def delete_asignacion(
     return {"ok": True}
 
 
-@router.post("/{id}/certificado", response_model=AsignacionResponse)
+@router.post("/{id}/certificado", response_model=AsignacionResponse, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def upload_certificado(
     id: UUID,
     request: Request,
@@ -69,7 +71,7 @@ async def upload_certificado(
     )
 
 
-@router.get("/{id}/certificado", status_code=200)
+@router.get("/{id}/certificado", status_code=200, dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def get_certificado_url(
     id: UUID,
     request: Request,
