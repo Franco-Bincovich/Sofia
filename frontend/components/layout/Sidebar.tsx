@@ -24,7 +24,6 @@ import {
   Menu,
   X,
   Settings,
-  LogOut,
   Building2,
   Moon,
   Sun,
@@ -34,41 +33,42 @@ import { useTheme } from "next-themes"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { UserMenu } from "@/components/layout/UserMenu"
 import { fetchEmpresas } from "@/services/empresas"
 import { getEmpresaActivaId, setEmpresaActivaId } from "@/services/empresaStore"
+import { getRol, puede, type Seccion } from "@/services/permisos"
 import type { Empresa } from "@/types/empresa"
+import type { UserRol } from "@/types/auth"
 
-const NAV_ITEMS = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Procesos", href: "/procesos", icon: Activity },
-  { label: "Proyectos", href: "/proyectos", icon: FolderKanban },
-  { label: "Empresas", href: "/empresas", icon: Building2 },
-  { label: "Empleados", href: "/empleados", icon: Users },
-  { label: "Organigrama", href: "/organigrama", icon: GitBranch },
-  { label: "Vacantes", href: "/vacantes", icon: Briefcase },
-  { label: "Vacaciones", href: "/vacaciones", icon: Umbrella },
-  { label: "Ausencias", href: "/ausencias", icon: CalendarX2 },
-  { label: "Onboarding", href: "/onboarding", icon: UserPlus },
-  { label: "Offboarding", href: "/offboarding", icon: UserMinus },
-  { label: "Costos", href: "/costos", icon: DollarSign },
-  { label: "Sucesión", href: "/sucesion", icon: TrendingUp },
+// seccion: null = ítem siempre visible (no gateado por rol). Resto = se filtra por puede(rol, seccion, "read").
+const NAV_ITEMS: ReadonlyArray<{
+  label: string
+  href: string
+  icon: React.ElementType
+  seccion: Seccion | null
+}> = [
+  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, seccion: null },
+  { label: "Procesos", href: "/procesos", icon: Activity, seccion: "procesos" },
+  { label: "Proyectos", href: "/proyectos", icon: FolderKanban, seccion: "proyectos" },
+  { label: "Empresas", href: "/empresas", icon: Building2, seccion: "empresa" },
+  { label: "Empleados", href: "/empleados", icon: Users, seccion: "empleados" },
+  { label: "Organigrama", href: "/organigrama", icon: GitBranch, seccion: "organigrama" },
+  { label: "Vacantes", href: "/vacantes", icon: Briefcase, seccion: "vacantes" },
+  { label: "Vacaciones", href: "/vacaciones", icon: Umbrella, seccion: "vacaciones" },
+  { label: "Ausencias", href: "/ausencias", icon: CalendarX2, seccion: "ausencias" },
+  { label: "Onboarding", href: "/onboarding", icon: UserPlus, seccion: "onboarding" },
+  { label: "Offboarding", href: "/offboarding", icon: UserMinus, seccion: "offboarding" },
+  { label: "Costos", href: "/costos", icon: DollarSign, seccion: "costos" },
+  { label: "Sucesión", href: "/sucesion", icon: TrendingUp, seccion: "sucesion" },
   // { label: "Assessment", href: "/assessment", icon: ClipboardList }, // HIDDEN — reactivar cuando se habilite el módulo
-  { label: "Capacitaciones", href: "/capacitaciones", icon: GraduationCap },
-  { label: "Evaluaciones", href: "/evaluaciones", icon: ClipboardCheck },
-  { label: "Inventario", href: "/inventario", icon: Package },
-  { label: "Objetivos",  href: "/objetivos",  icon: Target  },
-  { label: "Reportes", href: "/reportes", icon: BarChart3 },
-  { label: "Configuración", href: "/configuracion", icon: Settings },
-] as const
+  { label: "Capacitaciones", href: "/capacitaciones", icon: GraduationCap, seccion: "capacitaciones" },
+  { label: "Evaluaciones", href: "/evaluaciones", icon: ClipboardCheck, seccion: "evaluaciones" },
+  { label: "Inventario", href: "/inventario", icon: Package, seccion: "inventario" },
+  { label: "Objetivos", href: "/objetivos", icon: Target, seccion: "objetivos" },
+  { label: "Reportes", href: "/reportes", icon: BarChart3, seccion: "reportes" },
+  { label: "Configuración", href: "/configuracion", icon: Settings, seccion: null },
+]
 
 interface NavItemProps {
   href: string
@@ -173,38 +173,19 @@ function EmpresaSelector() {
   )
 }
 
-function UserMenu() {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <Avatar size="sm">
-          <AvatarFallback>HR</AvatarFallback>
-        </Avatar>
-        <div className="flex min-w-0 flex-col text-left">
-          <span className="truncate text-sm font-medium">Admin RRHH</span>
-          <span className="truncate text-xs text-muted-foreground">admin@karstec.com</span>
-        </div>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent side="top" align="start" className="w-56">
-        <DropdownMenuItem>
-          <Settings className="size-4" />
-          Configuración
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive">
-          <LogOut className="size-4" />
-          Cerrar sesión
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}
-
 export function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [rol, setRol] = useState<UserRol | null>(null)
   const pathname = usePathname()
+
+  // El rol se lee tras montar (localStorage) para no romper la hidratación SSR.
+  useEffect(() => {
+    setRol(getRol())
+  }, [])
+
+  const visibleItems = NAV_ITEMS.filter(
+    (item) => item.seccion === null || (rol !== null && puede(rol, item.seccion, "read")),
+  )
 
   const closeMobile = () => setMobileOpen(false)
 
@@ -270,7 +251,7 @@ export function Sidebar() {
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto px-3 py-4">
           <ul className="space-y-1" role="list">
-            {NAV_ITEMS.map((item) => (
+            {visibleItems.map((item) => (
               <li key={item.href}>
                 <NavItem
                   href={item.href}

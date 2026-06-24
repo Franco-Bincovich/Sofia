@@ -20,13 +20,7 @@ import {
   saveZernioKey,
 } from "@/services/integraciones"
 import type { Integracion } from "@/services/integraciones"
-import type { Session } from "@/types/auth"
-
-const ROL_LABEL: Record<string, string> = {
-  admin_rrhh: "Administrador RRHH",
-  management: "Gerencia",
-  empleado: "Empleado",
-}
+import { ROL_LABEL, type Session } from "@/types/auth"
 
 // ── Manejador del callback OAuth (necesita Suspense por useSearchParams) ──────
 
