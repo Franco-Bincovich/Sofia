@@ -33,6 +33,7 @@ import pytest
 from config.settings import settings
 from main import app
 from utils.errors import AppError
+from utils.permisos import Accion, Seccion, puede
 
 _TRANSPORT = httpx.ASGITransport(app=app)
 
@@ -133,3 +134,35 @@ class TestSettings:
         assert isinstance(origins, list)
         assert len(origins) >= 1
         assert all(o.strip() == o for o in origins)
+
+
+# ─── Permisos (núcleo funcional, Entrega 2) ─────────────────────────────────────
+
+
+class TestPermisos:
+    def test_admin_rrhh_read_y_write_cualquier_seccion(self) -> None:
+        assert puede("admin_rrhh", Seccion.OBJETIVOS, Accion.READ) is True
+        assert puede("admin_rrhh", Seccion.OBJETIVOS, Accion.WRITE) is True
+
+    def test_gerencia_lectura_solo_read(self) -> None:
+        assert puede("gerencia_lectura", Seccion.COSTOS, Accion.READ) is True
+        assert puede("gerencia_lectura", Seccion.COSTOS, Accion.WRITE) is False
+
+    def test_mandos_medios_vacaciones_y_ausencias(self) -> None:
+        assert puede("mandos_medios", Seccion.VACACIONES, Accion.READ) is True
+        assert puede("mandos_medios", Seccion.VACACIONES, Accion.WRITE) is True
+        assert puede("mandos_medios", Seccion.AUSENCIAS, Accion.READ) is True
+        assert puede("mandos_medios", Seccion.AUSENCIAS, Accion.WRITE) is True
+
+    def test_mandos_medios_otra_seccion_denegada(self) -> None:
+        assert puede("mandos_medios", Seccion.OBJETIVOS, Accion.READ) is False
+        assert puede("mandos_medios", Seccion.OBJETIVOS, Accion.WRITE) is False
+
+    def test_fail_closed_rol_none(self) -> None:
+        assert puede(None, Seccion.VACACIONES, Accion.READ) is False
+
+    def test_fail_closed_rol_inexistente(self) -> None:
+        assert puede("inexistente", Seccion.VACACIONES, Accion.READ) is False
+
+    def test_fail_closed_accion_invalida(self) -> None:
+        assert puede("admin_rrhh", Seccion.VACACIONES, "delete") is False
