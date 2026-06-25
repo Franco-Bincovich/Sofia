@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { CandidatoCard } from "@/components/features/vacantes/CandidatoCard"
 import { CandidatoModal } from "@/components/features/vacantes/CandidatoModal"
 import { ApiError, getSession } from "@/services/api"
+import { useCanWrite } from "@/hooks/useCanWrite"
 import {
   crearCandidatoDesdeEmail,
   fetchCandidatos,
@@ -202,10 +203,11 @@ function LinkedinModal({ open, vacanteId, defaultEmail, onClose, onSuccess }: Li
 
 interface EmailsSectionProps {
   vacanteId: string
+  canWrite: boolean
   onCandidatoAgregado: () => void
 }
 
-function EmailsSection({ vacanteId, onCandidatoAgregado }: EmailsSectionProps) {
+function EmailsSection({ vacanteId, canWrite, onCandidatoAgregado }: EmailsSectionProps) {
   const router = useRouter()
   const [emails, setEmails] = useState<EmailCandidato[]>([])
   const [loading, setLoading] = useState(false)
@@ -320,15 +322,17 @@ function EmailsSection({ vacanteId, onCandidatoAgregado }: EmailsSectionProps) {
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">{email.fecha}</p>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="shrink-0 min-h-10"
-                disabled={agregando === email.email_id}
-                onClick={() => handleAgregar(email.email_id)}
-              >
-                {agregando === email.email_id ? "Agregando…" : "Agregar como candidato"}
-              </Button>
+              {canWrite && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0 min-h-10"
+                  disabled={agregando === email.email_id}
+                  onClick={() => handleAgregar(email.email_id)}
+                >
+                  {agregando === email.email_id ? "Agregando…" : "Agregar como candidato"}
+                </Button>
+              )}
             </div>
           ))}
         </div>
@@ -351,6 +355,7 @@ export default function VacanteDetailPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [linkedinModalOpen, setLinkedinModalOpen] = useState(false)
   const [moviendo, setMoviendo] = useState<string | null>(null)
+  const canWrite = useCanWrite()
 
   const userEmail = getSession()?.user.email ?? ""
 
@@ -441,7 +446,7 @@ export default function VacanteDetailPage() {
                     Publicada en LinkedIn
                     <ExternalLink className="size-3" />
                   </a>
-                ) : (
+                ) : canWrite ? (
                   <Button
                     variant="outline"
                     className="min-h-11 gap-2 border-[#0A66C2] text-[#0A66C2] hover:bg-[#0A66C2]/10"
@@ -450,11 +455,13 @@ export default function VacanteDetailPage() {
                     <Share2 className="size-4" />
                     Publicar en LinkedIn
                   </Button>
+                ) : null}
+                {canWrite && (
+                  <Button className="min-h-11" onClick={() => setModalOpen(true)}>
+                    <Plus />
+                    Agregar candidato
+                  </Button>
                 )}
-                <Button className="min-h-11" onClick={() => setModalOpen(true)}>
-                  <Plus />
-                  Agregar candidato
-                </Button>
               </div>
             }
           />
@@ -522,7 +529,7 @@ export default function VacanteDetailPage() {
                             fechaAplicacion={formatFecha(c.created_at)}
                             etapa={c.etapa_pipeline}
                           />
-                          {siguienteEtapa && (
+                          {canWrite && siguienteEtapa && (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -547,7 +554,7 @@ export default function VacanteDetailPage() {
             </div>
           </div>
 
-          <EmailsSection vacanteId={id} onCandidatoAgregado={load} />
+          <EmailsSection vacanteId={id} canWrite={canWrite} onCandidatoAgregado={load} />
 
           <CandidatoModal
             open={modalOpen}

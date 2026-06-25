@@ -32,6 +32,7 @@ import { NominaModal } from "@/components/features/costos/NominaModal"
 import { ImportarNominaCSVModal } from "@/components/features/costos/ImportarNominaCSVModal"
 import { cargarNomina, fetchDashboardCostos, fetchNominaMes } from "@/services/costos"
 import { getEmpresaActivaId } from "@/services/empresaStore"
+import { useCanWrite } from "@/hooks/useCanWrite"
 import type { DashboardCostos, EvolucionMes, Nomina } from "@/types/costo"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -194,6 +195,7 @@ function DashboardSkeleton() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CostosPage() {
+  const canWrite = useCanWrite()
   const now = new Date()
   // empresa activa del topbar — estable (el topbar recarga la página al cambiar)
   const [empresaActivaId] = useState<string | null>(() =>
@@ -339,14 +341,18 @@ export default function CostosPage() {
               onChangeMes={setMes}
               onChangeAnio={setAnio}
             />
-            <Button variant="outline" className="min-h-11 gap-1.5" onClick={() => setImportarNominaOpen(true)}>
-              <FileSpreadsheet className="size-4" />
-              Importar CSV
-            </Button>
-            <Button className="min-h-11 gap-1.5" onClick={() => setNominaOpen(true)}>
-              <Upload className="size-4" />
-              Cargar nómina
-            </Button>
+            {canWrite && (
+              <>
+                <Button variant="outline" className="min-h-11 gap-1.5" onClick={() => setImportarNominaOpen(true)}>
+                  <FileSpreadsheet className="size-4" />
+                  Importar CSV
+                </Button>
+                <Button className="min-h-11 gap-1.5" onClick={() => setNominaOpen(true)}>
+                  <Upload className="size-4" />
+                  Cargar nómina
+                </Button>
+              </>
+            )}
           </div>
         }
       />
@@ -366,14 +372,16 @@ export default function CostosPage() {
           title="Sin datos de nómina"
           description={`No hay registros de nómina para ${MESES_LARGOS[mes - 1]} ${anio}. Cargá la nómina del período para ver los costos.`}
           action={
-            <Button
-              type="button"
-              className="mt-1 min-h-11 gap-1.5"
-              onClick={() => setNominaOpen(true)}
-            >
-              <Upload className="size-4" />
-              Cargar nómina
-            </Button>
+            canWrite ? (
+              <Button
+                type="button"
+                className="mt-1 min-h-11 gap-1.5"
+                onClick={() => setNominaOpen(true)}
+              >
+                <Upload className="size-4" />
+                Cargar nómina
+              </Button>
+            ) : undefined
           }
         />
       )}
@@ -527,15 +535,17 @@ export default function CostosPage() {
                     <TableCell className="text-right">{pesos(n.monto_bruto)}</TableCell>
                     <TableCell className="text-right">{pesos(n.monto_neto)}</TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="min-h-9 gap-1"
-                        onClick={() => openEdit(n)}
-                      >
-                        <Pencil className="size-3.5" />
-                        Editar
-                      </Button>
+                      {canWrite && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="min-h-9 gap-1"
+                          onClick={() => openEdit(n)}
+                        >
+                          <Pencil className="size-3.5" />
+                          Editar
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

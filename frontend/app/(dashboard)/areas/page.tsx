@@ -28,9 +28,11 @@ import {
 import { AreaModal } from "@/components/features/areas/AreaModal"
 import { fetchAreas, deleteArea } from "@/services/areas"
 import { getEmpresaActivaId } from "@/services/empresaStore"
+import { useCanWrite } from "@/hooks/useCanWrite"
 import type { Area } from "@/types/area"
 
 export default function AreasPage() {
+  const canWrite = useCanWrite()
   const [areas, setAreas] = useState<Area[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -121,10 +123,12 @@ export default function AreasPage() {
         title="Áreas"
         description={`${areas.length} área${areas.length !== 1 ? "s" : ""}`}
         action={
-          <Button className="min-h-11" onClick={openCreate}>
-            <Plus />
-            Nueva área
-          </Button>
+          canWrite ? (
+            <Button className="min-h-11" onClick={openCreate}>
+              <Plus />
+              Nueva área
+            </Button>
+          ) : undefined
         }
       />
 
@@ -150,7 +154,7 @@ export default function AreasPage() {
               : "Todavía no hay áreas registradas. Creá la primera."
           }
           action={
-            !search ? (
+            !search && canWrite ? (
               <Button className="min-h-11" onClick={openCreate}>
                 <Plus />
                 Nueva área
@@ -184,24 +188,28 @@ export default function AreasPage() {
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-9"
-                      aria-label={`Editar ${area.nombre}`}
-                      onClick={() => openEdit(area)}
-                    >
-                      <Pencil className="size-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-9 text-destructive hover:text-destructive"
-                      aria-label={`Eliminar ${area.nombre}`}
-                      onClick={() => setConfirmDelete(area)}
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
+                    {canWrite && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-9"
+                          aria-label={`Editar ${area.nombre}`}
+                          onClick={() => openEdit(area)}
+                        >
+                          <Pencil className="size-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-9 text-destructive hover:text-destructive"
+                          aria-label={`Eliminar ${area.nombre}`}
+                          onClick={() => setConfirmDelete(area)}
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>

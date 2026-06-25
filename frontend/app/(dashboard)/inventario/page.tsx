@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { ItemsTab } from "@/components/features/inventario/ItemsTab"
 import { AsignacionesTab } from "@/components/features/inventario/AsignacionesTab"
+import { useCanWrite } from "@/hooks/useCanWrite"
 
 type Tab = "items" | "asignaciones"
 
@@ -15,6 +16,7 @@ const TABS: { id: Tab; label: string }[] = [
 
 export default function InventarioPage() {
   const [activeTab, setActiveTab] = useState<Tab>("items")
+  const canWrite = useCanWrite()
 
   return (
     <div>
@@ -39,8 +41,8 @@ export default function InventarioPage() {
           </button>
         ))}
       </div>
-      {activeTab === "items"        && <ItemsTab />}
-      {activeTab === "asignaciones" && <AsignacionesTab />}
+      {activeTab === "items"        && <ItemsTab canWrite={canWrite} />}
+      {activeTab === "asignaciones" && <AsignacionesTab canWrite={canWrite} />}
     </div>
   )
 }

@@ -147,9 +147,9 @@ function PlantillaForm({ initial, onClose, onSaved }: PlantillaFormProps) {
 
 // ── Panel de criterios ────────────────────────────────────────────────────────
 
-interface CriteriosProps { plantilla: Plantilla; onRefresh: () => void }
+interface CriteriosProps { plantilla: Plantilla; canWrite: boolean; onRefresh: () => void }
 
-function CriteriosPanel({ plantilla, onRefresh }: CriteriosProps) {
+function CriteriosPanel({ plantilla, canWrite, onRefresh }: CriteriosProps) {
   const [nombre, setNombre] = useState("")
   const [peso, setPeso] = useState("1")
   const [loading, setLoading] = useState(false)
@@ -191,17 +191,21 @@ function CriteriosPanel({ plantilla, onRefresh }: CriteriosProps) {
               {c.nombre}
               <span className="text-xs text-muted-foreground">peso: {c.peso}</span>
             </span>
-            <button onClick={() => handleDelete(c)} className="text-destructive hover:opacity-70">
-              <Trash2 className="size-3.5" />
-            </button>
+            {canWrite && (
+              <button onClick={() => handleDelete(c)} className="text-destructive hover:opacity-70">
+                <Trash2 className="size-3.5" />
+              </button>
+            )}
           </li>
         ))}
       </ul>
-      <form onSubmit={handleAdd} className="flex gap-2">
-        <Input placeholder="Nuevo criterio" value={nombre} onChange={(e) => setNombre(e.target.value)} className="h-8 text-sm" />
-        <Input placeholder="Peso" type="number" value={peso} onChange={(e) => setPeso(e.target.value)} className="h-8 w-20 text-sm" />
-        <Button type="submit" size="sm" disabled={loading || !nombre.trim()}>Agregar</Button>
-      </form>
+      {canWrite && (
+        <form onSubmit={handleAdd} className="flex gap-2">
+          <Input placeholder="Nuevo criterio" value={nombre} onChange={(e) => setNombre(e.target.value)} className="h-8 text-sm" />
+          <Input placeholder="Peso" type="number" value={peso} onChange={(e) => setPeso(e.target.value)} className="h-8 w-20 text-sm" />
+          <Button type="submit" size="sm" disabled={loading || !nombre.trim()}>Agregar</Button>
+        </form>
+      )}
       {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
     </div>
   )
@@ -209,7 +213,7 @@ function CriteriosPanel({ plantilla, onRefresh }: CriteriosProps) {
 
 // ── Tab principal ─────────────────────────────────────────────────────────────
 
-export function PlantillasTab() {
+export function PlantillasTab({ canWrite }: { canWrite: boolean }) {
   const [plantillas, setPlantillas] = useState<Plantilla[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -241,9 +245,11 @@ export function PlantillasTab() {
   return (
     <div>
       <div className="mb-4 flex justify-end">
-        <Button onClick={() => { setEditing(null); setModalOpen(true) }} size="sm">
-          <Plus className="mr-2 size-4" /> Nueva plantilla
-        </Button>
+        {canWrite && (
+          <Button onClick={() => { setEditing(null); setModalOpen(true) }} size="sm">
+            <Plus className="mr-2 size-4" /> Nueva plantilla
+          </Button>
+        )}
       </div>
       {plantillas.length === 0 ? (
         <div className="py-16 text-center text-muted-foreground">No hay plantillas aún.</div>
@@ -285,20 +291,24 @@ export function PlantillasTab() {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
-                        <Button variant="ghost" size="icon"
-                          onClick={() => { setEditing(p); setModalOpen(true) }}>
-                          <Pencil className="size-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleDelete(p)}>
-                          <Trash2 className="size-4 text-destructive" />
-                        </Button>
+                        {canWrite && (
+                          <>
+                            <Button variant="ghost" size="icon"
+                              onClick={() => { setEditing(p); setModalOpen(true) }}>
+                              <Pencil className="size-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleDelete(p)}>
+                              <Trash2 className="size-4 text-destructive" />
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
                   {expanded === p.id && (
                     <TableRow key={`${p.id}-criterios`}>
                       <TableCell colSpan={7} className="bg-muted/20 py-0 pl-10 pr-4 pb-3">
-                        <CriteriosPanel plantilla={p} onRefresh={load} />
+                        <CriteriosPanel plantilla={p} canWrite={canWrite} onRefresh={load} />
                       </TableCell>
                     </TableRow>
                   )}

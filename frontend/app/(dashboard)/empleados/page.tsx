@@ -24,6 +24,7 @@ import { ImportarCSVModal } from "@/components/features/empleados/ImportarCSVMod
 import { fetchEmpleados } from "@/services/empleados"
 import { fetchEmpresas } from "@/services/empresas"
 import { getEmpresaActivaId } from "@/services/empresaStore"
+import { useCanWrite } from "@/hooks/useCanWrite"
 import type { Empleado, EmpleadoListResponse } from "@/types/empleado"
 import type { Empresa } from "@/types/empresa"
 
@@ -57,6 +58,7 @@ function TableSkeleton() {
 
 export default function EmpleadosPage() {
   const router = useRouter()
+  const canWrite = useCanWrite()
 
   // empresa activa del topbar — estable durante la sesión (el topbar recarga la página al cambiar)
   const [empresaActivaId, setEmpresaActivaIdLocal] = useState<string | null>(null)
@@ -139,20 +141,22 @@ export default function EmpleadosPage() {
         title="Empleados"
         description={loading ? "Cargando..." : `${total} colaboradores`}
         action={
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              className="min-h-11 gap-1.5"
-              onClick={() => setImportOpen(true)}
-            >
-              <Upload className="size-4" />
-              Importar CSV
-            </Button>
-            <Button className="min-h-11" onClick={() => setNewOpen(true)}>
-              <Plus />
-              Nuevo empleado
-            </Button>
-          </div>
+          canWrite ? (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                className="min-h-11 gap-1.5"
+                onClick={() => setImportOpen(true)}
+              >
+                <Upload className="size-4" />
+                Importar CSV
+              </Button>
+              <Button className="min-h-11" onClick={() => setNewOpen(true)}>
+                <Plus />
+                Nuevo empleado
+              </Button>
+            </div>
+          ) : undefined
         }
       />
 

@@ -29,12 +29,13 @@ interface Props {
   objetivos:  Objetivo[]
   onMover:    (id: string, estado: EstadoObjetivo) => Promise<void>
   moviendo:   string | null
+  canWrite:   boolean
   onEdit:     (obj: Objetivo) => void
   onDelete:   (id: string) => void
   deletingId: string | null
 }
 
-export function KanbanView({ objetivos, onMover, moviendo, onEdit, onDelete, deletingId }: Props) {
+export function KanbanView({ objetivos, onMover, moviendo, canWrite, onEdit, onDelete, deletingId }: Props) {
   const porEstado = useMemo(() => {
     const map: Record<EstadoObjetivo, Objetivo[]> = { por_hacer: [], haciendo: [], terminado: [] }
     for (const obj of objetivos) map[obj.estado]?.push(obj)
@@ -60,9 +61,9 @@ export function KanbanView({ objetivos, onMover, moviendo, onEdit, onDelete, del
               <div className="flex flex-col gap-2">
                 {cards.map((obj) => (
                   <div key={obj.id}>
-                    <ObjetivoCard objetivo={obj} onEdit={onEdit} onDelete={onDelete} deletingId={deletingId} />
+                    <ObjetivoCard objetivo={obj} canWrite={canWrite} onEdit={onEdit} onDelete={onDelete} deletingId={deletingId} />
                     <div className="mt-1 flex gap-1">
-                      {prevEstado && (
+                      {canWrite && prevEstado && (
                         <button
                           disabled={moviendo === obj.id}
                           onClick={() => onMover(obj.id, prevEstado)}
@@ -71,7 +72,7 @@ export function KanbanView({ objetivos, onMover, moviendo, onEdit, onDelete, del
                           ← {ESTADO_LABELS[prevEstado]}
                         </button>
                       )}
-                      {nextEstado && (
+                      {canWrite && nextEstado && (
                         <button
                           disabled={moviendo === obj.id}
                           onClick={() => onMover(obj.id, nextEstado)}

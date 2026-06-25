@@ -34,7 +34,7 @@ function formatDate(s: string) {
   const [y,m,d] = s.split("-"); return `${d}/${m}/${y}`
 }
 
-export function ItemsTab() {
+export function ItemsTab({ canWrite }: { canWrite: boolean }) {
   const [empresaActivaId] = useState<string | null>(getEmpresaActivaId)
   const [items, setItems] = useState<InventarioItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -89,9 +89,11 @@ export function ItemsTab() {
             <option value="baja">Baja</option>
           </select>
         </div>
-        <Button className="min-h-11" onClick={() => { setEditing(null); setModalOpen(true) }}>
-          <Plus className="size-4" /> Nuevo ítem
-        </Button>
+        {canWrite && (
+          <Button className="min-h-11" onClick={() => { setEditing(null); setModalOpen(true) }}>
+            <Plus className="size-4" /> Nuevo ítem
+          </Button>
+        )}
       </div>
 
       {loading && <Skeleton5 />}
@@ -128,10 +130,14 @@ export function ItemsTab() {
                 <TableCell>
                   <div className="flex items-center gap-1">
                     <Button variant="ghost" size="sm" onClick={() => setHistorialItem(item)} aria-label="Historial"><History className="size-3.5" /></Button>
-                    <Button variant="ghost" size="sm" onClick={() => { setEditing(item); setModalOpen(true) }} aria-label="Editar"><Pencil className="size-3.5" /></Button>
-                    <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" disabled={deletingId === item.id} onClick={() => handleDelete(item.id)} aria-label="Eliminar">
-                      {deletingId === item.id ? "..." : <Trash2 className="size-3.5" />}
-                    </Button>
+                    {canWrite && (
+                      <>
+                        <Button variant="ghost" size="sm" onClick={() => { setEditing(item); setModalOpen(true) }} aria-label="Editar"><Pencil className="size-3.5" /></Button>
+                        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" disabled={deletingId === item.id} onClick={() => handleDelete(item.id)} aria-label="Eliminar">
+                          {deletingId === item.id ? "..." : <Trash2 className="size-3.5" />}
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>

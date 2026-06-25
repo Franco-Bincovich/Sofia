@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/layout/PageHeader"
 import { PlantillasTab } from "@/components/features/evaluaciones/PlantillasTab"
 import { CiclosTab } from "@/components/features/evaluaciones/CiclosTab"
 import { EvaluacionesTab } from "@/components/features/evaluaciones/EvaluacionesTab"
+import { useCanWrite } from "@/hooks/useCanWrite"
 
 type Tab = "plantillas" | "ciclos" | "evaluaciones"
 
@@ -17,6 +18,7 @@ const TABS: { id: Tab; label: string }[] = [
 
 export default function EvaluacionesPage() {
   const [activeTab, setActiveTab] = useState<Tab>("plantillas")
+  const canWrite = useCanWrite()
 
   return (
     <div>
@@ -43,9 +45,9 @@ export default function EvaluacionesPage() {
         ))}
       </div>
 
-      {activeTab === "plantillas" && <PlantillasTab />}
-      {activeTab === "ciclos" && <CiclosTab />}
-      {activeTab === "evaluaciones" && <EvaluacionesTab />}
+      {activeTab === "plantillas" && <PlantillasTab canWrite={canWrite} />}
+      {activeTab === "ciclos" && <CiclosTab canWrite={canWrite} />}
+      {activeTab === "evaluaciones" && <EvaluacionesTab canWrite={canWrite} />}
     </div>
   )
 }

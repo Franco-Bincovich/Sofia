@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { CatalogoTab } from "@/components/features/capacitaciones/CatalogoTab"
 import { AsignacionesTab } from "@/components/features/capacitaciones/AsignacionesTab"
+import { useCanWrite } from "@/hooks/useCanWrite"
 
 type Tab = "catalogo" | "asignaciones"
 
@@ -15,6 +16,7 @@ const TABS: { id: Tab; label: string }[] = [
 
 export default function CapacitacionesPage() {
   const [activeTab, setActiveTab] = useState<Tab>("catalogo")
+  const canWrite = useCanWrite()
 
   return (
     <div>
@@ -42,8 +44,8 @@ export default function CapacitacionesPage() {
         ))}
       </div>
 
-      {activeTab === "catalogo" && <CatalogoTab />}
-      {activeTab === "asignaciones" && <AsignacionesTab />}
+      {activeTab === "catalogo" && <CatalogoTab canWrite={canWrite} />}
+      {activeTab === "asignaciones" && <AsignacionesTab canWrite={canWrite} />}
     </div>
   )
 }

@@ -21,9 +21,11 @@ import {
 } from "@/components/ui/table"
 import { EmpresaModal } from "@/components/features/empresas/EmpresaModal"
 import { fetchEmpresas, toggleEmpresaActiva } from "@/services/empresas"
+import { useCanWrite } from "@/hooks/useCanWrite"
 import type { Empresa } from "@/types/empresa"
 
 export default function EmpresasPage() {
+  const canWrite = useCanWrite()
   const [empresas, setEmpresas] = useState<Empresa[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -96,10 +98,12 @@ export default function EmpresasPage() {
         title="Empresas"
         description={`${empresas.length} empresa${empresas.length !== 1 ? "s" : ""}`}
         action={
-          <Button className="min-h-11" onClick={openCreate}>
-            <Plus />
-            Nueva empresa
-          </Button>
+          canWrite ? (
+            <Button className="min-h-11" onClick={openCreate}>
+              <Plus />
+              Nueva empresa
+            </Button>
+          ) : undefined
         }
       />
 
@@ -109,10 +113,12 @@ export default function EmpresasPage() {
           title="Sin empresas"
           description="Todavía no hay empresas registradas. Creá la primera."
           action={
-            <Button className="min-h-11" onClick={openCreate}>
-              <Plus />
-              Nueva empresa
-            </Button>
+            canWrite ? (
+              <Button className="min-h-11" onClick={openCreate}>
+                <Plus />
+                Nueva empresa
+              </Button>
+            ) : undefined
           }
         />
       ) : (
@@ -154,27 +160,31 @@ export default function EmpresasPage() {
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-9"
-                      aria-label={`Editar ${empresa.nombre}`}
-                      onClick={() => openEdit(empresa)}
-                    >
-                      <Pencil className="size-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-9"
-                      aria-label={empresa.activa ? `Desactivar ${empresa.nombre}` : `Activar ${empresa.nombre}`}
-                      onClick={() => handleToggle(empresa)}
-                      disabled={togglingId === empresa.id}
-                    >
-                      {empresa.activa
-                        ? <PowerOff className="size-4" />
-                        : <Power className="size-4" />}
-                    </Button>
+                    {canWrite && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-9"
+                          aria-label={`Editar ${empresa.nombre}`}
+                          onClick={() => openEdit(empresa)}
+                        >
+                          <Pencil className="size-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-9"
+                          aria-label={empresa.activa ? `Desactivar ${empresa.nombre}` : `Activar ${empresa.nombre}`}
+                          onClick={() => handleToggle(empresa)}
+                          disabled={togglingId === empresa.id}
+                        >
+                          {empresa.activa
+                            ? <PowerOff className="size-4" />
+                            : <Power className="size-4" />}
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>

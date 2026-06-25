@@ -10,6 +10,7 @@ import { ErrorState } from "@/components/ui/ErrorState"
 import { createTemplate, deleteTemplate, fetchTemplates } from "@/services/onboarding"
 import { fetchEmpresas } from "@/services/empresas"
 import { getEmpresaActivaId } from "@/services/empresaStore"
+import { useCanWrite } from "@/hooks/useCanWrite"
 import type { OnboardingTemplate } from "@/types/onboarding"
 import type { Empresa } from "@/types/empresa"
 
@@ -145,6 +146,7 @@ function NuevoTemplateModal({ empresas, empresaActivaId, onClose, onSuccess }: N
 
 export default function TemplatesPage() {
   const router = useRouter()
+  const canWrite = useCanWrite()
   const [empresaActivaId] = useState<string | null>(() => getEmpresaActivaId())
   const [templates, setTemplates] = useState<OnboardingTemplate[]>([])
   const [empresas, setEmpresas] = useState<Empresa[]>([])
@@ -212,14 +214,16 @@ export default function TemplatesPage() {
           title="Templates de onboarding"
           description={`${templates.length} template${templates.length !== 1 ? "s" : ""} configurado${templates.length !== 1 ? "s" : ""}`}
         />
-        <button
-          type="button"
-          onClick={() => setModalOpen(true)}
-          className="absolute right-0 top-0 flex min-h-10 items-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <Plus className="size-4" />
-          <span className="hidden sm:inline">Nuevo template</span>
-        </button>
+        {canWrite && (
+          <button
+            type="button"
+            onClick={() => setModalOpen(true)}
+            className="absolute right-0 top-0 flex min-h-10 items-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Plus className="size-4" />
+            <span className="hidden sm:inline">Nuevo template</span>
+          </button>
+        )}
       </div>
 
       {templates.length === 0 ? (
@@ -253,15 +257,17 @@ export default function TemplatesPage() {
                   <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
                 </div>
               </button>
-              <button
-                type="button"
-                onClick={(e) => handleDelete(e, t.id)}
-                disabled={deletingId === t.id}
-                className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-xl border bg-card text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-                aria-label="Eliminar template"
-              >
-                <X className="size-4" />
-              </button>
+              {canWrite && (
+                <button
+                  type="button"
+                  onClick={(e) => handleDelete(e, t.id)}
+                  disabled={deletingId === t.id}
+                  className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-xl border bg-card text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                  aria-label="Eliminar template"
+                >
+                  <X className="size-4" />
+                </button>
+              )}
             </li>
           ))}
         </ul>

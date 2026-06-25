@@ -13,6 +13,7 @@ import {
   updateTarea,
   updateTemplate,
 } from "@/services/onboarding"
+import { useCanWrite } from "@/hooks/useCanWrite"
 import type { OnboardingTemplate, TemplateTarea } from "@/types/onboarding"
 
 const SEMANAS = [1, 2, 3, 4] as const
@@ -26,9 +27,10 @@ interface InlineEditProps {
   className?: string
   multiline?: boolean
   placeholder?: string
+  canEdit?: boolean
 }
 
-function InlineEdit({ value, onSave, className = "", multiline = false, placeholder }: InlineEditProps) {
+function InlineEdit({ value, onSave, className = "", multiline = false, placeholder, canEdit = true }: InlineEditProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value)
   const [saving, setSaving] = useState(false)
@@ -49,6 +51,14 @@ function InlineEdit({ value, onSave, className = "", multiline = false, placehol
       setSaving(false)
       setEditing(false)
     }
+  }
+
+  if (!canEdit) {
+    return (
+      <span className={className}>
+        {value || <span className="text-muted-foreground italic">{placeholder}</span>}
+      </span>
+    )
   }
 
   if (!editing) {
@@ -194,6 +204,7 @@ function AddTareaForm({ templateId, semana, nextOrden, onAdded, onCancel }: AddT
 export default function TemplateDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const canWrite = useCanWrite()
   const [template, setTemplate] = useState<OnboardingTemplate | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -291,6 +302,7 @@ export default function TemplateDetailPage() {
           onSave={handleSaveNombre}
           className="text-2xl font-semibold tracking-tight text-foreground"
           placeholder="Nombre del template"
+          canEdit={canWrite}
         />
         <div className="mt-1">
           <InlineEdit
@@ -299,6 +311,7 @@ export default function TemplateDetailPage() {
             className="text-sm text-muted-foreground"
             multiline
             placeholder="Agregar descripción…"
+            canEdit={canWrite}
           />
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
@@ -320,14 +333,16 @@ export default function TemplateDetailPage() {
                 <h2 id={`semana-${semana}-title`} className="text-sm font-semibold text-foreground">
                   Semana {semana}
                 </h2>
-                <button
-                  type="button"
-                  onClick={() => setAddingSemana(addingSemana === semana ? null : semana)}
-                  className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <Plus className="size-3.5" />
-                  Agregar tarea
-                </button>
+                {canWrite && (
+                  <button
+                    type="button"
+                    onClick={() => setAddingSemana(addingSemana === semana ? null : semana)}
+                    className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <Plus className="size-3.5" />
+                    Agregar tarea
+                  </button>
+                )}
               </div>
 
               {tareas.length === 0 && addingSemana !== semana && (
@@ -352,6 +367,7 @@ export default function TemplateDetailPage() {
                           onSave={(v) => handleSaveTareaTitulo(tarea.id, v)}
                           className="text-sm font-medium text-foreground"
                           placeholder="Título de la tarea"
+                          canEdit={canWrite}
                         />
                         <InlineEdit
                           value={tarea.descripcion ?? ""}
@@ -359,17 +375,20 @@ export default function TemplateDetailPage() {
                           className="text-xs text-muted-foreground"
                           multiline
                           placeholder="Agregar descripción…"
+                          canEdit={canWrite}
                         />
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteTarea(tarea.id)}
-                        disabled={deletingId === tarea.id}
-                        aria-label="Eliminar tarea"
-                        className="flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-                      >
-                        <Trash2 className="size-3.5" />
-                      </button>
+                      {canWrite && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteTarea(tarea.id)}
+                          disabled={deletingId === tarea.id}
+                          aria-label="Eliminar tarea"
+                          className="flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      )}
                     </div>
                   </li>
                 ))}

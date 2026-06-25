@@ -32,9 +32,9 @@ function TableSkeleton() {
 
 // ── Modal de evaluación ───────────────────────────────────────────────────────
 
-interface EvaluacionFormProps { instanciaId: string; onClose: () => void; onSaved: () => void }
+interface EvaluacionFormProps { instanciaId: string; canWrite: boolean; onClose: () => void; onSaved: () => void }
 
-function EvaluacionForm({ instanciaId, onClose, onSaved }: EvaluacionFormProps) {
+function EvaluacionForm({ instanciaId, canWrite, onClose, onSaved }: EvaluacionFormProps) {
   const [instancia, setInstancia] = useState<InstanciaDetalle | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -77,7 +77,8 @@ function EvaluacionForm({ instanciaId, onClose, onSaved }: EvaluacionFormProps) 
 
   const esNumerica = instancia.plantilla_tipo_escala === "numerica"
   const opciones = instancia.plantilla_opciones_cualitativas ?? []
-  const yaFinalizada = instancia.estado === "finalizada"
+  // solo lectura si ya está finalizada o si el rol no puede escribir
+  const readOnly = instancia.estado === "finalizada" || !canWrite
 
   return (
     <div className="space-y-4">
@@ -106,7 +107,7 @@ function EvaluacionForm({ instanciaId, onClose, onSaved }: EvaluacionFormProps) 
                   min={instancia.plantilla_escala_min ?? 1}
                   max={instancia.plantilla_escala_max ?? 10}
                   defaultValue={r.puntaje ?? ""}
-                  disabled={yaFinalizada}
+                  disabled={readOnly}
                   className="h-8 w-24"
                   onBlur={(e) => {
                     const val = parseFloat(e.target.value)
@@ -121,7 +122,7 @@ function EvaluacionForm({ instanciaId, onClose, onSaved }: EvaluacionFormProps) 
               <select
                 className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm disabled:opacity-60"
                 defaultValue={r.valor ?? ""}
-                disabled={yaFinalizada}
+                disabled={readOnly}
                 onChange={(e) => void handleUpdateResultado(r.criterio_id, { valor: e.target.value })}>
                 <option value="">Seleccioná una opción</option>
                 {opciones.map((o) => <option key={o} value={o}>{o}</option>)}
@@ -130,7 +131,7 @@ function EvaluacionForm({ instanciaId, onClose, onSaved }: EvaluacionFormProps) 
             <Input
               placeholder="Comentario opcional"
               defaultValue={r.comentario ?? ""}
-              disabled={yaFinalizada}
+              disabled={readOnly}
               className="mt-2 h-7 text-xs"
               onBlur={(e) => void handleUpdateResultado(r.criterio_id, { comentario: e.target.value })}
             />
@@ -140,7 +141,7 @@ function EvaluacionForm({ instanciaId, onClose, onSaved }: EvaluacionFormProps) 
 
       <div className="space-y-1">
         <Label htmlFor="comentario_general">Comentario general</Label>
-        <Textarea id="comentario_general" rows={2} disabled={yaFinalizada}
+        <Textarea id="comentario_general" rows={2} disabled={readOnly}
           value={comentarioGeneral}
           onChange={(e) => setComentarioGeneral(e.target.value)}
           onBlur={(e) => void handleUpdateResultado(instancia.resultados[0]?.criterio_id ?? "",
@@ -152,7 +153,7 @@ function EvaluacionForm({ instanciaId, onClose, onSaved }: EvaluacionFormProps) 
 
       <DialogFooter>
         <Button variant="outline" onClick={onClose}>Cerrar</Button>
-        {!yaFinalizada && (
+        {!readOnly && (
           <Button onClick={handleFinalizar} disabled={finalizing}>
             <CheckCircle className="mr-2 size-4" />
             {finalizing ? "Finalizando…" : "Finalizar evaluación"}
@@ -165,7 +166,7 @@ function EvaluacionForm({ instanciaId, onClose, onSaved }: EvaluacionFormProps) 
 
 // ── Tab principal ─────────────────────────────────────────────────────────────
 
-export function EvaluacionesTab() {
+export function EvaluacionesTab({ canWrite }: { canWrite: boolean }) {
   const [instancias, setInstancias] = useState<Instancia[]>([])
   const [ciclos, setCiclos] = useState<Ciclo[]>([])
   const [loading, setLoading] = useState(true)
@@ -267,7 +268,7 @@ export function EvaluacionesTab() {
                   </TableCell>
                   <TableCell>
                     <Button variant="ghost" size="sm" onClick={() => setEvaluandoId(inst.id)}>
-                      {inst.estado === "finalizada" ? "Ver" : "Evaluar"}
+                      {inst.estado === "finalizada" || !canWrite ? "Ver" : "Evaluar"}
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -283,6 +284,7 @@ export function EvaluacionesTab() {
           {evaluandoId && (
             <EvaluacionForm
               instanciaId={evaluandoId}
+              canWrite={canWrite}
               onClose={() => setEvaluandoId(null)}
               onSaved={() => { setEvaluandoId(null); void load() }}
             />

@@ -11,6 +11,7 @@ import { OnboardingChecklist } from "@/components/features/onboarding/Onboarding
 import { fetchEmpleados } from "@/services/empleados"
 import { fetchOnboardingEmpleado, fetchOnboardings, fetchTemplates, iniciarOnboarding } from "@/services/onboarding"
 import { getEmpresaActivaId } from "@/services/empresaStore"
+import { useCanWrite } from "@/hooks/useCanWrite"
 import type { Empleado } from "@/types/empleado"
 import type { OnboardingDetalle, OnboardingInstancia, OnboardingTemplate } from "@/types/onboarding"
 
@@ -210,6 +211,7 @@ function IniciarModal({ activos, onClose, onSuccess }: IniciarModalProps) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function OnboardingPage() {
+  const canWrite = useCanWrite()
   const [onboardings, setOnboardings] = useState<OnboardingInstancia[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -311,14 +313,16 @@ export default function OnboardingPage() {
             <Settings2 className="size-4" />
             <span className="hidden sm:inline">Gestionar templates</span>
           </Link>
-          <button
-            type="button"
-            onClick={() => setModalOpen(true)}
-            className="flex min-h-10 items-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <Plus className="size-4" />
-            <span className="hidden sm:inline">Iniciar onboarding</span>
-          </button>
+          {canWrite && (
+            <button
+              type="button"
+              onClick={() => setModalOpen(true)}
+              className="flex min-h-10 items-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Plus className="size-4" />
+              <span className="hidden sm:inline">Iniciar onboarding</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -387,6 +391,7 @@ export default function OnboardingPage() {
       {detalle && (
         <OnboardingChecklist
           detalle={detalle}
+          canWrite={canWrite}
           onClose={() => setDetalle(null)}
           onTareaToggled={handleTareaToggled}
         />

@@ -13,6 +13,7 @@ import { ObjetivoModal } from "@/components/features/objetivos/ObjetivoModal"
 import { cambiarEstadoObjetivo, deleteObjetivo, fetchObjetivos, fetchUsuariosActivos } from "@/services/objetivos"
 import { fetchEmpresas } from "@/services/empresas"
 import { getEmpresaActivaId } from "@/services/empresaStore"
+import { useCanWrite } from "@/hooks/useCanWrite"
 import type { EstadoObjetivo, Objetivo, UserItem } from "@/types/objetivo"
 import type { Empresa } from "@/types/empresa"
 
@@ -30,6 +31,7 @@ function TableSkeleton() {
 }
 
 export default function ObjetivosPage() {
+  const canWrite = useCanWrite()
   const [empresaActivaId] = useState<string | null>(getEmpresaActivaId)
   const [vista, setVista]           = useState<Vista>("tablero")
   const [objetivos, setObjetivos]   = useState<Objetivo[]>([])
@@ -133,9 +135,11 @@ export default function ObjetivosPage() {
               <Download className="size-4" /> Exportar terminados
             </Button>
           )}
-          <Button className="min-h-11 gap-2" onClick={() => { setEditing(null); setModalOpen(true) }}>
-            <Plus className="size-4" /> Nuevo objetivo
-          </Button>
+          {canWrite && (
+            <Button className="min-h-11 gap-2" onClick={() => { setEditing(null); setModalOpen(true) }}>
+              <Plus className="size-4" /> Nuevo objetivo
+            </Button>
+          )}
         </div>
       </div>
 
@@ -152,11 +156,11 @@ export default function ObjetivosPage() {
       {loading && <TableSkeleton />}
       {!loading && error && <div className="py-12 text-center text-sm text-destructive">Error al cargar. <button onClick={load} className="underline">Reintentar</button></div>}
       {!loading && !error && vista === "tablero" && (
-        <KanbanView objetivos={objetivos} onMover={handleMover} moviendo={moviendo}
+        <KanbanView objetivos={objetivos} onMover={handleMover} moviendo={moviendo} canWrite={canWrite}
           onEdit={(o) => { setEditing(o); setModalOpen(true) }} onDelete={handleDelete} deletingId={deletingId} />
       )}
       {!loading && !error && vista === "lista" && (
-        <ListView objetivos={objetivos} showEmpresa={mostrarEmpresa}
+        <ListView objetivos={objetivos} showEmpresa={mostrarEmpresa} canWrite={canWrite}
           onEdit={(o) => { setEditing(o); setModalOpen(true) }} onDelete={handleDelete} deletingId={deletingId} />
       )}
 

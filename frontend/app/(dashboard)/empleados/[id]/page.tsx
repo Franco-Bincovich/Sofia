@@ -20,6 +20,7 @@ import { Label } from "@/components/ui/label"
 import { EmpleadoModal } from "@/components/features/empleados/EmpleadoModal"
 import { fetchEmpleado } from "@/services/empleados"
 import { iniciarOffboarding } from "@/services/offboarding"
+import { useCanWrite } from "@/hooks/useCanWrite"
 import type { Empleado } from "@/types/empleado"
 import type { MotivoEgreso } from "@/types/offboarding"
 
@@ -162,8 +163,7 @@ export default function EmpleadoDetailPage() {
   const [editOpen, setEditOpen] = useState(false)
   const [offboardingOpen, setOffboardingOpen] = useState(false)
 
-  // TODO: leer desde sesión real cuando el auth esté completo
-  const isAdmin = true
+  const canWrite = useCanWrite()
 
   useEffect(() => {
     if (!id) return
@@ -206,7 +206,7 @@ export default function EmpleadoDetailPage() {
         title={`${empleado.nombre} ${empleado.apellido}`}
         description={empleado.cargo}
         action={
-          isAdmin ? (
+          canWrite ? (
             <div className="flex gap-2">
               {empleado.estado === "activo" && (
                 <Button
@@ -262,7 +262,7 @@ export default function EmpleadoDetailPage() {
         </Section>
       </div>
 
-      {isAdmin && (
+      {canWrite && (
         <>
           <EmpleadoModal
             open={editOpen}

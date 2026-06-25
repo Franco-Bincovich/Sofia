@@ -33,6 +33,7 @@ Módulos: empleados, organigrama, onboarding/offboarding, vacantes, costos, suce
 - **IA**: Anthropic Claude Sonnet · cliente singleton en `integrations/anthropic_client.py` · timeout 25s
 - **Email**: Resend — instalado en requirements.txt, pendiente de conectar módulo por módulo
 - **Exportaciones**: openpyxl (export), reportlab (PDF)
+- **Tests frontend**: vitest (`npm run test`) — runner agregado en 16.6a; dev-only, no afecta `next build`.
 
 ---
 
@@ -73,9 +74,10 @@ Sofia/                         ← raíz del repo (acá va este CLAUDE.md)
     │   └── global-error.tsx   ← error boundary global con html/body propio
     ├── components/
     │   ├── ui/                ← genéricos: Button, Input, Table, Modal, Skeleton
+    │   ├── auth/              ← Can.tsx (wrapper de permiso para ocultar acciones)
     │   ├── layout/            ← Sidebar (con EmpresaSelector), UserMenu, PageHeader, ThemeProvider, AuthGuard
     │   └── features/          ← componentes específicos por módulo
-    ├── hooks/
+    ├── hooks/                 ← incluye useCanWrite.ts
     ├── services/              ← llamadas a la API + empresaStore.ts + permisos.ts (espejo de backend)
     ├── types/
     ├── styles/
@@ -129,7 +131,7 @@ Nunca saltear capas. El router no llama al repository directamente. El service n
 - **Touch targets**: mínimo 44×44px en mobile.
 - **Mobile-first**: estilos base para mobile, `md:` y `lg:` para pantallas más grandes.
 - **Next.js 16**: las páginas `error.tsx` y `global-error.tsx` usan `"use client"` y la firma `{ error, unstable_retry }`. `useRouter`/`usePathname` se importan de `next/navigation`, solo en client components. Leer `node_modules/next/dist/docs/` antes de crear páginas de error o tocar el guard.
-- **Permisos en UI**: `services/permisos.ts` es el espejo de `backend/utils/permisos.py` (fuente canónica = backend). El frontend filtra navegación y rutas por rol como UX; el control de seguridad real lo hace el backend (403). Mantener ambos archivos sincronizados.
+- **Permisos en UI**: `services/permisos.ts` es el espejo de `backend/utils/permisos.py` (fuente canónica = backend). Para ocultar acciones por rol, usar el hook `useCanWrite(seccion?)` en páginas (deriva la sección de la ruta) o el wrapper `<Can seccion accion>` / prop `canWrite` en componentes hijos. Estrategia: OCULTAR (no renderizar) entry points de escritura, NO deshabilitar. El control de seguridad real lo hace el backend (403); esto es solo UX. Mantener `permisos.ts` sincronizado con el backend.
 
 ### Multiempresa
 
@@ -137,6 +139,7 @@ Nunca saltear capas. El router no llama al repository directamente. El service n
 - Toda query filtra por `empresa_id` usando el header `X-Empresa-Id` de la sesión activa.
 - Antes de tocar cualquier schema, leer `MODELO_DATOS.md`.
 - Toda nueva sección registra su identificador como `SECCION = Seccion.X` (enum en `utils/permisos.py`).
+- **Todo usuario accede a TODAS las empresas** (decisión de producto — ver "Roles y modelo de acceso"). No hay restricción de empresa por usuario.
 
 ### Seguridad
 
@@ -165,6 +168,7 @@ Nunca saltear capas. El router no llama al repository directamente. El service n
 13. **Verificar que el código nuevo no rompe módulos existentes antes de terminar.**
 14. **Todo endpoint que reciba UploadFile debe llamar a validate_upload() de utils/files.py.**
 15. **Todo endpoint gateable lleva require_permission con su SECCION y la acción según verbo HTTP. Los endpoints públicos (PUBLIC_ROUTES, assessment por token) NO se gatean.**
+16. **No es un diagnóstico salvo que se pida explícitamente. Si el prompt dice "implementar", escribir código — no devolver un reporte read-only.**
 
 ---
 
@@ -197,35 +201,37 @@ Todas las tareas verificadas con diagnóstico de Claude Code. Cero bloqueantes.
 | Tarea | Descripción | Estado |
 |---|---|---|
 | 16 | Sistema de roles funcionales (admin_rrhh / gerencia_lectura / mandos_medios) | ✅ COMPLETA |
+| 17 | Validación X-Empresa-Id contra acceso real del usuario | ❌ NO APLICA (ver abajo) |
+| 18 | Audit log extendido + UI | ⬜ próxima |
+| 19 | Bloqueos por módulo | ⬜ |
+| 20 | Legajo ampliado (campos nuevos + adjuntos) | ⬜ |
+| 21 | Tracking de cambios | ⬜ |
+| 22 | Import/Export en todos los módulos | ⬜ |
+| 23 | Feature: vacaciones historial desde ingreso | ⬜ |
+| 24 | Feature: proyectos por equipo/área | ⬜ |
+| 25 | Feature: objetivos import masivo | ⬜ |
 
 **T16 — desglose de sub-sesiones (todas completas):**
 
-- **16.1** — Migración 057: CHECK de `users.rol` a los 3 roles funcionales + recreación de las 27 policies RLS que referenciaban `'management'` (21 lectura → `gerencia_lectura`, 1 write drop limpio, 5 write recreadas admin-only, 1 fix de `USING`→`WITH CHECK` en reportes). Sin backfill (único usuario = admin_rrhh).
-- **16.2** — `utils/permisos.py`: enum `Seccion` (24) + `Accion`, `puede(rol, seccion, accion)` puro fail-closed, dependency factory `require_permission`. Tests unitarios puros.
-- **16.3** — Declarar `SECCION = Seccion.X` en los 24 routers primarios (7 convertidos de string, 17 nuevos).
-- **16.4a** — Dividir routers sobre límite: `ev_plantillas` split → `ev_criterios.py` (nuevo); `empleados` y `ausencias` compactados. Los 4 quedan ≤80.
-- **16.4b** — `require_permission` aplicado a los 142 endpoints gateables (inline por-endpoint, uniforme) + `SECCION` en 8 sub-routers. 3 endpoints públicos exentos. Tests del 403.
-- **16.5** — Frontend: `UserRol` y `ROL_LABEL` a los valores nuevos · `services/permisos.ts` (espejo) · Sidebar filtrado por permiso · `UserMenu` con usuario real + logout cableado · `AuthGuard` montado y extendido con chequeo de permiso por ruta (redirige a la primera sección permitida del rol).
+- **16.1** — Migración 057: CHECK de `users.rol` a los 3 roles funcionales + recreación de las 27 policies RLS que referenciaban `'management'`. Sin backfill (único usuario = admin_rrhh).
+- **16.2** — `utils/permisos.py`: enum `Seccion` (24) + `Accion`, `puede(rol, seccion, accion)` puro fail-closed, dependency `require_permission`. Tests unitarios puros.
+- **16.3** — Declarar `SECCION = Seccion.X` en los 24 routers primarios.
+- **16.4a** — Dividir routers sobre límite: `ev_plantillas` split → `ev_criterios.py`; `empleados` y `ausencias` compactados. Los 4 quedan ≤80.
+- **16.4b** — `require_permission` aplicado a los 142 endpoints gateables (inline por-endpoint) + `SECCION` en 8 sub-routers. 3 endpoints públicos exentos. Tests del 403.
+- **16.5** — Frontend: `UserRol`/`ROL_LABEL` a valores nuevos · `services/permisos.ts` (espejo) · Sidebar filtrado · `UserMenu` real + logout · `AuthGuard` montado y extendido con guard por ruta (redirige a la primera sección permitida del rol).
+- **16.6** — Ocultar botones de escritura por rol. Infra: `hooks/useCanWrite.ts` + `components/auth/Can.tsx` + tests (vitest). Cableados los entry points de escritura en todos los módulos (16.6a grupo CRUD; 16.6b acciones de estado + vacaciones/ausencias + barrido). Estrategia: ocultar entry points; submit de modales no tocados; modal de evaluación queda read-only con campos disabled (vista de consulta). `gerencia_lectura` no ve botones de escritura en ningún módulo; `mandos_medios` ve los de vacaciones/ausencias.
 
-**Pendientes de Entrega 2 (sub-descomposición en su diagnóstico):**
-- **16.6** — Ocultar/deshabilitar botones de escritura por módulo para `gerencia_lectura` (UX, no seguridad — el backend ya devuelve 403). Volumen medio (~12 módulos, ~20-30 botones).
-- T17 — Validación de `X-Empresa-Id` contra el acceso real del usuario (mismo eje de control de acceso que T16; converge en `permisos.py`).
-- T18 — Audit log extendido + UI.
-- T19 — Bloqueos por módulo.
-- T20 — Legajo ampliado (campos nuevos + adjuntos).
-- T21 — Tracking de cambios.
-- T22 — Import/Export en todos los módulos.
-- T23/24/25 — Features: vacaciones historial desde ingreso · proyectos por equipo/área · objetivos import masivo.
+### T17 — NO APLICA (decisión de producto, jun 2026)
 
-**Estimación Entrega 2:** 111 hs · 22–28 sesiones Claude Code
+T17 era validar `X-Empresa-Id` contra el acceso real del usuario (restringir qué empresas ve cada uno). **No se implementa.** Decisión de producto: **todo usuario del sistema, sin importar el rol, accede a TODAS las empresas de la instancia.** Puede ver el consolidado (`empresa_id=None`, todas juntas) o seleccionar una empresa puntual vía `X-Empresa-Id`. No existe la noción de "usuario limitado a ciertas empresas", por lo tanto no hay nada que validar: no se crea la tabla `acceso_empresa` ni una dependency de empresa. El comportamiento actual es el correcto y definitivo. **NO reabrir.** (`acceso_seccion` del doc §8 quedó cubierto por el modelo de roles de T16.)
 
-### Métricas del repo (post T16)
+### Métricas del repo (post T16/16.6)
 
 - **Migraciones SQL**: 58 (000–057)
 - **Routers registrados**: 33 (24 primarios + 9 sub-routers, incluyendo `ev_criterios`)
 - **Endpoints con permiso aplicado**: 142 gateados · 3 públicos exentos · auth sin gate
 - **Services**: 38 archivos
-- **Repositories**: 35 archivos (incluyendo empleado_import_repo.py y nomina_import_repo.py)
+- **Repositories**: 35 archivos
 - **Rutas frontend**: 28 `page.tsx` en `app/(dashboard)/`
 
 ### Módulos por estado
@@ -241,9 +247,40 @@ Vacaciones · Ausencias · Evaluaciones de desempeño · Proyectos · Capacitaci
 **No implementados:**
 - Asistencia — no existe ningún archivo relacionado. Requiere decisión de producto.
 
+---
+
+## Deuda técnica activa
+
 ### Archivos fuera de límite de líneas
 
-Deuda pre-existente documentada. Dividir antes de modificar:
+Deuda de mantenibilidad/legibilidad (no de funcionamiento). Dividir antes de modificar a fondo. **Candidata a tarea de refactor propia** — atacar por peores primero, con diagnóstico→implementación archivo por archivo (NO en masa). Conteo real relevado en 16.6 (la lista previa subreportaba):
+
+**Frontend (límite componente/página 150):**
+
+| Archivo | Líneas |
+|---|---|
+| `frontend/.../sucesion/page.tsx` | 861 |
+| `frontend/.../costos/page.tsx` | 608 |
+| `frontend/.../vacantes/[id]/page.tsx` | 573 |
+| `frontend/.../reportes/page.tsx` | 531 |
+| `frontend/.../onboarding/page.tsx` | 405 |
+| `frontend/.../onboarding/templates/[id]/page.tsx` | 393 |
+| `frontend/.../configuracion/page.tsx` | 374 |
+| `frontend/.../empleados/page.tsx` | 295 |
+| `frontend/.../empleados/[id]/page.tsx` | 289 |
+| `frontend/.../vacaciones/page.tsx` | 282 |
+| `frontend/components/layout/Sidebar.tsx` | 277 |
+| `frontend/.../ausencias/page.tsx` | 277 |
+| `frontend/.../offboarding/page.tsx` | 268 |
+| `frontend/.../areas/page.tsx` | 253 |
+| `frontend/.../empresas/[id]/page.tsx` | 224 |
+| `frontend/.../vacantes/page.tsx` | 213 |
+| `frontend/.../empresas/page.tsx` | 194 |
+| `frontend/.../objetivos/page.tsx` | 167 |
+
+> `Sidebar.tsx` (277): dividir extrayendo `EmpresaSelector`, `NavItem`, `ThemeToggle` a archivos propios.
+
+**Backend (límite service 150 / repo 100):**
 
 | Archivo | Límite | Líneas |
 |---|---|---|
@@ -260,21 +297,34 @@ Deuda pre-existente documentada. Dividir antes de modificar:
 | `repositories/nomina_repo.py` | 100 | 107 |
 | `repositories/proyectos_repo.py` | 100 | 104 |
 | `repositories/ausencias_repo.py` | 100 | 101 |
-| `frontend/components/layout/Sidebar.tsx` | 150 | 277 |
-| `frontend/.../empleados/page.tsx` | 150 | 295 |
-| `frontend/.../empresas/page.tsx` | 150 | 194 |
 
-> Nota: `routers/ausencias.py`, `routers/ev_plantillas.py` y `routers/empleados.py` salieron de esta lista en 16.4a (divididos/compactados, ahora ≤80).
+> `routers/ausencias.py`, `ev_plantillas.py`, `empleados.py` salieron de la lista en 16.4a (divididos/compactados, ≤80).
+
+### Build frontend rojo por errores TS pre-existentes
+
+`next build` compila pero el type-check falla por 21 errores en 7 archivos **pre-existentes, ajenos a T16/16.6**: `assessment/[id]/page.tsx:113` ('resultado' possibly null), `organigrama` (×4), `EmpleadoModal`, `ProyectoModal`. Resolver antes de cualquier deploy. No bloquea desarrollo local.
+
+### Otras
+
+- `services/integracion_service.py:19` — `os.environ.setdefault()` directo dentro de guard `if settings.app_env == "development"`. Viola convención. Baja prioridad.
+- `controllers/` — carpeta vacía. No crear controllers.
+- `assessment/page.tsx:73-75` — UI deshabilitada por código (redirect a /dashboard). **[Entrega 3]**
+- `services/assessment_service.py:130` — `save_resultado` puede llamarse sin `empresa_id` siendo columna `NOT NULL`. **[Entrega 3 — al reactivar Assessment]**
+- `exportVacacionesCSV` / `exportAusenciasCSV` — exportan array en memoria (solo la página actual). Necesitan endpoint propio para exportar todo. **[Entrega 2]**
+- `handleDeleteTarea` en `onboarding/templates/[id]/page.tsx` — usa `alert()` en lugar de Sonner. **[Entrega 2]**
+- `migrations/000_run_all.sql` — agregado bootstrap que todavía contiene literales `'management'`. Re-bootstrapear desde cero reintroduce el valor viejo y choca con el CHECK de 057. Corregir si se regenera el agregado. **[T16]**
+- `frontend/services/permisos.ts` es espejo manual de `backend/utils/permisos.py` — riesgo de divergencia. Solución durable: `GET /api/auth/me` que devuelva rol + permisos calculados por backend. **[Entrega 3]**
+- `middleware/auth.py:86-94` — `X-Empresa-Id` acepta cualquier UUID bien formado sin verificar que exista en la tabla `empresas` (UUID inexistente → cae silenciosamente a consolidado). Higiene de input, NO seguridad (todo usuario accede a toda empresa — ver T17 NO APLICA). Validar contra `empresas` y rechazar con 400 si no existe. Baja prioridad.
 
 ---
 
 ## Plan de entregas
 
 ### Entrega 1 ✅ COMPLETA
-Estabilidad técnica. Ver tabla arriba.
+Estabilidad técnica.
 
 ### Entrega 2 — RRHH mínimo viable (en curso)
-Roles funcionales (T16 ✅) · Validación X-Empresa-Id · Audit log extendido + UI · Bloqueos por módulo · Legajo ampliado (campos nuevos + adjuntos) · Tracking de cambios · Import/Export en todos los módulos · Features: vacaciones historial desde ingreso, proyectos por equipo/área, objetivos import masivo.
+Roles funcionales (T16 ✅) · X-Empresa-Id (T17 ❌ no aplica) · Audit log extendido + UI (T18 próxima) · Bloqueos por módulo · Legajo ampliado · Tracking de cambios · Import/Export en todos los módulos · Features: vacaciones historial desde ingreso, proyectos por equipo/área, objetivos import masivo.
 
 **Estimación:** 111 hs · 22–28 sesiones Claude Code
 
@@ -282,21 +332,6 @@ Roles funcionales (T16 ✅) · Validación X-Empresa-Id · Audit log extendido +
 Alertas configurables · Plantillas de mail + Resend · Filtros completos por área y proyecto · Subobjetivos · Estadísticas evaluaciones · Offboarding estructurado + estadísticas IA · Organigrama como cards de proyectos · Assessment/Costos/Sucesión · AWS (Dockerfile + CI/CD + ECS).
 
 **Estimación:** 124 hs · 25–31 sesiones Claude Code
-
----
-
-## Deuda técnica activa
-
-- `services/integracion_service.py:19` — `os.environ.setdefault()` directo dentro de guard `if settings.app_env == "development"`. Viola convención. Baja prioridad.
-- `controllers/` — carpeta vacía. No crear controllers.
-- `assessment/page.tsx:73-75` — UI deshabilitada por código (redirect a /dashboard). **[Entrega 3]**
-- `services/assessment_service.py:130` — `save_resultado` puede llamarse sin `empresa_id` siendo columna `NOT NULL`. **[Entrega 3 — al reactivar Assessment]**
-- `exportVacacionesCSV` / `exportAusenciasCSV` — exportan array en memoria (solo la página actual con paginación). Necesitan endpoint propio para exportar todo. **[Entrega 2]**
-- `handleDeleteTarea` en `onboarding/templates/[id]/page.tsx` — usa `alert()` en lugar de Sonner. **[Entrega 2]**
-- `migrations/000_run_all.sql` — agregado bootstrap que todavía contiene literales `'management'`. Re-bootstrapear desde cero reintroduce el valor viejo y choca con el CHECK de 057. Corregir si se regenera el agregado. **[deuda nueva — T16]**
-- `frontend/services/permisos.ts` es un espejo manual de `backend/utils/permisos.py` — riesgo de divergencia. La solución durable es un `GET /api/auth/me` que devuelva rol + permisos calculados por el backend (fuente única). **[Entrega 3]**
-- `frontend/components/layout/Sidebar.tsx` — 277 líneas (límite 150). Requiere extraer `EmpresaSelector`, `NavItem` y `ThemeToggle` a archivos propios. Refactor estructural propio. **[deuda nueva — T16]**
-- 16 archivos fuera de límite de líneas — ver tabla arriba. Dividir antes de modificar.
 
 ---
 
@@ -312,26 +347,27 @@ A partir de T16 (Entrega 2), el control de acceso por rol está implementado y a
 |---|---|
 | `admin_rrhh` | Acceso total: lectura + escritura en todas las secciones. |
 | `gerencia_lectura` | Lectura en todas las secciones. Sin escritura (write → 403). |
-| `mandos_medios` | Lectura + escritura SOLO en `vacaciones` y `ausencias`. El resto de secciones: sin acceso. |
+| `mandos_medios` | Lectura + escritura SOLO en `vacaciones` y `ausencias`. El resto: sin acceso. |
 
 Rol desconocido / ausente → sin acceso (fail-closed).
 
+### Acceso a empresas
+
+**Todo usuario, sin importar el rol, accede a TODAS las empresas** (decisión de producto). Puede operar sobre el consolidado (todas) o sobre una empresa puntual vía `X-Empresa-Id`. No hay restricción de empresa por usuario (ver "T17 NO APLICA"). El eje de control de acceso es solo el rol (capacidad R/W por sección), no la empresa.
+
 ### Cómo se enforcea
 
-- **Núcleo**: `utils/permisos.py` — enum `Seccion` (24 valores), enum `Accion` (READ/WRITE), `puede(rol, seccion, accion) -> bool` (función pura, fail-closed, 3 ramas por rol), y `require_permission(seccion, accion)` (dependency factory de FastAPI). Cambiar el modelo de permisos = cambiar este archivo.
-- **Aplicación**: cada endpoint gateable lleva `dependencies=[Depends(require_permission(SECCION, Accion.X))]`. La acción se deriva del verbo HTTP (GET=READ; POST/PUT/PATCH/DELETE=WRITE). Cada router declara `SECCION = Seccion.X`; los sub-routers declaran la sección de su dominio padre.
-- **Orden de control**: el `AuthMiddleware` corta primero (sin token → 401 antes de la dependency). `require_permission` solo actúa con token válido + rol seteado, devolviendo 403 `FORBIDDEN` si el rol no alcanza.
-- **Endpoints exentos**: los públicos (`PUBLIC_ROUTES` y assessment por token) NO se gatean. `auth.py` (login/refresh/logout) no tiene sección.
-- **RLS**: las policies por rol en Supabase existen pero están dormidas para el tráfico de la API (el backend usa `service_key`, que bypasea RLS). El enforcement efectivo lo hace `require_permission`, no RLS. La migración 057 mantiene las policies consistentes con los roles nuevos por higiene de schema.
+- **Núcleo**: `utils/permisos.py` — enum `Seccion` (24), `Accion` (READ/WRITE), `puede(rol, seccion, accion) -> bool` (pura, fail-closed), `require_permission(seccion, accion)` (dependency factory). Cambiar el modelo = cambiar este archivo.
+- **Aplicación backend**: cada endpoint gateable lleva `dependencies=[Depends(require_permission(SECCION, Accion.X))]`. Acción según verbo HTTP. Cada router declara `SECCION = Seccion.X`.
+- **Orden de control**: `AuthMiddleware` corta primero (sin token → 401). `require_permission` actúa con token válido + rol, devuelve 403 `FORBIDDEN` si no alcanza.
+- **Exentos**: públicos (`PUBLIC_ROUTES`, assessment por token) no se gatean. `auth.py` sin sección.
+- **RLS**: las policies por rol existen pero están dormidas para el tráfico de la API (backend usa `service_key`, bypasea RLS). El enforcement efectivo lo hace `require_permission`. La migración 057 mantiene las policies consistentes por higiene de schema.
 
 ### Frontend
 
-- `services/permisos.ts` es el espejo de `utils/permisos.py`. Filtra la navegación del Sidebar y las rutas (vía `AuthGuard`) según el rol — es mejora de UX, NO el control de seguridad (que vive en el backend).
+- `services/permisos.ts` espeja `utils/permisos.py`. Filtra navegación (Sidebar) y rutas (`AuthGuard`) por rol — UX, no seguridad.
+- Botones de escritura: ocultos por rol vía `useCanWrite()` / `<Can>` (16.6). El control real es el 403 del backend.
 - El rol viaja en la sesión (`LoginResponse.user.rol`, persistida en `localStorage`).
-- `AuthGuard` redirige a `/login` si no hay sesión, y a la primera sección que el rol puede leer si intenta entrar a una ruta sin permiso.
-
-### Eje ortogonal pendiente
-
-El rol gobierna *capacidad por sección* (R/W). El *alcance por empresa* (qué empresas ve el usuario, vía `X-Empresa-Id` validado contra acceso real) es un eje ortogonal que se implementa en T17 y converge en el mismo punto de decisión de `permisos.py`. El filtrado *por empleado a cargo* (mandos_medios viendo solo su equipo) es row-level y depende de la importación de nómina — tarea posterior.
+- `AuthGuard`: sin sesión → `/login`; ruta sin permiso de lectura → primera sección que el rol puede ver.
 
 El empleado nunca es usuario del sistema. Donde necesita aportar datos, lo hace por link público con token, sin login.

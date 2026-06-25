@@ -23,29 +23,32 @@ function formatDate(s: string) {
 
 interface Props {
   objetivo: Objetivo
+  canWrite: boolean
   onEdit: (obj: Objetivo) => void
   onDelete: (id: string) => void
   deletingId: string | null
 }
 
-export function ObjetivoCard({ objetivo: obj, onEdit, onDelete, deletingId }: Props) {
+export function ObjetivoCard({ objetivo: obj, canWrite, onEdit, onDelete, deletingId }: Props) {
   const atrasado = isOverdue(obj.fecha_entrega, obj.estado)
 
   return (
     <div className="rounded-lg border border-border bg-background p-3 shadow-sm">
       <div className="mb-1.5 flex items-start justify-between gap-1">
         <p className="text-sm font-medium leading-snug text-foreground">{obj.titulo}</p>
-        <div className="flex shrink-0 items-center gap-0.5">
-          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => onEdit(obj)} aria-label="Editar">
-            <Pencil className="size-3" />
-          </Button>
-          <Button
-            variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-            disabled={deletingId === obj.id} onClick={() => onDelete(obj.id)} aria-label="Eliminar"
-          >
-            <Trash2 className="size-3" />
-          </Button>
-        </div>
+        {canWrite && (
+          <div className="flex shrink-0 items-center gap-0.5">
+            <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => onEdit(obj)} aria-label="Editar">
+              <Pencil className="size-3" />
+            </Button>
+            <Button
+              variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+              disabled={deletingId === obj.id} onClick={() => onDelete(obj.id)} aria-label="Eliminar"
+            >
+              <Trash2 className="size-3" />
+            </Button>
+          </div>
+        )}
       </div>
       <p className="mb-2 text-xs text-muted-foreground">{obj.responsable_nombre ?? "—"}</p>
       <div className="flex items-center gap-2">

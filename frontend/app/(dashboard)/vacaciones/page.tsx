@@ -19,6 +19,7 @@ import { fetchVacaciones, cancelarVacacion, exportVacacionesCSV } from "@/servic
 import { fetchEmpresas } from "@/services/empresas"
 import { fetchAreas } from "@/services/areas"
 import { getEmpresaActivaId } from "@/services/empresaStore"
+import { useCanWrite } from "@/hooks/useCanWrite"
 import type { EstadoVacacion, SolicitudVacaciones } from "@/types/vacaciones"
 import type { Empresa } from "@/types/empresa"
 import type { Area } from "@/types/area"
@@ -57,6 +58,7 @@ function formatFecha(s: string): string {
 }
 
 export default function VacacionesPage() {
+  const canWrite = useCanWrite()
   const [empresaActivaId, setEmpresaActivaIdLocal] = useState<string | null>(null)
   const [solicitudes, setSolicitudes] = useState<SolicitudVacaciones[]>([])
   const [loading, setLoading] = useState(true)
@@ -155,10 +157,12 @@ export default function VacacionesPage() {
                 Exportar CSV
               </Button>
             )}
-            <Button className="min-h-11" onClick={() => setModalOpen(true)}>
-              <Plus className="size-4" />
-              Registrar vacaciones
-            </Button>
+            {canWrite && (
+              <Button className="min-h-11" onClick={() => setModalOpen(true)}>
+                <Plus className="size-4" />
+                Registrar vacaciones
+              </Button>
+            )}
           </div>
         }
       />
@@ -250,7 +254,7 @@ export default function VacacionesPage() {
                   <Badge variant={ESTADO_VARIANTS[s.estado]}>{ESTADO_LABELS[s.estado]}</Badge>
                 </TableCell>
                 <TableCell>
-                  {s.estado !== "cancelada" && (
+                  {canWrite && s.estado !== "cancelada" && (
                     <Button
                       variant="ghost"
                       size="sm"

@@ -183,7 +183,7 @@ function AsignarEmpleadosModal({ ciclo, onClose, onSaved }: AsignarProps) {
 
 // ── Tab principal ─────────────────────────────────────────────────────────────
 
-export function CiclosTab() {
+export function CiclosTab({ canWrite }: { canWrite: boolean }) {
   const [ciclos, setCiclos] = useState<Ciclo[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -214,9 +214,11 @@ export function CiclosTab() {
   return (
     <div>
       <div className="mb-4 flex justify-end">
-        <Button onClick={() => setModalNuevo(true)} size="sm">
-          <Plus className="mr-2 size-4" /> Nuevo ciclo
-        </Button>
+        {canWrite && (
+          <Button onClick={() => setModalNuevo(true)} size="sm">
+            <Plus className="mr-2 size-4" /> Nuevo ciclo
+          </Button>
+        )}
       </div>
       {ciclos.length === 0 ? (
         <div className="py-16 text-center text-muted-foreground">No hay ciclos aún.</div>
@@ -249,7 +251,7 @@ export function CiclosTab() {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1">
-                      {c.estado === "abierto" && (
+                      {canWrite && c.estado === "abierto" && (
                         <>
                           <Button variant="ghost" size="sm" onClick={() => setAsignandoCiclo(c)}>
                             <Users className="mr-1 size-3.5" /> Asignar

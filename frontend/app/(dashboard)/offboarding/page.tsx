@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/ui/EmptyState"
 import { cn } from "@/lib/utils"
 import { fetchOffboardings, marcarActivoDevuelto } from "@/services/offboarding"
 import { getEmpresaActivaId } from "@/services/empresaStore"
+import { useCanWrite } from "@/hooks/useCanWrite"
 import type { ActivoResponse, MotivoEgreso, OffboardingInstancia } from "@/types/offboarding"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -48,6 +49,7 @@ const TIPO_ACTIVO_LABEL: Record<string, string> = {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function OffboardingPage() {
+  const canWrite = useCanWrite()
   const [offboardings, setOffboardings] = useState<OffboardingInstancia[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -222,17 +224,20 @@ export default function OffboardingPage() {
                         <li key={activo.id}>
                           <label
                             className={cn(
-                              "flex cursor-pointer items-center gap-2.5 py-2.5 transition-colors hover:text-primary",
+                              "flex items-center gap-2.5 py-2.5",
+                              canWrite && "cursor-pointer transition-colors hover:text-primary",
                               isSaving && "opacity-60",
                             )}
                           >
-                            <input
-                              type="checkbox"
-                              checked={activo.devuelto}
-                              onChange={() => !isSaving && toggleActivo(inst.id, activo)}
-                              disabled={isSaving}
-                              className="size-4 shrink-0 accent-primary"
-                            />
+                            {canWrite && (
+                              <input
+                                type="checkbox"
+                                checked={activo.devuelto}
+                                onChange={() => !isSaving && toggleActivo(inst.id, activo)}
+                                disabled={isSaving}
+                                className="size-4 shrink-0 accent-primary"
+                              />
+                            )}
                             <span
                               className={cn(
                                 "text-sm",

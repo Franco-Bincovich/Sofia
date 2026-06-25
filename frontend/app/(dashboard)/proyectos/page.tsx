@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { ProyectoModal } from "@/components/features/proyectos/ProyectoModal"
 import { fetchProyectos, createProyecto, updateProyecto } from "@/services/proyectos"
+import { useCanWrite } from "@/hooks/useCanWrite"
 import type { Proyecto, ProyectoCreate, ProyectoEstado, ProyectoUpdate } from "@/types/proyecto"
 
 const ARS = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 })
@@ -37,7 +38,7 @@ function CosteoBar({ pct }: { pct: number | null }) {
   )
 }
 
-function ProyectoCard({ proyecto, onEdit }: { proyecto: Proyecto; onEdit: (p: Proyecto) => void }) {
+function ProyectoCard({ proyecto, canWrite, onEdit }: { proyecto: Proyecto; canWrite: boolean; onEdit: (p: Proyecto) => void }) {
   const router = useRouter()
   const { costeo } = proyecto
   return (
@@ -64,15 +65,18 @@ function ProyectoCard({ proyecto, onEdit }: { proyecto: Proyecto; onEdit: (p: Pr
         <Button variant="outline" size="sm" className="min-h-[2.75rem] flex-1 text-xs" onClick={() => router.push(`/proyectos/${proyecto.id}`)}>
           Ver detalle
         </Button>
-        <Button variant="ghost" size="sm" className="min-h-[2.75rem] text-xs" onClick={() => onEdit(proyecto)}>
-          Editar
-        </Button>
+        {canWrite && (
+          <Button variant="ghost" size="sm" className="min-h-[2.75rem] text-xs" onClick={() => onEdit(proyecto)}>
+            Editar
+          </Button>
+        )}
       </div>
     </div>
   )
 }
 
 export default function ProyectosPage() {
+  const canWrite = useCanWrite()
   const [proyectos, setProyectos] = useState<Proyecto[]>([])
   const [loading, setLoading]     = useState(true)
   const [error, setError]         = useState<string | null>(null)
@@ -103,10 +107,12 @@ export default function ProyectosPage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <PageHeader title="Proyectos" description="Gestión de proyectos y costeo por horas" />
-        <Button size="sm" className="min-h-[2.75rem] shrink-0 gap-1.5"
-          onClick={() => { setEditing(null); setModalOpen(true) }}>
-          <Plus className="size-4" /> Nuevo proyecto
-        </Button>
+        {canWrite && (
+          <Button size="sm" className="min-h-[2.75rem] shrink-0 gap-1.5"
+            onClick={() => { setEditing(null); setModalOpen(true) }}>
+            <Plus className="size-4" /> Nuevo proyecto
+          </Button>
+        )}
       </div>
 
       <div className="flex items-center gap-3">
@@ -130,13 +136,15 @@ export default function ProyectosPage() {
         <div className="flex flex-col items-center gap-2 py-16">
           <FolderKanban className="size-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">No hay proyectos registrados.</p>
-          <Button size="sm" variant="outline" className="mt-1"
-            onClick={() => { setEditing(null); setModalOpen(true) }}>Crear el primero</Button>
+          {canWrite && (
+            <Button size="sm" variant="outline" className="mt-1"
+              onClick={() => { setEditing(null); setModalOpen(true) }}>Crear el primero</Button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {proyectos.map((p) => (
-            <ProyectoCard key={p.id} proyecto={p} onEdit={(proj) => { setEditing(proj); setModalOpen(true) }} />
+            <ProyectoCard key={p.id} proyecto={p} canWrite={canWrite} onEdit={(proj) => { setEditing(proj); setModalOpen(true) }} />
           ))}
         </div>
       )}

@@ -41,6 +41,7 @@ import {
   type ReporteResponse,
 } from "@/services/reportes"
 import { getEmpresaActivaId } from "@/services/empresaStore"
+import { useCanWrite } from "@/hooks/useCanWrite"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -207,9 +208,11 @@ function AnioSelector({
 
 function ReporteCard({
   reporte,
+  canWrite,
   onSuccess,
 }: {
   reporte: ReporteEstandar
+  canWrite: boolean
   onSuccess: () => void
 }) {
   const Icon = reporte.icon
@@ -262,20 +265,22 @@ function ReporteCard({
         <AnioSelector id={reporte.id} anio={anio} onAnioChange={setAnio} />
       )}
 
-      <Button
-        variant="outline"
-        size="sm"
-        className="mt-auto min-h-[2.75rem] w-full"
-        onClick={handleGenerar}
-        disabled={loading}
-      >
-        {loading ? "Generando…" : "Generar"}
-      </Button>
+      {canWrite && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-auto min-h-[2.75rem] w-full"
+          onClick={handleGenerar}
+          disabled={loading}
+        >
+          {loading ? "Generando…" : "Generar"}
+        </Button>
+      )}
     </div>
   )
 }
 
-function ReporteAdHocCard({ onSuccess }: { onSuccess: (r: ReporteResponse) => void }) {
+function ReporteAdHocCard({ canWrite, onSuccess }: { canWrite: boolean; onSuccess: (r: ReporteResponse) => void }) {
   const [prompt, setPrompt] = useState("")
   const [loading, setLoading] = useState(false)
 
@@ -328,15 +333,17 @@ function ReporteAdHocCard({ onSuccess }: { onSuccess: (r: ReporteResponse) => vo
         />
       </div>
 
-      <Button
-        size="sm"
-        className="min-h-[2.75rem] w-full"
-        disabled={!prompt.trim() || loading}
-        onClick={handleGenerar}
-      >
-        <Sparkles className="size-4" />
-        {loading ? "Generando…" : "Generar con IA"}
-      </Button>
+      {canWrite && (
+        <Button
+          size="sm"
+          className="min-h-[2.75rem] w-full"
+          disabled={!prompt.trim() || loading}
+          onClick={handleGenerar}
+        >
+          <Sparkles className="size-4" />
+          {loading ? "Generando…" : "Generar con IA"}
+        </Button>
+      )}
     </div>
   )
 }
@@ -383,6 +390,7 @@ function AdhocResultModal({
 type ExportKey = `${string}-${"pdf" | "excel"}`
 
 export default function ReportesPage() {
+  const canWrite = useCanWrite()
   const [empresaActivaId] = useState<string | null>(() => getEmpresaActivaId())
   const mostrarEmpresa = !empresaActivaId
 
@@ -443,9 +451,9 @@ export default function ReportesPage() {
         </h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {REPORTES_ESTANDAR.map((r) => (
-            <ReporteCard key={r.id} reporte={r} onSuccess={cargarHistorial} />
+            <ReporteCard key={r.id} reporte={r} canWrite={canWrite} onSuccess={cargarHistorial} />
           ))}
-          <ReporteAdHocCard onSuccess={handleAdhocSuccess} />
+          <ReporteAdHocCard canWrite={canWrite} onSuccess={handleAdhocSuccess} />
         </div>
       </section>
 

@@ -27,7 +27,7 @@ function formatDate(s: string | null) {
   const [y,m,d] = s.split("-"); return `${d}/${m}/${y}`
 }
 
-export function AsignacionesTab() {
+export function AsignacionesTab({ canWrite }: { canWrite: boolean }) {
   const [empresaActivaId] = useState<string | null>(getEmpresaActivaId)
   const [asignaciones, setAsignaciones] = useState<Asignacion[]>([])
   const [loading, setLoading] = useState(true)
@@ -67,9 +67,11 @@ export function AsignacionesTab() {
             </select>
           )}
         </div>
-        <Button className="min-h-11" onClick={() => setAsignarModal(true)}>
-          <Plus className="size-4" /> Asignar ítem
-        </Button>
+        {canWrite && (
+          <Button className="min-h-11" onClick={() => setAsignarModal(true)}>
+            <Plus className="size-4" /> Asignar ítem
+          </Button>
+        )}
       </div>
 
       {loading && <Skeleton5 />}
@@ -100,9 +102,11 @@ export function AsignacionesTab() {
                 {mostrarEmpresa && <TableCell className="text-muted-foreground">{a.empresa_nombre ?? "—"}</TableCell>}
                 <TableCell className="text-muted-foreground">{formatDate(a.fecha_asignacion)}</TableCell>
                 <TableCell>
-                  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setDevolviendo(a)}>
-                    Devolver
-                  </Button>
+                  {canWrite && (
+                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setDevolviendo(a)}>
+                      Devolver
+                    </Button>
+                  )}
                 </TableCell>
               </TableRow>
             ))}

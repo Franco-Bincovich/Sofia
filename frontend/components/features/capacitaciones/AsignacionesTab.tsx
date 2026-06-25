@@ -45,7 +45,7 @@ function formatFecha(s: string | null): string {
   return `${d}/${m}/${y}`
 }
 
-export function AsignacionesTab() {
+export function AsignacionesTab({ canWrite }: { canWrite: boolean }) {
   const [empresaActivaId] = useState<string | null>(getEmpresaActivaId)
   const [asignaciones, setAsignaciones] = useState<Asignacion[]>([])
   const [loading, setLoading] = useState(true)
@@ -126,9 +126,11 @@ export function AsignacionesTab() {
               <Download className="size-4" /> Exportar CSV
             </Button>
           )}
-          <Button className="min-h-11" onClick={() => setAsignacionModal(true)}>
-            <Plus className="size-4" /> Asignar
-          </Button>
+          {canWrite && (
+            <Button className="min-h-11" onClick={() => setAsignacionModal(true)}>
+              <Plus className="size-4" /> Asignar
+            </Button>
+          )}
         </div>
       </div>
 
@@ -167,17 +169,22 @@ export function AsignacionesTab() {
                   <CertificadoCell
                     asignacionId={a.id}
                     hasCertificado={Boolean(a.certificado_url)}
+                    canWrite={canWrite}
                     onUploaded={load}
                   />
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => setEstadoModal(a)} aria-label="Cambiar estado">
-                      <Pencil className="size-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" disabled={deletingId === a.id} onClick={() => handleDelete(a.id)} aria-label="Eliminar">
-                      {deletingId === a.id ? "..." : <Trash2 className="size-3.5" />}
-                    </Button>
+                    {canWrite && (
+                      <>
+                        <Button variant="ghost" size="sm" onClick={() => setEstadoModal(a)} aria-label="Cambiar estado">
+                          <Pencil className="size-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" disabled={deletingId === a.id} onClick={() => handleDelete(a.id)} aria-label="Eliminar">
+                          {deletingId === a.id ? "..." : <Trash2 className="size-3.5" />}
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>

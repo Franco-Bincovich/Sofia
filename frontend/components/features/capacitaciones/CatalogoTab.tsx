@@ -28,7 +28,7 @@ function TableSkeleton() {
   )
 }
 
-export function CatalogoTab() {
+export function CatalogoTab({ canWrite }: { canWrite: boolean }) {
   const [empresaActivaId] = useState<string | null>(getEmpresaActivaId)
   const [capacitaciones, setCapacitaciones] = useState<Capacitacion[]>([])
   const [loading, setLoading] = useState(true)
@@ -84,10 +84,12 @@ export function CatalogoTab() {
             Solo activos
           </label>
         </div>
-        <Button className="min-h-11" onClick={() => { setEditing(null); setModalOpen(true) }}>
-          <Plus className="size-4" />
-          Nuevo curso
-        </Button>
+        {canWrite && (
+          <Button className="min-h-11" onClick={() => { setEditing(null); setModalOpen(true) }}>
+            <Plus className="size-4" />
+            Nuevo curso
+          </Button>
+        )}
       </div>
 
       {loading && <TableSkeleton />}
@@ -124,10 +126,14 @@ export function CatalogoTab() {
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => { setEditing(c); setModalOpen(true) }} aria-label="Editar"><Pencil className="size-3.5" /></Button>
-                    <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" disabled={deletingId === c.id} onClick={() => handleDelete(c.id)} aria-label="Eliminar">
-                      {deletingId === c.id ? "..." : <Trash2 className="size-3.5" />}
-                    </Button>
+                    {canWrite && (
+                      <>
+                        <Button variant="ghost" size="sm" onClick={() => { setEditing(c); setModalOpen(true) }} aria-label="Editar"><Pencil className="size-3.5" /></Button>
+                        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" disabled={deletingId === c.id} onClick={() => handleDelete(c.id)} aria-label="Eliminar">
+                          {deletingId === c.id ? "..." : <Trash2 className="size-3.5" />}
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>

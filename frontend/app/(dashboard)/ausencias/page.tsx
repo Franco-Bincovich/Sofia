@@ -19,6 +19,7 @@ import { fetchTiposAusencia } from "@/services/ausencias"
 import { fetchEmpresas } from "@/services/empresas"
 import { fetchAreas } from "@/services/areas"
 import { getEmpresaActivaId } from "@/services/empresaStore"
+import { useCanWrite } from "@/hooks/useCanWrite"
 import type { Ausencia, TipoAusencia } from "@/types/ausencias"
 import type { Empresa } from "@/types/empresa"
 import type { Area } from "@/types/area"
@@ -43,6 +44,7 @@ function formatFecha(s: string): string {
 }
 
 export default function AusenciasPage() {
+  const canWrite = useCanWrite()
   const [empresaActivaId, setEmpresaActivaIdLocal] = useState<string | null>(null)
   const [ausencias, setAusencias] = useState<Ausencia[]>([])
   const [loading, setLoading] = useState(true)
@@ -146,10 +148,12 @@ export default function AusenciasPage() {
                 Exportar CSV
               </Button>
             )}
-            <Button className="min-h-11" onClick={handleNew}>
-              <Plus className="size-4" />
-              Registrar ausencia
-            </Button>
+            {canWrite && (
+              <Button className="min-h-11" onClick={handleNew}>
+                <Plus className="size-4" />
+                Registrar ausencia
+              </Button>
+            )}
           </div>
         }
       />
@@ -240,24 +244,28 @@ export default function AusenciasPage() {
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEdit(a)}
-                      aria-label="Editar"
-                    >
-                      <Pencil className="size-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive hover:text-destructive"
-                      disabled={deletingId === a.id}
-                      onClick={() => handleDelete(a.id)}
-                      aria-label="Eliminar"
-                    >
-                      {deletingId === a.id ? "..." : <Trash2 className="size-3.5" />}
-                    </Button>
+                    {canWrite && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(a)}
+                          aria-label="Editar"
+                        >
+                          <Pencil className="size-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                          disabled={deletingId === a.id}
+                          onClick={() => handleDelete(a.id)}
+                          aria-label="Eliminar"
+                        >
+                          {deletingId === a.id ? "..." : <Trash2 className="size-3.5" />}
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>

@@ -13,6 +13,7 @@ import { EquipoTab } from "@/components/features/proyectos/EquipoTab"
 import { HorasTab } from "@/components/features/proyectos/HorasTab"
 import { ProyectoModal } from "@/components/features/proyectos/ProyectoModal"
 import { fetchProyecto, updateProyecto } from "@/services/proyectos"
+import { useCanWrite } from "@/hooks/useCanWrite"
 import type { Proyecto, ProyectoUpdate } from "@/types/proyecto"
 
 const ARS = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 })
@@ -60,6 +61,7 @@ function CosteoPanel({ proyecto }: { proyecto: Proyecto }) {
 export default function ProyectoDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const canWrite = useCanWrite()
   const [proyecto, setProyecto] = useState<Proyecto | null>(null)
   const [loading, setLoading]   = useState(true)
   const [tab, setTab]           = useState<Tab>("equipo")
@@ -106,7 +108,9 @@ export default function ProyectoDetailPage() {
           <PageHeader title={proyecto.nombre} description={proyecto.empresa_nombre ?? ""} />
           <div className="flex shrink-0 items-center gap-2">
             <Badge variant={ESTADO_VARIANT[proyecto.estado]} className="capitalize">{proyecto.estado}</Badge>
-            <Button size="sm" variant="outline" className="min-h-[2.75rem]" onClick={() => setEditOpen(true)}>Editar</Button>
+            {canWrite && (
+              <Button size="sm" variant="outline" className="min-h-[2.75rem]" onClick={() => setEditOpen(true)}>Editar</Button>
+            )}
           </div>
         </div>
       </div>
@@ -124,10 +128,10 @@ export default function ProyectoDetailPage() {
       </div>
 
       {tab === "equipo" && (
-        <EquipoTab proyectoId={id} proyectoEmpresaId={proyecto.empresa_id} />
+        <EquipoTab proyectoId={id} proyectoEmpresaId={proyecto.empresa_id} canWrite={canWrite} />
       )}
       {tab === "horas" && (
-        <HorasTab proyectoId={id} onRefresh={loadProyecto} />
+        <HorasTab proyectoId={id} onRefresh={loadProyecto} canWrite={canWrite} />
       )}
 
       <ProyectoModal open={editOpen} proyecto={proyecto}

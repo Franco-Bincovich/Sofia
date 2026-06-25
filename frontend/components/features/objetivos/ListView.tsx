@@ -25,12 +25,13 @@ function isOverdue(fecha: string | null, estado: string) {
 interface Props {
   objetivos:  Objetivo[]
   showEmpresa: boolean
+  canWrite:   boolean
   onEdit:     (obj: Objetivo) => void
   onDelete:   (id: string) => void
   deletingId: string | null
 }
 
-export function ListView({ objetivos, showEmpresa, onEdit, onDelete, deletingId }: Props) {
+export function ListView({ objetivos, showEmpresa, canWrite, onEdit, onDelete, deletingId }: Props) {
   if (objetivos.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
@@ -73,12 +74,16 @@ export function ListView({ objetivos, showEmpresa, onEdit, onDelete, deletingId 
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="sm" onClick={() => onEdit(obj)} aria-label="Editar">
-                    <Pencil className="size-3.5" />
-                  </Button>
-                  <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" disabled={deletingId === obj.id} onClick={() => onDelete(obj.id)} aria-label="Eliminar">
-                    {deletingId === obj.id ? "..." : <Trash2 className="size-3.5" />}
-                  </Button>
+                  {canWrite && (
+                    <>
+                      <Button variant="ghost" size="sm" onClick={() => onEdit(obj)} aria-label="Editar">
+                        <Pencil className="size-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" disabled={deletingId === obj.id} onClick={() => onDelete(obj.id)} aria-label="Eliminar">
+                        {deletingId === obj.id ? "..." : <Trash2 className="size-3.5" />}
+                      </Button>
+                    </>
+                  )}
                 </div>
               </TableCell>
             </TableRow>

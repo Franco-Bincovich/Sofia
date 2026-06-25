@@ -22,6 +22,7 @@ import { VacanteModal } from "@/components/features/vacantes/VacanteModal"
 import { fetchVacantes } from "@/services/vacantes"
 import { fetchEmpresas } from "@/services/empresas"
 import { getEmpresaActivaId } from "@/services/empresaStore"
+import { useCanWrite } from "@/hooks/useCanWrite"
 import type { EstadoVacante, Vacante } from "@/types/vacantes"
 import type { Empresa } from "@/types/empresa"
 
@@ -61,6 +62,7 @@ function formatFecha(raw: string | null): string {
 
 export default function VacantesPage() {
   const router = useRouter()
+  const canWrite = useCanWrite()
 
   // empresa activa del topbar — estable durante la sesión (recarga al cambiar)
   const [empresaActivaId, setEmpresaActivaIdLocal] = useState<string | null>(null)
@@ -112,10 +114,12 @@ export default function VacantesPage() {
         title="Vacantes"
         description={loading ? "Cargando..." : `${vacantes.length} vacante${vacantes.length !== 1 ? "s" : ""}`}
         action={
-          <Button className="min-h-11" onClick={() => setModalOpen(true)}>
-            <Plus />
-            Nueva vacante
-          </Button>
+          canWrite ? (
+            <Button className="min-h-11" onClick={() => setModalOpen(true)}>
+              <Plus />
+              Nueva vacante
+            </Button>
+          ) : undefined
         }
       />
 

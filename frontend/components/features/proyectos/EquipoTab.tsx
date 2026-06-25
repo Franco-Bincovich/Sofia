@@ -15,9 +15,10 @@ const ARS = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS",
 interface Props {
   proyectoId: string
   proyectoEmpresaId: string   // para detectar empleados de otra empresa
+  canWrite: boolean
 }
 
-export function EquipoTab({ proyectoId, proyectoEmpresaId }: Props) {
+export function EquipoTab({ proyectoId, proyectoEmpresaId, canWrite }: Props) {
   const [asignaciones, setAsignaciones] = useState<Asignacion[]>([])
   const [loading, setLoading]           = useState(true)
   const [modalOpen, setModalOpen]       = useState(false)
@@ -60,10 +61,12 @@ export function EquipoTab({ proyectoId, proyectoEmpresaId }: Props) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">{asignaciones.length} empleado{asignaciones.length !== 1 ? "s" : ""} asignado{asignaciones.length !== 1 ? "s" : ""}</p>
-        <Button size="sm" className="min-h-[2.75rem] gap-1.5"
-          onClick={() => { setEditing(null); setModalOpen(true) }}>
-          <Plus className="size-4" /> Asignar empleado
-        </Button>
+        {canWrite && (
+          <Button size="sm" className="min-h-[2.75rem] gap-1.5"
+            onClick={() => { setEditing(null); setModalOpen(true) }}>
+            <Plus className="size-4" /> Asignar empleado
+          </Button>
+        )}
       </div>
 
       {asignaciones.length === 0 ? (
@@ -88,16 +91,18 @@ export function EquipoTab({ proyectoId, proyectoEmpresaId }: Props) {
                     {a.rol} · {ARS.format(a.valor_hora)}/h
                   </p>
                 </div>
-                <div className="flex shrink-0 gap-1">
-                  <Button variant="ghost" size="icon" className="size-8"
-                    onClick={() => { setEditing(a); setModalOpen(true) }}>
-                    <Pencil className="size-3.5" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive"
-                    onClick={() => handleDelete(a)}>
-                    <Trash2 className="size-3.5" />
-                  </Button>
-                </div>
+                {canWrite && (
+                  <div className="flex shrink-0 gap-1">
+                    <Button variant="ghost" size="icon" className="size-8"
+                      onClick={() => { setEditing(a); setModalOpen(true) }}>
+                      <Pencil className="size-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive"
+                      onClick={() => handleDelete(a)}>
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </div>
+                )}
               </div>
             )
           })}

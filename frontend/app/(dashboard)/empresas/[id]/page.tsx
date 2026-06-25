@@ -13,6 +13,7 @@ import { Separator } from "@/components/ui/separator"
 import { EmpresaModal } from "@/components/features/empresas/EmpresaModal"
 import { EmpresaAreasTab } from "@/components/features/empresas/EmpresaAreasTab"
 import { fetchEmpresa, uploadLogo } from "@/services/empresas"
+import { useCanWrite } from "@/hooks/useCanWrite"
 import { cn } from "@/lib/utils"
 import type { Empresa } from "@/types/empresa"
 
@@ -27,6 +28,7 @@ const TAB_LABELS: Record<Tab, string> = {
 export default function EmpresaDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const canWrite = useCanWrite()
 
   const [empresa, setEmpresa] = useState<Empresa | null>(null)
   const [loading, setLoading] = useState(true)
@@ -110,10 +112,12 @@ export default function EmpresaDetailPage() {
             <Badge variant={empresa.activa ? "default" : "secondary"}>
               {empresa.activa ? "Activa" : "Inactiva"}
             </Badge>
-            <Button className="min-h-11" onClick={() => setEditModalOpen(true)}>
-              <Pencil className="mr-1 size-4" />
-              Editar
-            </Button>
+            {canWrite && (
+              <Button className="min-h-11" onClick={() => setEditModalOpen(true)}>
+                <Pencil className="mr-1 size-4" />
+                Editar
+              </Button>
+            )}
           </div>
         }
       />
@@ -168,16 +172,18 @@ export default function EmpresaDetailPage() {
                 className="hidden"
                 onChange={handleLogoChange}
               />
-              <Button
-                variant="outline"
-                size="sm"
-                className="min-h-9"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploadingLogo}
-              >
-                <Upload className="mr-1.5 size-3.5" />
-                {uploadingLogo ? "Subiendo..." : empresa.logo_url ? "Cambiar logo" : "Subir logo"}
-              </Button>
+              {canWrite && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="min-h-9"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingLogo}
+                >
+                  <Upload className="mr-1.5 size-3.5" />
+                  {uploadingLogo ? "Subiendo..." : empresa.logo_url ? "Cambiar logo" : "Subir logo"}
+                </Button>
+              )}
             </div>
           </div>
 
@@ -197,7 +203,7 @@ export default function EmpresaDetailPage() {
       )}
 
       {/* Tab: Áreas */}
-      {activeTab === "areas" && <EmpresaAreasTab empresaId={empresa.id} />}
+      {activeTab === "areas" && <EmpresaAreasTab empresaId={empresa.id} canWrite={canWrite} />}
 
       <EmpresaModal
         open={editModalOpen}

@@ -8,10 +8,11 @@ import { getCertificadoUrl, uploadCertificado } from "@/services/capacitaciones"
 interface Props {
   asignacionId: string
   hasCertificado: boolean
+  canWrite: boolean
   onUploaded: () => void
 }
 
-export function CertificadoCell({ asignacionId, hasCertificado, onUploaded }: Props) {
+export function CertificadoCell({ asignacionId, hasCertificado, canWrite, onUploaded }: Props) {
   const [loadingUrl, setLoadingUrl] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState("")
@@ -62,24 +63,29 @@ export function CertificadoCell({ asignacionId, hasCertificado, onUploaded }: Pr
             {loadingUrl ? "..." : "Ver"}
           </Button>
         ) : null}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 gap-1 px-2 text-xs"
-          disabled={uploading}
-          onClick={() => inputRef.current?.click()}
-          aria-label={hasCertificado ? "Cambiar certificado" : "Subir certificado"}
-        >
-          <Upload className="size-3" />
-          {uploading ? "..." : hasCertificado ? "Cambiar" : "Subir"}
-        </Button>
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".pdf,image/jpeg,image/png,image/webp"
-          className="hidden"
-          onChange={handleFile}
-        />
+        {canWrite && (
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1 px-2 text-xs"
+              disabled={uploading}
+              onClick={() => inputRef.current?.click()}
+              aria-label={hasCertificado ? "Cambiar certificado" : "Subir certificado"}
+            >
+              <Upload className="size-3" />
+              {uploading ? "..." : hasCertificado ? "Cambiar" : "Subir"}
+            </Button>
+            <input
+              ref={inputRef}
+              type="file"
+              accept=".pdf,image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={handleFile}
+            />
+          </>
+        )}
+        {!hasCertificado && !canWrite && <span className="text-xs text-muted-foreground">—</span>}
       </div>
       {error && <p className="text-xs text-destructive">{error}</p>}
     </div>

@@ -18,9 +18,10 @@ function formatFecha(iso: string) {
 interface Props {
   proyectoId: string
   onRefresh: () => Promise<void>   // notifica al padre para refrescar el costeo
+  canWrite: boolean
 }
 
-export function HorasTab({ proyectoId, onRefresh }: Props) {
+export function HorasTab({ proyectoId, onRefresh, canWrite }: Props) {
   const [horas, setHoras]               = useState<Hora[]>([])
   const [asignaciones, setAsignaciones] = useState<Asignacion[]>([])
   const [loading, setLoading]           = useState(true)
@@ -72,9 +73,11 @@ export function HorasTab({ proyectoId, onRefresh }: Props) {
         <p className="text-sm text-muted-foreground">
           {horas.length} registro{horas.length !== 1 ? "s" : ""} · {totalHoras.toFixed(1)} h · {ARS.format(totalCosto)}
         </p>
-        <Button size="sm" className="min-h-[2.75rem] gap-1.5" onClick={() => setModalOpen(true)}>
-          <Plus className="size-4" /> Cargar horas
-        </Button>
+        {canWrite && (
+          <Button size="sm" className="min-h-[2.75rem] gap-1.5" onClick={() => setModalOpen(true)}>
+            <Plus className="size-4" /> Cargar horas
+          </Button>
+        )}
       </div>
 
       {horas.length === 0 ? (
@@ -99,10 +102,12 @@ export function HorasTab({ proyectoId, onRefresh }: Props) {
                 <span className="text-sm font-semibold tabular-nums text-foreground">
                   {ARS.format(h.costo)}
                 </span>
-                <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive"
-                  onClick={() => handleDelete(h)}>
-                  <Trash2 className="size-3.5" />
-                </Button>
+                {canWrite && (
+                  <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive"
+                    onClick={() => handleDelete(h)}>
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                )}
               </div>
             </div>
           ))}

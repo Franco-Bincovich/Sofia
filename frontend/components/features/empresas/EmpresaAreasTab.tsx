@@ -29,9 +29,10 @@ import type { Area } from "@/types/area"
 
 interface EmpresaAreasTabProps {
   empresaId: string
+  canWrite: boolean
 }
 
-export function EmpresaAreasTab({ empresaId }: EmpresaAreasTabProps) {
+export function EmpresaAreasTab({ empresaId, canWrite }: EmpresaAreasTabProps) {
   const [areas, setAreas] = useState<Area[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -96,10 +97,12 @@ export function EmpresaAreasTab({ empresaId }: EmpresaAreasTabProps) {
   return (
     <div>
       <div className="mb-4 flex justify-end">
-        <Button className="min-h-11" onClick={openCreate}>
-          <Plus />
-          Nueva área
-        </Button>
+        {canWrite && (
+          <Button className="min-h-11" onClick={openCreate}>
+            <Plus />
+            Nueva área
+          </Button>
+        )}
       </div>
 
       {areas.length === 0 ? (
@@ -108,10 +111,12 @@ export function EmpresaAreasTab({ empresaId }: EmpresaAreasTabProps) {
           title="Sin áreas"
           description="Esta empresa no tiene áreas todavía. Creá la primera."
           action={
-            <Button className="min-h-11" onClick={openCreate}>
-              <Plus />
-              Nueva área
-            </Button>
+            canWrite ? (
+              <Button className="min-h-11" onClick={openCreate}>
+                <Plus />
+                Nueva área
+              </Button>
+            ) : undefined
           }
         />
       ) : (
@@ -138,24 +143,28 @@ export function EmpresaAreasTab({ empresaId }: EmpresaAreasTabProps) {
                 <TableCell className="text-right tabular-nums">{area.cantidad_empleados}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-9"
-                      aria-label={`Editar ${area.nombre}`}
-                      onClick={() => openEdit(area)}
-                    >
-                      <Pencil className="size-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-9 text-destructive hover:text-destructive"
-                      aria-label={`Eliminar ${area.nombre}`}
-                      onClick={() => setConfirmDelete(area)}
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
+                    {canWrite && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-9"
+                          aria-label={`Editar ${area.nombre}`}
+                          onClick={() => openEdit(area)}
+                        >
+                          <Pencil className="size-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-9 text-destructive hover:text-destructive"
+                          aria-label={`Eliminar ${area.nombre}`}
+                          onClick={() => setConfirmDelete(area)}
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>

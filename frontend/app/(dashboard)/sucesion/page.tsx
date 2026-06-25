@@ -32,6 +32,7 @@ import {
   fetchPlanesCarrera, updateReadiness,
 } from "@/services/sucesion"
 import { getEmpresaActivaId } from "@/services/empresaStore"
+import { useCanWrite } from "@/hooks/useCanWrite"
 import type { Area } from "@/types/area"
 import type { Empleado } from "@/types/empleado"
 import type { EmpleadoAnalisis, EmpleadoMapa, Hito, PlanCarrera } from "@/types/sucesion"
@@ -120,6 +121,7 @@ function PlanesSkeleton() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SucesionPage() {
+  const canWrite = useCanWrite()
   const [empresaActivaId] = useState<string | null>(() => getEmpresaActivaId())
   const mostrarEmpresa = !empresaActivaId
 
@@ -398,10 +400,12 @@ export default function SucesionPage() {
                 {!loadingPlanes && !errorPlanes && planes.length > 0 && (
                   <span className="text-sm text-muted-foreground">{planes.length} colaboradores</span>
                 )}
-                <Button size="sm" onClick={openPlan} className="min-h-9 gap-1.5">
-                  <Plus className="size-3.5" />
-                  Nuevo plan
-                </Button>
+                {canWrite && (
+                  <Button size="sm" onClick={openPlan} className="min-h-9 gap-1.5">
+                    <Plus className="size-3.5" />
+                    Nuevo plan
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -533,7 +537,7 @@ export default function SucesionPage() {
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <span>0%</span><span>50%</span><span>100%</span>
                 </div>
-                {readinessEdit !== selectedPlan.readiness && (
+                {canWrite && readinessEdit !== selectedPlan.readiness && (
                   <Button
                     size="sm"
                     className="mt-1 min-h-8 w-full"
@@ -554,15 +558,17 @@ export default function SucesionPage() {
                       {selectedPlan.hitos_completados}/{selectedPlan.hitos_total}
                     </span>
                   </h3>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="min-h-8 gap-1.5"
-                    onClick={() => { setNuevoHitoOpen(true); setNuevoHitoError(null) }}
-                  >
-                    <Plus className="size-3.5" />
-                    Agregar
-                  </Button>
+                  {canWrite && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="min-h-8 gap-1.5"
+                      onClick={() => { setNuevoHitoOpen(true); setNuevoHitoError(null) }}
+                    >
+                      <Plus className="size-3.5" />
+                      Agregar
+                    </Button>
+                  )}
                 </div>
 
                 {/* Inline add form */}
@@ -645,14 +651,16 @@ export default function SucesionPage() {
                   <ul className="space-y-2">
                     {hitos.map((hito) => (
                       <li key={hito.id} className="flex items-start gap-3 rounded-xl border bg-card p-3">
-                        <input
-                          type="checkbox"
-                          checked={hito.completado}
-                          disabled={hito.completado}
-                          onChange={() => handleCompletarHito(hito.id)}
-                          className="mt-0.5 h-4 w-4 cursor-pointer accent-primary disabled:cursor-default"
-                          aria-label={`Marcar "${hito.titulo}" como completado`}
-                        />
+                        {canWrite && (
+                          <input
+                            type="checkbox"
+                            checked={hito.completado}
+                            disabled={hito.completado}
+                            onChange={() => handleCompletarHito(hito.id)}
+                            className="mt-0.5 h-4 w-4 cursor-pointer accent-primary disabled:cursor-default"
+                            aria-label={`Marcar "${hito.titulo}" como completado`}
+                          />
+                        )}
                         <div className="min-w-0 flex-1">
                           <p className={`text-sm font-medium ${hito.completado ? "text-muted-foreground line-through" : "text-foreground"}`}>
                             {hito.titulo}

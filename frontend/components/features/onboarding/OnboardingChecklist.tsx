@@ -18,6 +18,7 @@ const SEMANA_LABEL: Record<number, string> = {
 
 interface OnboardingChecklistProps {
   detalle: OnboardingDetalle
+  canWrite: boolean
   onClose: () => void
   onTareaToggled: (tareaId: string, completada: boolean) => void
 }
@@ -40,6 +41,7 @@ function groupBySemana(tareas: TareaProgreso[]): Map<number, TareaProgreso[]> {
 
 export function OnboardingChecklist({
   detalle,
+  canWrite,
   onClose,
   onTareaToggled,
 }: OnboardingChecklistProps) {
@@ -145,17 +147,20 @@ export function OnboardingChecklist({
                       <li key={tarea.tarea_id}>
                         <label
                           className={cn(
-                            "flex cursor-pointer items-start gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted",
+                            "flex items-start gap-2.5 rounded-lg px-2 py-1.5 transition-colors",
+                            canWrite && "cursor-pointer hover:bg-muted",
                             isSaving && "opacity-60",
                           )}
                         >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => !isSaving && toggle(tarea.tarea_id)}
-                            disabled={isSaving}
-                            className="mt-0.5 size-4 shrink-0 accent-primary"
-                          />
+                          {canWrite && (
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => !isSaving && toggle(tarea.tarea_id)}
+                              disabled={isSaving}
+                              className="mt-0.5 size-4 shrink-0 accent-primary"
+                            />
+                          )}
                           <span
                             className={cn(
                               "text-sm leading-snug",
