@@ -12,7 +12,7 @@ from schemas.onboarding import InstanciaDetalleResponse, InstanciaResponse, Tare
 from utils.errors import AppError
 
 _TI, _TP, _TT, _TMPL = "onboarding_instancias", "onboarding_progreso", "onboarding_tareas", "onboarding_templates"
-_EJ = "empleados!onboarding_instancias_empleado_id_fkey(nombre,apellido,cargo,areas!empleados_area_id_fkey(nombre)), empresas(nombre)"
+_EJ = "empleados!onboarding_instancias_empleado_id_fkey(nombre,apellido,roles,areas!empleados_area_id_fkey(nombre)), empresas(nombre)"
 _EXCL = ["completado", "cancelado"]
 
 
@@ -31,7 +31,7 @@ def _inst_row(r: dict, progs: Optional[list] = None) -> InstanciaResponse:
         id=r["id"], empleado_id=r["empleado_id"],
         empresa_id=r.get("empresa_id"), empresa_nombre=empresa.get("nombre"),
         empleado_nombre=f"{emp.get('nombre', '')} {emp.get('apellido', '')}".strip(),
-        empleado_cargo=emp.get("cargo"), empleado_area=area.get("nombre"),
+        empleado_cargo=(emp.get("roles") or [emp.get("cargo")])[0], empleado_area=area.get("nombre"),
         template_id=r["template_id"], estado=r["estado"],
         fecha_inicio=str(r.get("fecha_inicio", "")),
         progreso=round(done / total * 100) if total else 0,

@@ -8,7 +8,7 @@ Extraído de csv_service para mantenerlo bajo el límite y aislar la lógica de 
 from datetime import date
 
 REQUIRED_FIELDS = {
-    "nombre", "apellido", "email_corporativo", "cargo",
+    "nombre", "apellido", "email_corporativo", "rol",
     "area", "tipo_contrato", "modalidad_trabajo", "fecha_ingreso", "dni",
 }
 VALID_TIPO_CONTRATO = {"efectivo", "plazo_fijo", "contratado", "pasantia"}
@@ -72,7 +72,7 @@ def validar_fila(
         seen_legajo.add(legajo)
     return {
         "fila": fila_num, "nombre": row["nombre"], "apellido": row["apellido"],
-        "email_corporativo": email, "cargo": row["cargo"], "rol": row.get("rol") or None,
+        "email_corporativo": email, "roles": [row["rol"]],  # compat un valor (multi-valor: futuro)
         "area_id": area_id, "area_nombre": row["area"], "tipo_contrato": row["tipo_contrato"],
         "modalidad_trabajo": row["modalidad_trabajo"], "fecha_ingreso": str(fecha),
         "dni": dni, "cuil": row.get("cuil") or None, "legajo": legajo,

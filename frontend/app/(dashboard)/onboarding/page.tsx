@@ -138,7 +138,7 @@ function IniciarModal({ activos, onClose, onSuccess }: IniciarModalProps) {
                 {empleados.map((e) => (
                   <option key={e.id} value={e.id}>
                     {e.nombre} {e.apellido}
-                    {e.cargo ? ` — ${e.cargo}` : ""}
+                    {e.roles?.[0] ?? e.cargo ? ` — ${e.roles?.[0] ?? e.cargo}` : ""}
                   </option>
                 ))}
               </select>

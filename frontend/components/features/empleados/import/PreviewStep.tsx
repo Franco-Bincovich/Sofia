@@ -62,7 +62,7 @@ export function PreviewStep({ preview, empresaNombre, onCancel, onBack, onContin
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">DNI</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Email</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Área</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Cargo</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Roles</th>
               </tr>
             </thead>
             <tbody>
@@ -84,7 +84,7 @@ export function PreviewStep({ preview, empresaNombre, onCancel, onBack, onContin
                   <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{fila.dni}</td>
                   <td className="px-3 py-2 text-muted-foreground">{fila.email_corporativo}</td>
                   <td className="px-3 py-2 text-muted-foreground">{fila.area_nombre}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{fila.cargo}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{fila.roles.join(", ")}</td>
                 </tr>
               ))}
               {preview.errores.map((err, idx) => (

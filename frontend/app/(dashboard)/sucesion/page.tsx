@@ -710,7 +710,7 @@ export default function SucesionPage() {
                 <option value="">Seleccioná un empleado</option>
                 {planEmpleados.map((emp) => (
                   <option key={emp.id} value={emp.id}>
-                    {emp.nombre} {emp.apellido} — {emp.cargo}
+                    {emp.nombre} {emp.apellido} — {emp.roles?.[0] ?? emp.cargo}
                   </option>
                 ))}
               </select>

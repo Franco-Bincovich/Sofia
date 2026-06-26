@@ -204,7 +204,7 @@ export default function EmpleadoDetailPage() {
 
       <PageHeader
         title={`${empleado.nombre} ${empleado.apellido}`}
-        description={empleado.cargo}
+        description={empleado.roles?.[0] ?? empleado.cargo}
         action={
           canWrite ? (
             <div className="flex gap-2">
@@ -238,7 +238,7 @@ export default function EmpleadoDetailPage() {
         <Section title="Datos laborales">
           <Field label="Empresa" value={empleado.empresa_nombre} />
           <Field label="Área" value={empleado.area_nombre} />
-          <Field label="Cargo" value={empleado.cargo} />
+          <Field label="Roles" value={(empleado.roles ?? []).join(", ") || empleado.cargo} />
           <Field label="Legajo" value={empleado.legajo} />
           <Field label="Modalidad" value={empleado.modalidad_trabajo} />
           <Field label="Tipo de contrato" value={empleado.tipo_contrato} />

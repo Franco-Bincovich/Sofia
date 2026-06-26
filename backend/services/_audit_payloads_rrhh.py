@@ -14,7 +14,7 @@ from typing import Optional
 
 from services.audit_service import AuditService, _jsonable
 
-_CAMPOS_EMPLEADO = ("nombre", "apellido", "legajo", "cargo", "area_id", "estado")
+_CAMPOS_EMPLEADO = ("nombre", "apellido", "legajo", "roles", "area_id", "estado")
 _CAMPOS_NOMINA = ("empleado_id", "mes", "anio", "monto_bruto", "monto_neto")
 _CAMPOS_PRESUPUESTO = ("area_id", "mes", "anio", "presupuesto")
 _CAMPOS_EMPRESA = ("nombre", "cuit", "activa")

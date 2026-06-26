@@ -12,7 +12,7 @@ from schemas.sucesion import HitoResponse, PlanCarreraCreate, PlanCarreraRespons
 from utils.errors import AppError
 
 _PC, _HIT = "planes_carrera", "planes_carrera_hitos"
-_EJ = "empleados!planes_carrera_empleado_id_fkey(nombre,apellido,cargo)"
+_EJ = "empleados!planes_carrera_empleado_id_fkey(nombre,apellido,roles)"
 _PC_SELECT = f"*, empresa_id, empresas(nombre), {_EJ}, planes_carrera_hitos!planes_carrera_hitos_plan_emp_fkey(estado)"
 
 
@@ -29,7 +29,7 @@ def _plan_row(r: dict) -> PlanCarreraResponse:
         id=r["id"], empleado_id=r["empleado_id"],
         empresa_id=r.get("empresa_id"), empresa_nombre=empresa.get("nombre"),
         empleado_nombre=f"{emp.get('nombre', '')} {emp.get('apellido', '')}".strip(),
-        cargo_actual=emp.get("cargo"), cargo_objetivo=r["cargo_objetivo"],
+        cargo_actual=(emp.get("roles") or [emp.get("cargo")])[0], cargo_objetivo=r["cargo_objetivo"],
         fecha_objetivo=str(r["fecha_objetivo"]) if r.get("fecha_objetivo") else None,
         readiness=r.get("progreso", 0), hitos_completados=done, hitos_total=len(hitos),
     )

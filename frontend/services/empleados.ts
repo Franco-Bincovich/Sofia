@@ -34,3 +34,7 @@ export async function updateEmpleado(id: string, data: EmpleadoUpdate): Promise<
     body: JSON.stringify(data),
   })
 }
+
+export async function fetchRolesConocidos(): Promise<string[]> {
+  return apiFetch<string[]>("/api/empleados/roles-conocidos")
+}

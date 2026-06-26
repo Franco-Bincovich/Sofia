@@ -9,15 +9,42 @@ from uuid import UUID
 from pydantic import BaseModel, field_validator
 
 
+def _normalizar_roles(v: object) -> object:
+    """Normaliza la lista de roles: trimea, descarta vacíos y deduplica preservando orden.
+
+    Exige al menos un rol no vacío (espejo del CHECK empleados_roles_no_vacio en DB).
+    Se aplica en EmpleadoBase y EmpleadoUpdate. Mantiene el orden de carga: el primer
+    elemento es el rol principal."""
+    if not isinstance(v, list):
+        raise ValueError("roles debe ser una lista de strings")
+    limpio: List[str] = []
+    for item in v:
+        if not isinstance(item, str):
+            raise ValueError("cada rol debe ser un string")
+        texto = item.strip()
+        if texto and texto not in limpio:
+            limpio.append(texto)
+    if not limpio:
+        raise ValueError("Se requiere al menos un rol")
+    return limpio
+
+
 class EmpleadoBase(BaseModel):
     nombre: str
     apellido: str
     email_corporativo: str
     area_id: UUID
-    cargo: str
+    roles: List[str]        # multi-valor; roles[0] es el principal (unifica cargo + rol)
     modalidad_trabajo: str  # presencial | remoto | hibrido
     tipo_contrato: str      # efectivo | plazo_fijo | contratado | pasantia
     fecha_ingreso: date
+    cargo: Optional[str] = None  # DEPRECADO (se dropea en S6); lo migran S2/S5
+    rol: Optional[str] = None    # DEPRECADO (se dropea en S6); lo migran S2/S5
+
+    @field_validator("roles")
+    @classmethod
+    def _validar_roles(cls, v: object) -> object:
+        return _normalizar_roles(v)
 
 
 class EmpleadoCreate(EmpleadoBase):
@@ -27,7 +54,6 @@ class EmpleadoCreate(EmpleadoBase):
     dni: Optional[str] = None
     cuil: Optional[str] = None
     legajo: Optional[str] = None
-    rol: Optional[str] = None
     dias_vacaciones_asignados: Optional[int] = None  # default 14 en DB si no se provee
 
 
@@ -46,8 +72,14 @@ class EmpleadoUpdate(BaseModel):
     cuil: Optional[str] = None
     legajo: Optional[str] = None
     estado: Optional[str] = None
-    rol: Optional[str] = None
+    roles: Optional[List[str]] = None  # si se provee, reemplaza la lista completa
+    rol: Optional[str] = None          # DEPRECADO (se dropea en S6)
     dias_vacaciones_asignados: Optional[int] = None
+
+    @field_validator("roles")
+    @classmethod
+    def _validar_roles(cls, v: object) -> object:
+        return _normalizar_roles(v) if v is not None else None
 
     @field_validator("fecha_ingreso", "fecha_nacimiento", mode="before")
     @classmethod
@@ -72,7 +104,7 @@ class EmpleadoResponse(BaseModel):
     empresa_nombre: Optional[str] = None
     area_id: str
     area_nombre: Optional[str] = None
-    cargo: str
+    roles: List[str]                  # multi-valor; roles[0] es el principal
     modalidad_trabajo: str
     tipo_contrato: str
     fecha_ingreso: date
@@ -80,7 +112,8 @@ class EmpleadoResponse(BaseModel):
     fecha_nacimiento: Optional[date] = None
     cuil: Optional[str] = None
     legajo: Optional[str] = None
-    rol: Optional[str] = None
+    cargo: Optional[str] = None       # DEPRECADO (se dropea en S6)
+    rol: Optional[str] = None         # DEPRECADO (se dropea en S6)
     estado: str
     dias_vacaciones_asignados: int = 14
     created_at: datetime

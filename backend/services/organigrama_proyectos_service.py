@@ -55,7 +55,7 @@ class OrganigramaProyectosService:
             )
             emp_map: Dict[str, dict] = (
                 {e["id"]: e for e in
-                 supabase_admin.table("empleados").select("id, nombre, apellido, cargo")
+                 supabase_admin.table("empleados").select("id, nombre, apellido, roles")
                  .in_("id", emp_ids).execute().data or []}
                 if emp_ids else {}
             )
@@ -94,7 +94,7 @@ class OrganigramaProyectosService:
                     iniciales = f"{n[0] if n else ''}{ap[0] if ap else ''}".upper()
                     empleados.append(EmpleadoProyectoNodoResponse(
                         id=a["empleado_id"], nombre=n, apellido=ap,
-                        iniciales=iniciales, cargo=e.get("cargo"), rol=a["rol"],
+                        iniciales=iniciales, cargo=(e.get("roles") or [e.get("cargo")])[0], rol=a["rol"],
                         empleado_empresa_id=a["empleado_empresa_id"],
                         empleado_empresa_nombre=empresa_map.get(a["empleado_empresa_id"]),
                         total_proyectos=conteo.get(a["empleado_id"], 1),

@@ -7,6 +7,7 @@ from typing import Optional
 from uuid import UUID
 
 from repositories.empleado_repo import EmpleadoRepo
+from repositories.empleado_roles_repo import EmpleadoRolesRepo
 from schemas.empleado import EmpleadoCreate, EmpleadoListResponse, EmpleadoResponse, EmpleadoUpdate
 from services._audit_payloads_rrhh import (
     payload_alta_empleado, payload_baja_empleado, payload_update_empleado,
@@ -18,9 +19,15 @@ from utils.logger import logger
 
 
 class EmpleadoService:
-    def __init__(self, repo: Optional[EmpleadoRepo] = None, audit: Optional[AuditService] = None) -> None:
+    def __init__(self, repo: Optional[EmpleadoRepo] = None, audit: Optional[AuditService] = None,
+                 roles_repo: Optional[EmpleadoRolesRepo] = None) -> None:
         self._repo = repo or EmpleadoRepo()
         self._audit = audit or AuditService()
+        self._roles_repo = roles_repo or EmpleadoRolesRepo()
+
+    def get_roles_conocidos(self) -> list[str]:
+        """Pool compartido de roles ya usados (todas las empresas) para autocompletar el form."""
+        return self._roles_repo.get_roles_conocidos()
 
     def create_empleado(self, data: EmpleadoCreate, created_by: str, empresa_id: UUID) -> EmpleadoResponse:
         """

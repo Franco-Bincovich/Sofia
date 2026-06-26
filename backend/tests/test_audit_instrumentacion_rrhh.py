@@ -41,7 +41,7 @@ class _FakeAudit:
 def _empleado(**over) -> EmpleadoResponse:
     base = dict(
         id="emp1", nombre="Ana", apellido="Lopez", email_corporativo="a@x.com",
-        empresa_id="e1", area_id="ar1", cargo="Dev", modalidad_trabajo="remoto",
+        empresa_id="e1", area_id="ar1", roles=["Dev"], cargo="Dev", modalidad_trabajo="remoto",
         tipo_contrato="indefinido", fecha_ingreso=date(2025, 1, 1), estado="activo",
         created_at=datetime(2026, 1, 1, 9, 0),
     )
@@ -79,7 +79,7 @@ class TestEmpleadoAudit:
         from schemas.empleado import EmpleadoCreate
         svc.create_empleado(
             EmpleadoCreate(nombre="Ana", apellido="Lopez", email_corporativo="a@x.com",
-                           area_id=uuid4(), cargo="Dev", modalidad_trabajo="remoto",
+                           area_id=uuid4(), roles=["Dev"], modalidad_trabajo="remoto",
                            tipo_contrato="indefinido", fecha_ingreso=date(2025, 1, 1),
                            empresa_id=uuid4()),
             created_by="u1", empresa_id=uuid4(),

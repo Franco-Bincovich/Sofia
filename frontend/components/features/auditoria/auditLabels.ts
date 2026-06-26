@@ -33,7 +33,8 @@ const CAMPO_LABEL: Record<string, string> = {
   nombre: "Nombre",
   apellido: "Apellido",
   legajo: "Legajo",
-  cargo: "Cargo",
+  roles: "Roles",
+  cargo: "Cargo", // histórico: registros previos a la unificación de roles (S4)
   area_id: "Área",
   estado: "Estado",
   activa: "Activa",
@@ -60,8 +61,9 @@ export function campoLabel(campo: string): string {
   return CAMPO_LABEL[campo] ?? campo
 }
 
-/** Formatea un valor de payload: bool→Sí/No, fecha ISO→dd/mm/yyyy, vacío→"—", resto→texto. */
+/** Formatea un valor de payload: lista→"a, b, c", bool→Sí/No, fecha ISO→dd/mm/yyyy, vacío→"—", resto→texto. */
 export function formatValor(v: unknown): string {
+  if (Array.isArray(v)) return v.length ? v.join(", ") : "—"
   if (v === null || v === undefined || v === "") return "—"
   if (typeof v === "boolean") return v ? "Sí" : "No"
   if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}/.test(v)) {

@@ -1,9 +1,4 @@
-"""
-Router de empleados — CRUD con paginación y filtros.
-Rutas protegidas por AuthMiddleware (requieren JWT válido).
-empresa_id para lecturas: header X-Empresa-Id (filtro de vista).
-empresa_id para CREATE: body.empresa_id (dato del empleado, no contexto de sesión).
-"""
+"""Router de empleados — CRUD; lecturas por header X-Empresa-Id, CREATE por body.empresa_id."""
 from typing import Optional
 from uuid import UUID
 
@@ -36,6 +31,12 @@ async def list_empleados(
 ) -> EmpleadoListResponse:
     empresa_id = get_empresa_id(request)
     return service.get_empleados(page, page_size, empresa_id, area_id, estado, search)
+
+
+@router.get("/roles-conocidos", response_model=list[str], dependencies=[Depends(require_permission(SECCION, Accion.READ))])
+async def roles_conocidos(service: EmpleadoService = Depends(_service)) -> list[str]:
+    """Pool compartido de roles ya usados (todas las empresas), para autocompletar."""
+    return service.get_roles_conocidos()
 
 
 @router.get("/{id}", response_model=EmpleadoResponse, dependencies=[Depends(require_permission(SECCION, Accion.READ))])

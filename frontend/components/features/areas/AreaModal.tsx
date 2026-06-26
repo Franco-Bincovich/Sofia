@@ -170,7 +170,7 @@ export function AreaModal({ open, onClose, onSuccess, area, empresaId }: AreaMod
                 <option value="">Sin responsable asignado</option>
                 {empleados.map((emp) => (
                   <option key={emp.id} value={emp.id}>
-                    {emp.nombre} {emp.apellido} — {emp.cargo}
+                    {emp.nombre} {emp.apellido} — {emp.roles?.[0] ?? emp.cargo}
                   </option>
                 ))}
               </select>

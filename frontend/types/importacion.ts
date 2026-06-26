@@ -3,8 +3,7 @@ export interface FilaPreview {
   nombre: string
   apellido: string
   email_corporativo: string
-  cargo: string
-  rol: string | null
+  roles: string[]
   area_id: string
   area_nombre: string
   tipo_contrato: string

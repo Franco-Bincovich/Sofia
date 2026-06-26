@@ -12,7 +12,7 @@ from utils.errors import AppError
 
 _OI = "offboarding_instancias"
 _OA = "offboarding_activos"
-_EJ = "empleados!offboarding_instancias_empleado_id_fkey(nombre,apellido,cargo), empresas(nombre)"
+_EJ = "empleados!offboarding_instancias_empleado_id_fkey(nombre,apellido), empresas(nombre)"
 _EXCL = ["completado", "cancelado"]
 _DEFAULT_ACTIVOS = [
     ("laptop",            "Computadora portátil de trabajo"),

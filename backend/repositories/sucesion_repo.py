@@ -23,7 +23,7 @@ def _mapa_row(r: dict) -> EmpleadoMapaResponse:
     empresa = r.get("empresas") or {}
     return EmpleadoMapaResponse(
         id=r["id"], nombre=r["nombre"], apellido=r["apellido"],
-        cargo=r.get("cargo"), area_id=r.get("area_id"), area_nombre=area.get("nombre"),
+        cargo=(r.get("roles") or [r.get("cargo")])[0], area_id=r.get("area_id"), area_nombre=area.get("nombre"),
         empresa_id=r.get("empresa_id"), empresa_nombre=empresa.get("nombre"),
         potencial=r.get("potencial", "medio"), desempeno=r.get("desempeno", "medio"),
     )
@@ -44,13 +44,13 @@ def _parse_json_field(value):
 class SucesionRepo:
     def get_mapa_talento(self, empresa_id: Optional[UUID] = None) -> list[EmpleadoMapaResponse]:
         q = supabase_admin.table(_EMP).select(
-            f"id,empresa_id,nombre,apellido,cargo,area_id,potencial,desempeno,{_AREA},empresas(nombre)"
+            f"id,empresa_id,nombre,apellido,roles,area_id,potencial,desempeno,{_AREA},empresas(nombre)"
         ).eq("estado", "activo")
         return [_mapa_row(r) for r in (_with_empresa(q, empresa_id).execute().data or [])]
 
     def get_analisis_posicion(self, area_id: str, empresa_id: Optional[UUID] = None) -> list[EmpleadoAnalisisResponse]:
         q = supabase_admin.table(_EMP).select(
-            "id, nombre, apellido, cargo, potencial, desempeno"
+            "id, nombre, apellido, roles, potencial, desempeno"
         ).eq("area_id", area_id).neq("estado", "baja")
         emps_res = _with_empresa(q, empresa_id).execute()
 
@@ -70,7 +70,7 @@ class SucesionRepo:
                         score = None
             rows.append(EmpleadoAnalisisResponse(
                 id=r["id"], nombre=r["nombre"], apellido=r["apellido"],
-                cargo=r.get("cargo"), score=score,
+                cargo=(r.get("roles") or [r.get("cargo")])[0], score=score,
                 potencial=r.get("potencial"), desempeno=r.get("desempeno"),
             ))
         rows.sort(key=lambda x: (x.score is None, -(x.score or 0)))

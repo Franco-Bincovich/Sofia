@@ -217,7 +217,7 @@ export default function EmpleadosPage() {
               <TableHead>Nombre</TableHead>
               {!empresaActivaId && <TableHead>Empresa</TableHead>}
               <TableHead>Área</TableHead>
-              <TableHead>Cargo</TableHead>
+              <TableHead>Roles</TableHead>
               <TableHead>Modalidad</TableHead>
               <TableHead>Estado</TableHead>
             </TableRow>
@@ -238,7 +238,7 @@ export default function EmpleadosPage() {
                   </TableCell>
                 )}
                 <TableCell className="text-muted-foreground">{emp.area_nombre ?? "—"}</TableCell>
-                <TableCell>{emp.cargo}</TableCell>
+                <TableCell>{(emp.roles ?? []).join(", ") || emp.cargo || "—"}</TableCell>
                 <TableCell className="capitalize">{emp.modalidad_trabajo}</TableCell>
                 <TableCell>
                   <Badge variant={ESTADO_VARIANTS[emp.estado] ?? "secondary"}>

@@ -94,6 +94,18 @@ Sistema de auditoría con captura **app-level** (no triggers DB). Backend (commi
 
 ---
 
+## Importación CSV de empleados (T18.6 — COMPLETO)
+Flujo full-stack de importación CSV que hace **alta masiva + update masivo** por DNI (upsert). Estructura: modal de pasos → `/preview` (valida) → `/confirmar` (inserta) → reporte de resultado.
+
+- **Match por DNI** por empresa (`UNIQUE (empresa_id, dni)`): DNI existe en la empresa → update; no existe → alta. La empresa destino sale del **selector del modal**, no del header.
+- **Validación exhaustiva en el preview (enfoque B1):** requeridos, tipo_contrato (`{efectivo, plazo_fijo, contratado, pasantia}` — coincide con el CHECK vivo), modalidad, fecha, email formato, área, + **duplicados contra DB** (email_corporativo UNIQUE **global** → chequeo sin filtro de empresa; legajo UNIQUE por empresa) + **duplicados intra-CSV** (email/dni/legajo repetidos en el mismo archivo). Chequeo **dirigido con `.in_(valores_del_csv)`**, nunca full-table.
+- **email duplicado = error, no update** (el match de negocio es el DNI; el email es identidad global).
+- **Confirmar robusto:** `EmpleadoImportService.confirmar` (router→service→repo) re-chequea la carrera antes del INSERT, inserta los válidos, reporta los que fallan (`ConfirmarError {fila, error}`), envuelve el batch en try/except → `AppError` tipado (nunca 500 opaco). Batch eficiente: 1 INSERT altas + 1 UPSERT updates (no por-fila). Audita el lote con **un evento único** (`importacion_empleados`).
+- **UI:** `components/features/empleados/import/` (UploadStep, PreviewStep, ConfirmStep, ResultStep) + orquestador `ImportarCSVModal.tsx`. El **ResultStep** muestra "Se procesaron N (X altas, Y actualizaciones)" + lista de errores con motivo + botón "Descargar errores" (CSV). La recarga de la lista ocurre al **cerrar el resultado**, no al confirmar.
+- Backend: `csv_service.py` (orquestador delgado) + `_csv_empleados_utils.py` (validación pura) + `empleado_import_repo.py` (batch + loaders dirigidos) + `empleado_import_service.py`. `routers/importacion.py` gateado con `Seccion.IMPORTACION + Accion.WRITE` (solo admin_rrhh).
+
+---
+
 ## Estado actual del proyecto
 
 ### Entrega 1 — COMPLETA (63h, 15 tareas). Pusheada.
@@ -102,13 +114,15 @@ Sistema de auditoría con captura **app-level** (no triggers DB). Backend (commi
 - **T16** (roles funcionales) ✅ completa y pusheada.
 - **T17** (validación X-Empresa-Id) ❌ NO APLICA (decisión de producto).
 - **T18** (audit log app-level) ✅ completa. Backend `92d5edf` + UI `8646a9b`. Sin pushear.
+- **T18.6** (importación CSV de empleados) ✅ completa. Flujo funcional verificado estructuralmente; falta prueba funcional manual (ver hito de cierre). Sin pushear.
 - **T19–T25** pendientes: bloqueos por módulo · legajo ampliado · tracking de cambios · import/export · vacaciones historial · proyectos por equipo · objetivos import masivo.
-
-**Tareas surgidas en el camino (no en el mapa original):**
-- **Reparación flujo CSV de empleados** — `update_empleado_por_dni` (en `empleado_service`) es dead code hoy (ningún caller) pero su docstring dice que es del flujo de importación CSV. Franco confirmó que el import CSV de empleados **debe estar funcional en Entrega 2** y que nunca se verificó que funcione. Tarea propia, pendiente de diagnóstico end-to-end del flujo completo. Puede solaparse con T22 (import/export). `update_empleado_por_dni` quedó **intacto** a propósito.
 
 **Pendiente de revisión al llegar:**
 - **T21 (tracking de cambios)** puede solaparse conceptualmente con T18 (audit log). Revisar alcance antes de construir para no duplicar.
+- **T22 (import/export)** puede solaparse con T18.6 (CSV de empleados ya hecho). Revisar qué cubre T22 que no esté ya resuelto.
+
+**Hito de cierre de Entrega 2 (pendiente):**
+- **Prueba funcional exhaustiva end-to-end** de todo el sistema (no solo CSV) antes de dar Entrega 2 por terminada. Se difirieron los spot-checks puntuales a esta verificación completa final.
 
 ---
 
@@ -130,6 +144,11 @@ Sistema de auditoría con captura **app-level** (no triggers DB). Backend (commi
 - Evento de audit **usuarios** (alta/cambio de rol): pendiente, atado al futuro módulo de gestión de usuarios (no existe endpoint hoy).
 - Importación CSV: si se audita, evento único por lote — NO fila por fila.
 
+### Importación CSV (T18.6)
+- `empleado_import_repo.py` quedó en **99/100** (al filo). Si una tarea futura le suma algo, dividir primero (mover loaders dirigidos a `_empleado_import_utils.py`).
+- `empleado_repo.find_by_dni` (y posiblemente `find_by_legajo`) podrían haber quedado **sin callers** tras borrar `update_empleado_por_dni` en 18.6d. Verificar y limpiar en una pasada futura.
+- `ImportarCSVModal.tsx` se dividió en `import/` (UploadStep, PreviewStep, ConfirmStep, ResultStep) — orquestador en 139.
+
 ### Tests
 - Bloque `_TEST_ENV` (setup de env vars) duplicado en varios archivos de test. Candidato a `conftest.py` central. Cosmético.
 
@@ -143,5 +162,5 @@ Sistema de auditoría con captura **app-level** (no triggers DB). Backend (commi
 
 ## Git
 - Operar siempre desde `RRHH/Sofia/`.
-- Estado actual: 3 commits ahead de origin sin pushear (16.6/CLAUDE.md, backend T18 `92d5edf`, UI T18 `8646a9b`). Push cuando Franco decida.
+- Estado actual: 4 commits ahead de origin sin pushear (16.6/CLAUDE.md, backend T18 `92d5edf`, UI T18 `8646a9b`, CSV T18.6). Push cuando Franco decida.
 - Formato de commits: convencional (`feat:`, `fix:`, `refactor:`, `chore:`, `docs:`, `test:`).

@@ -8,8 +8,8 @@ import { DialogFooter } from "@/components/ui/dialog"
 import type { Empresa } from "@/types/empresa"
 
 const TEMPLATE_ROWS = [
-  "nombre,apellido,email_corporativo,cargo,rol,area,tipo_contrato,modalidad_trabajo,fecha_ingreso,dni,cuil,legajo",
-  "Juan,Pérez,juan.perez@empresa.com,Desarrollador Senior,,Tecnología,efectivo,hibrido,2024-01-15,12345678,20-12345678-9,EMP001",
+  "nombre,apellido,email_corporativo,rol,area,tipo_contrato,modalidad_trabajo,fecha_ingreso,dni,cuil,legajo",
+  "Juan,Pérez,juan.perez@empresa.com,Desarrollador Senior,Tecnología,efectivo,hibrido,2024-01-15,12345678,20-12345678-9,EMP001",
 ].join("\n")
 
 function downloadTemplate(): void {
@@ -116,7 +116,7 @@ export function UploadStep(props: UploadStepProps) {
         <div className="rounded-lg border bg-muted/30 p-3 text-xs">
           <p className="mb-1.5 font-medium text-foreground">Columnas del template:</p>
           <p className="font-mono text-muted-foreground">
-            nombre, apellido, email_corporativo, cargo, rol, area, tipo_contrato, modalidad_trabajo, fecha_ingreso, <strong>dni</strong>, cuil, legajo
+            nombre, apellido, email_corporativo, rol, area, tipo_contrato, modalidad_trabajo, fecha_ingreso, <strong>dni</strong>, cuil, legajo
           </p>
           <div className="mt-2 grid grid-cols-1 gap-1 text-muted-foreground sm:grid-cols-2">
             <span><strong>tipo_contrato:</strong> efectivo | plazo_fijo | contratado | pasantia</span>

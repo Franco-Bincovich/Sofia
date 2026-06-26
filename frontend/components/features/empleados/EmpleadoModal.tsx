@@ -12,10 +12,11 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { createEmpleado, updateEmpleado } from "@/services/empleados"
+import { RolesInput } from "@/components/ui/RolesInput"
+import { createEmpleado, updateEmpleado, fetchRolesConocidos } from "@/services/empleados"
 import { fetchAreas } from "@/services/areas"
 import { fetchEmpresas } from "@/services/empresas"
-import type { Empleado, EmpleadoCreate } from "@/types/empleado"
+import type { Empleado } from "@/types/empleado"
 import type { Area } from "@/types/area"
 import type { Empresa } from "@/types/empresa"
 
@@ -32,7 +33,7 @@ type FormData = {
   apellido: string
   email_corporativo: string
   area_id: string
-  cargo: string
+  roles: string[]
   modalidad_trabajo: string
   tipo_contrato: string
   fecha_ingreso: string
@@ -40,7 +41,6 @@ type FormData = {
   fecha_nacimiento: string
   cuil: string
   legajo: string
-  rol: string
   dias_vacaciones_asignados: string
 }
 
@@ -52,7 +52,7 @@ const EMPTY: FormData = {
   apellido: "",
   email_corporativo: "",
   area_id: "",
-  cargo: "",
+  roles: [],
   modalidad_trabajo: "presencial",
   tipo_contrato: "efectivo",
   fecha_ingreso: "",
@@ -60,12 +60,11 @@ const EMPTY: FormData = {
   fecha_nacimiento: "",
   cuil: "",
   legajo: "",
-  rol: "",
   dias_vacaciones_asignados: "14",
 }
 
 const TEXT_FIELDS: Array<{
-  field: keyof FormData
+  field: Exclude<keyof FormData, "roles">
   label: string
   required?: boolean
   type?: string
@@ -73,13 +72,11 @@ const TEXT_FIELDS: Array<{
   { field: "nombre", label: "Nombre", required: true },
   { field: "apellido", label: "Apellido", required: true },
   { field: "email_corporativo", label: "Email corporativo", required: true, type: "email" },
-  { field: "cargo", label: "Cargo", required: true },
   { field: "fecha_ingreso", label: "Fecha de ingreso", required: true, type: "date" },
   { field: "telefono", label: "Teléfono", type: "tel" },
   { field: "fecha_nacimiento", label: "Fecha de nacimiento", type: "date" },
   { field: "cuil", label: "CUIL" },
   { field: "legajo", label: "Legajo" },
-  { field: "rol", label: "Rol" },
   { field: "dias_vacaciones_asignados", label: "Días de vacaciones asignados", type: "number" },
 ]
 
@@ -97,7 +94,7 @@ function validate(form: FormData, isEdit: boolean): FormErrors {
     errors.email_corporativo = "El email no es válido"
   }
   if (!form.area_id) errors.area_id = "El área es requerida"
-  if (!form.cargo.trim()) errors.cargo = "El cargo es requerido"
+  if (form.roles.length === 0) errors.roles = "Agregá al menos un rol"
   if (!form.fecha_ingreso) errors.fecha_ingreso = "La fecha de ingreso es requerida"
   return errors
 }
@@ -113,6 +110,13 @@ export function EmpleadoModal({ open, onClose, onSuccess, empleado }: EmpleadoMo
   const [empresasLoading, setEmpresasLoading] = useState(false)
   const [areas, setAreas]               = useState<Area[]>([])
   const [areasLoading, setAreasLoading] = useState(false)
+  const [rolesSugeridos, setRolesSugeridos] = useState<string[]>([])
+
+  // Pool compartido de roles para autocompletar (se recarga al abrir el modal)
+  useEffect(() => {
+    if (!open) return
+    fetchRolesConocidos().then(setRolesSugeridos).catch(() => setRolesSugeridos([]))
+  }, [open])
 
   // Cargar empresas activas cuando el modal abre en modo crear
   useEffect(() => {
@@ -157,7 +161,7 @@ export function EmpleadoModal({ open, onClose, onSuccess, empleado }: EmpleadoMo
         apellido: empleado.apellido,
         email_corporativo: empleado.email_corporativo,
         area_id: empleado.area_id,
-        cargo: empleado.cargo,
+        roles: empleado.roles ?? [],
         modalidad_trabajo: empleado.modalidad_trabajo,
         tipo_contrato: empleado.tipo_contrato,
         fecha_ingreso: empleado.fecha_ingreso,
@@ -165,7 +169,6 @@ export function EmpleadoModal({ open, onClose, onSuccess, empleado }: EmpleadoMo
         fecha_nacimiento: empleado.fecha_nacimiento ?? "",
         cuil: empleado.cuil ?? "",
         legajo: empleado.legajo ?? "",
-        rol: (empleado as Empleado & { rol?: string }).rol ?? "",
         dias_vacaciones_asignados: String(empleado.dias_vacaciones_asignados ?? 14),
       })
     } else {
@@ -177,7 +180,7 @@ export function EmpleadoModal({ open, onClose, onSuccess, empleado }: EmpleadoMo
     setAreas([])
   }, [empleado, open])
 
-  function field(key: keyof FormData) {
+  function field(key: Exclude<keyof FormData, "roles">) {
     return (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
       const val = e.target.value
       setForm((prev) => ({ ...prev, [key]: val }))
@@ -201,30 +204,28 @@ export function EmpleadoModal({ open, onClose, onSuccess, empleado }: EmpleadoMo
     }
     setSubmitting(true)
     setServerError("")
+    const base = {
+      nombre: form.nombre,
+      apellido: form.apellido,
+      email_corporativo: form.email_corporativo,
+      area_id: form.area_id,
+      roles: form.roles,
+      modalidad_trabajo: form.modalidad_trabajo,
+      tipo_contrato: form.tipo_contrato,
+      fecha_ingreso: form.fecha_ingreso,
+      telefono: form.telefono || undefined,
+      fecha_nacimiento: form.fecha_nacimiento || undefined,
+      cuil: form.cuil || undefined,
+      legajo: form.legajo || undefined,
+      dias_vacaciones_asignados: form.dias_vacaciones_asignados
+        ? parseInt(form.dias_vacaciones_asignados, 10)
+        : undefined,
+    }
     try {
       if (isEdit && empleado) {
-        await updateEmpleado(empleado.id, form)
+        await updateEmpleado(empleado.id, base)
       } else {
-        const payload: EmpleadoCreate = {
-          empresa_id: form.empresa_id,
-          nombre: form.nombre,
-          apellido: form.apellido,
-          email_corporativo: form.email_corporativo,
-          area_id: form.area_id,
-          cargo: form.cargo,
-          modalidad_trabajo: form.modalidad_trabajo,
-          tipo_contrato: form.tipo_contrato,
-          fecha_ingreso: form.fecha_ingreso,
-          telefono: form.telefono || undefined,
-          fecha_nacimiento: form.fecha_nacimiento || undefined,
-          cuil: form.cuil || undefined,
-          legajo: form.legajo || undefined,
-          rol: form.rol || undefined,
-          dias_vacaciones_asignados: form.dias_vacaciones_asignados
-            ? parseInt(form.dias_vacaciones_asignados, 10)
-            : undefined,
-        }
-        await createEmpleado(payload)
+        await createEmpleado({ ...base, empresa_id: form.empresa_id })
       }
       onSuccess()
     } catch {
@@ -264,6 +265,22 @@ export function EmpleadoModal({ open, onClose, onSuccess, empleado }: EmpleadoMo
                 )}
               </div>
             ))}
+
+            <div className="sm:col-span-2">
+              <RolesInput
+                label="Roles"
+                required
+                value={form.roles}
+                suggestions={rolesSugeridos}
+                onChange={(roles) => {
+                  setForm((prev) => ({ ...prev, roles }))
+                  if (errors.roles) setErrors((prev) => ({ ...prev, roles: undefined }))
+                }}
+              />
+              {errors.roles && (
+                <p className="mt-1.5 text-xs text-destructive" role="alert">{errors.roles}</p>
+              )}
+            </div>
 
             {/* Empresa — solo en modo crear */}
             {!isEdit && (

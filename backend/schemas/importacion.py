@@ -14,8 +14,7 @@ class FilaPreview(BaseModel):
     nombre: str
     apellido: str
     email_corporativo: str
-    cargo: str
-    rol: Optional[str] = None
+    roles: List[str]
     area_id: str
     area_nombre: str
     tipo_contrato: str

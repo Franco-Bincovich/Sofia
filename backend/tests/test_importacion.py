@@ -27,7 +27,7 @@ _AREAS = {"Tecnología": "area-1"}
 def _row(**over) -> dict:
     base = {
         "nombre": "Ana", "apellido": "Lopez", "email_corporativo": "ana@x.com",
-        "cargo": "Dev", "area": "Tecnología", "tipo_contrato": "efectivo",
+        "rol": "Dev", "area": "Tecnología", "tipo_contrato": "efectivo",
         "modalidad_trabajo": "remoto", "fecha_ingreso": "2025-01-01", "dni": "111",
     }
     base.update(over)
@@ -45,6 +45,7 @@ class TestValidarFila:
         assert error is None
         assert valida["es_actualizacion"] is False
         assert valida["area_id"] == "area-1"
+        assert valida["roles"] == ["Dev"]  # compat un valor: la columna "rol" → roles[lista]
 
     def test_email_duplicado_en_db_es_error(self) -> None:
         valida, error = _validar(_row(), emails={"ana@x.com"})
@@ -104,7 +105,7 @@ class _FakeAudit:
 
 def _fila(dni: str, es_act: bool = False, email: str = "n@x.com") -> FilaPreview:
     return FilaPreview(
-        fila=2, nombre="N", apellido="A", email_corporativo=email, cargo="Dev",
+        fila=2, nombre="N", apellido="A", email_corporativo=email, roles=["Dev"],
         area_id="area-1", area_nombre="Tec", tipo_contrato="efectivo",
         modalidad_trabajo="remoto", fecha_ingreso="2025-01-01", dni=dni, es_actualizacion=es_act,
     )

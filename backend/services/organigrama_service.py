@@ -36,7 +36,7 @@ class OrganigramaService:
             areas_q = (
                 supabase_admin.table("areas")
                 .select("id, nombre, empresa_id, "
-                        "responsable:empleados!fk_areas_responsable(id, nombre, apellido, cargo, foto_url)")
+                        "responsable:empleados!fk_areas_responsable(id, nombre, apellido, roles, foto_url)")
                 .eq("activo", True).order("nombre")
             )
             if eid:
@@ -45,7 +45,7 @@ class OrganigramaService:
 
             emp_row_q = (
                 supabase_admin.table("empleados")
-                .select("id, nombre, apellido, cargo, foto_url, area_id")
+                .select("id, nombre, apellido, roles, foto_url, area_id")
                 .eq("estado", "activo")
             )
             if eid:
@@ -74,13 +74,13 @@ class OrganigramaService:
                 responsable = (
                     EmpleadoNodoResponse(
                         id=raw["id"], nombre=raw["nombre"], apellido=raw["apellido"],
-                        cargo=raw.get("cargo"), avatar_url=raw.get("foto_url"),
+                        cargo=(raw.get("roles") or [raw.get("cargo")])[0], avatar_url=raw.get("foto_url"),
                     ) if raw else None
                 )
                 empleados = [
                     EmpleadoNodoResponse(
                         id=e["id"], nombre=e["nombre"], apellido=e["apellido"],
-                        cargo=e.get("cargo"), avatar_url=e.get("foto_url"),
+                        cargo=(e.get("roles") or [e.get("cargo")])[0], avatar_url=e.get("foto_url"),
                     )
                     for e in emp_por_area.get(area["id"], [])
                 ]

@@ -110,3 +110,12 @@ class TestDiff:
         a, d = AuditService._diff({"x": uuid4()}, {"x": uuid4()})
         assert isinstance(a["x"], str)
         assert isinstance(d["x"], str)
+
+    def test_diff_captura_listas_roles(self) -> None:
+        # roles es multi-valor (S4): el diff guarda ambas listas completas; los
+        # campos sin cambios (nombre) quedan fuera.
+        antes = {"roles": ["Tech Lead", "Mentor"], "nombre": "Ana"}
+        despues = {"roles": ["Tech Lead", "Mentor", "Referente"], "nombre": "Ana"}
+        a, d = AuditService._diff(antes, despues)
+        assert a == {"roles": ["Tech Lead", "Mentor"]}
+        assert d == {"roles": ["Tech Lead", "Mentor", "Referente"]}
