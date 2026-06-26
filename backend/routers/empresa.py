@@ -63,9 +63,10 @@ async def update_empresa(
 async def toggle_activa(
     id: UUID,
     body: EmpresaActivaToggle,
+    request: Request,
     service: EmpresaService = Depends(_service),
 ) -> EmpresaResponse:
-    return service.update_empresa(str(id), EmpresaUpdate(activa=body.activa))
+    return service.toggle_activa(str(id), body.activa, request.state.user.get("id", "system"))
 
 
 @router.post("/{id}/logo", response_model=EmpresaResponse, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])

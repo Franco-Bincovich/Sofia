@@ -12,45 +12,21 @@ from typing import Optional
 from uuid import UUID
 
 from repositories.ausencias_repo import AusenciasRepo
-from repositories.tipos_ausencia_repo import TiposAusenciaRepo
 from schemas.ausencias import (
     AusenciaCreate, AusenciaListResponse, AusenciaResponse, AusenciaUpdate,
-    TipoAusenciaCreate, TipoAusenciaListResponse, TipoAusenciaResponse,
 )
+from services._audit_payloads import (
+    payload_alta_ausencia, payload_baja_ausencia, payload_update_ausencia,
+)
+from services.audit_service import AuditService
 from utils.errors import AppError
 from utils.logger import logger
 
 
 class AusenciasService:
-    def __init__(self, repo: Optional[AusenciasRepo] = None, tipos_repo: Optional[TiposAusenciaRepo] = None) -> None:
+    def __init__(self, repo: Optional[AusenciasRepo] = None, audit: Optional[AuditService] = None) -> None:
         self._repo = repo or AusenciasRepo()
-        self._tipos = tipos_repo or TiposAusenciaRepo()
-
-    # ── Tipos de ausencia (catálogo global) ────────────────────────────────────
-
-    def get_tipos(self) -> TipoAusenciaListResponse:
-        """Retorna todos los tipos de ausencia activos. Catálogo global, sin filtro de empresa."""
-        items = self._tipos.find_all()
-        return TipoAusenciaListResponse(items=items, total=len(items))
-
-    def create_tipo(self, data: TipoAusenciaCreate) -> TipoAusenciaResponse:
-        """
-        Crea un tipo de ausencia nuevo disponible para todas las empresas.
-
-        Raises:
-            AppError: TIPO_NOMBRE_VACIO (422) si el nombre está en blanco.
-            AppError: TIPO_DUPLICADO (422) si el nombre ya existe.
-        """
-        if not data.nombre.strip():
-            raise AppError("El nombre del tipo no puede estar vacío", "TIPO_NOMBRE_VACIO", 422)
-        try:
-            return self._tipos.create(data.nombre.strip())
-        except AppError:
-            raise
-        except Exception:
-            raise AppError("El tipo de ausencia ya existe", "TIPO_DUPLICADO", 422)
-
-    # ── Ausencias ──────────────────────────────────────────────────────────────
+        self._audit = audit or AuditService()
 
     def get_all(self, empresa_id: Optional[UUID] = None, area_id: Optional[UUID] = None, tipo_id: Optional[UUID] = None, page: int = 1, page_size: int = 20) -> AusenciaListResponse:
         """
@@ -93,12 +69,14 @@ class AusenciasService:
             str(data.empleado_id), empresa_id, str(data.tipo_id),
             data.fecha_desde, data.fecha_hasta, dias, data.justificada, data.motivo,
         )
+        self._audit.registrar(**payload_alta_ausencia(row, created_by, row.empresa_id))
         logger.info("Ausencia registrada", extra={"ausencia_id": row.id, "empleado_id": str(data.empleado_id), "created_by": created_by})
         return row
 
-    def update(self, id: UUID, data: AusenciaUpdate, empresa_id: Optional[UUID] = None) -> AusenciaResponse:
+    def update(self, id: UUID, data: AusenciaUpdate, empresa_id: Optional[UUID] = None, usuario_id: Optional[str] = None) -> AusenciaResponse:
         """
         Actualiza una ausencia. Recalcula dias si cambian las fechas.
+        Registra el evento de auditoría con el diff antes/después (usuario_id = operador).
 
         Raises:
             AppError: AUSENCIA_NOT_FOUND (404) si no existe.
@@ -124,16 +102,21 @@ class AusenciasService:
         updated = self._repo.update(str(id), empresa_id, payload)
         if not updated:
             raise AppError("Ausencia no encontrada", "AUSENCIA_NOT_FOUND", 404)
+        self._audit.registrar(**payload_update_ausencia(existing, updated, usuario_id, existing.empresa_id))
         logger.info("Ausencia actualizada", extra={"ausencia_id": str(id)})
         return updated
 
-    def delete(self, id: UUID, empresa_id: Optional[UUID] = None) -> None:
+    def delete(self, id: UUID, empresa_id: Optional[UUID] = None, usuario_id: Optional[str] = None) -> None:
         """
         Elimina una ausencia permanentemente.
+        Lee el estado anterior antes de borrar para registrar el evento de auditoría.
 
         Raises:
             AppError: AUSENCIA_NOT_FOUND (404) si no existe.
         """
+        prior = self._repo.find_by_id(str(id), empresa_id)
         if not self._repo.delete(str(id), empresa_id):
             raise AppError("Ausencia no encontrada", "AUSENCIA_NOT_FOUND", 404)
+        if prior:
+            self._audit.registrar(**payload_baja_ausencia(prior, usuario_id, prior.empresa_id))
         logger.info("Ausencia eliminada", extra={"ausencia_id": str(id)})

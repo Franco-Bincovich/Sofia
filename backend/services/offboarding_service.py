@@ -9,6 +9,8 @@ from uuid import UUID
 from repositories.empleado_repo import EmpleadoRepo
 from repositories.offboarding_repo import OffboardingRepo
 from schemas.offboarding import OffboardingCreate, OffboardingResponse
+from services._audit_payloads import payload_devolucion_activo, payload_inicio_offboarding
+from services.audit_service import AuditService
 from utils.errors import AppError
 from utils.logger import logger
 
@@ -18,9 +20,11 @@ class OffboardingService:
         self,
         repo: Optional[OffboardingRepo] = None,
         empleado_repo: Optional[EmpleadoRepo] = None,
+        audit: Optional[AuditService] = None,
     ) -> None:
         self._repo = repo or OffboardingRepo()
         self._empleado_repo = empleado_repo or EmpleadoRepo()
+        self._audit = audit or AuditService()
 
     def get_offboardings_activos(self, empresa_id: Optional[UUID] = None) -> list[OffboardingResponse]:
         """
@@ -32,12 +36,13 @@ class OffboardingService:
         """
         return self._repo.find_activos(empresa_id)
 
-    def iniciar_offboarding(self, data: OffboardingCreate, empresa_id: Optional[UUID] = None) -> OffboardingResponse:
+    def iniciar_offboarding(self, data: OffboardingCreate, empresa_id: Optional[UUID] = None, usuario_id: Optional[str] = None) -> OffboardingResponse:
         """
         Inicia el proceso de offboarding para un empleado.
         La empresa se hereda del empleado; empresa_id del header es ignorado (la empresa
         es un dato del empleado, no del contexto de sesión).
         Crea la instancia y los activos corporativos por defecto a devolver.
+        Registra el evento de auditoría tras crear la instancia (usuario_id = operador).
 
         Args:
             data: Datos del offboarding — empleado_id, motivo y fecha_ultimo_dia opcional.
@@ -64,6 +69,7 @@ class OffboardingService:
 
         empresa_id_str = empleado.empresa_id or ""
         offboarding = self._repo.create_offboarding(data, empresa_id_str)
+        self._audit.registrar(**payload_inicio_offboarding(offboarding, usuario_id, empresa_id_str or None))
 
         fecha_egreso = data.fecha_ultimo_dia or (date.today() + timedelta(days=30))
         empresa_uuid = UUID(empresa_id_str) if empresa_id_str else None
@@ -87,15 +93,19 @@ class OffboardingService:
         return offboarding
 
     def marcar_activo_devuelto(
-        self, instancia_id: UUID, activo_id: UUID, devuelto: bool
+        self, instancia_id: UUID, activo_id: UUID, devuelto: bool,
+        usuario_id: Optional[str] = None, empresa_id: Optional[UUID] = None,
     ) -> bool:
         """
         Actualiza el estado de devolución de un activo corporativo en el offboarding.
+        Registra el evento de auditoría tras la actualización exitosa (usuario_id = operador).
 
         Args:
             instancia_id: UUID de la instancia de offboarding.
             activo_id: UUID del activo a actualizar.
             devuelto: True para marcar como devuelto, False para revertir a pendiente.
+            usuario_id: ID del operador que realiza el cambio (trazabilidad de audit).
+            empresa_id: empresa del contexto (header), para el filtro de audit. Puede ser None.
 
         Returns:
             True si la actualización fue exitosa.
@@ -110,6 +120,9 @@ class OffboardingService:
                 "ACTIVO_NOT_FOUND",
                 404,
             )
+        self._audit.registrar(**payload_devolucion_activo(
+            instancia_id, activo_id, devuelto, usuario_id, str(empresa_id) if empresa_id else None,
+        ))
         logger.info(
             "Activo de offboarding actualizado",
             extra={

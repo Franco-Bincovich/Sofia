@@ -36,7 +36,7 @@ async def crear_offboarding(
     request: Request,
     service: OffboardingService = Depends(_service),
 ) -> OffboardingResponse:
-    return service.iniciar_offboarding(body, get_empresa_id(request))
+    return service.iniciar_offboarding(body, get_empresa_id(request), request.state.user.get("id", "system"))
 
 
 @router.put(
@@ -48,7 +48,11 @@ async def actualizar_activo(
     instancia_id: UUID,
     activo_id: UUID,
     body: ActivoUpdate,
+    request: Request,
     service: OffboardingService = Depends(_service),
 ) -> dict:
-    service.marcar_activo_devuelto(instancia_id, activo_id, body.devuelto)
+    service.marcar_activo_devuelto(
+        instancia_id, activo_id, body.devuelto,
+        request.state.user.get("id", "system"), get_empresa_id(request),
+    )
     return {"ok": True}

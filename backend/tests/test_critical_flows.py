@@ -89,6 +89,14 @@ class TestAuth:
             )
         assert resp.json()["code"] == "INVALID_TOKEN"
 
+    async def test_auditoria_sin_token_401(self) -> None:
+        # El gate de auditoría (require_permission AUDITORIA READ) actúa tras el
+        # middleware: sin token corta antes, en AuthMiddleware → 401 MISSING_TOKEN.
+        async with _client() as c:
+            resp = await c.get("/api/auditoria")
+        assert resp.status_code == 401
+        assert resp.json()["code"] == "MISSING_TOKEN"
+
 
 # ─── AppError ─────────────────────────────────────────────────────────────────
 
@@ -159,6 +167,12 @@ class TestPermisos:
     def test_mandos_medios_otra_seccion_denegada(self) -> None:
         assert puede("mandos_medios", Seccion.OBJETIVOS, Accion.READ) is False
         assert puede("mandos_medios", Seccion.OBJETIVOS, Accion.WRITE) is False
+
+    def test_auditoria_lectura_admin_y_gerencia_no_mandos(self) -> None:
+        assert puede("admin_rrhh", Seccion.AUDITORIA, Accion.READ) is True
+        assert puede("gerencia_lectura", Seccion.AUDITORIA, Accion.READ) is True
+        assert puede("mandos_medios", Seccion.AUDITORIA, Accion.READ) is False
+        assert puede("gerencia_lectura", Seccion.AUDITORIA, Accion.WRITE) is False
 
     def test_fail_closed_rol_none(self) -> None:
         assert puede(None, Seccion.VACACIONES, Accion.READ) is False

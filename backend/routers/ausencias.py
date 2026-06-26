@@ -8,6 +8,7 @@ from schemas.ausencias import (
     TipoAusenciaCreate, TipoAusenciaListResponse, TipoAusenciaResponse,
 )
 from services.ausencias_service import AusenciasService
+from services.tipos_ausencia_service import TiposAusenciaService
 from utils.empresa import get_empresa_id
 from utils.permisos import Accion, Seccion, require_permission
 
@@ -19,15 +20,19 @@ def _svc() -> AusenciasService:
     return AusenciasService()
 
 
+def _tipos_svc() -> TiposAusenciaService:
+    return TiposAusenciaService()
+
+
 # ── Tipos de ausencia (catálogo global) ────────────────────────────────────────
 
 @router.get("/tipos", response_model=TipoAusenciaListResponse, dependencies=[Depends(require_permission(SECCION, Accion.READ))])
-async def list_tipos(service: AusenciasService = Depends(_svc)) -> TipoAusenciaListResponse:
+async def list_tipos(service: TiposAusenciaService = Depends(_tipos_svc)) -> TipoAusenciaListResponse:
     return service.get_tipos()
 
 
 @router.post("/tipos", response_model=TipoAusenciaResponse, status_code=201, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
-async def create_tipo(body: TipoAusenciaCreate, service: AusenciasService = Depends(_svc)) -> TipoAusenciaResponse:
+async def create_tipo(body: TipoAusenciaCreate, service: TiposAusenciaService = Depends(_tipos_svc)) -> TipoAusenciaResponse:
     return service.create_tipo(body)
 
 
@@ -66,10 +71,10 @@ async def update_ausencia(
     body: AusenciaUpdate,
     service: AusenciasService = Depends(_svc),
 ) -> AusenciaResponse:
-    return service.update(id, body, get_empresa_id(request))
+    return service.update(id, body, get_empresa_id(request), request.state.user.get("id", "system"))
 
 
 @router.delete("/{id}", status_code=200, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def delete_ausencia(id: UUID, request: Request, service: AusenciasService = Depends(_svc)) -> dict:
-    service.delete(id, get_empresa_id(request))
+    service.delete(id, get_empresa_id(request), request.state.user.get("id", "system"))
     return {"ok": True}

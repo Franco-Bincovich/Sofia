@@ -50,7 +50,7 @@ async def post_nomina(
     body: NominaCreate,
     service: CostoService = Depends(_service),
 ) -> NominaResponse:
-    return service.cargar_nomina(body, get_empresa_id(request))
+    return service.cargar_nomina(body, get_empresa_id(request), request.state.user.get("id", "system"))
 
 
 @router.post("/presupuesto", response_model=PresupuestoResponse, status_code=201, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
@@ -59,4 +59,4 @@ async def post_presupuesto(
     body: PresupuestoCreate,
     service: CostoService = Depends(_service),
 ) -> PresupuestoResponse:
-    return service.set_presupuesto_area(body, get_empresa_id(request))
+    return service.set_presupuesto_area(body, get_empresa_id(request), request.state.user.get("id", "system"))

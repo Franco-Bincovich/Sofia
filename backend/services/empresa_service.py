@@ -10,6 +10,8 @@ from typing import Optional
 from integrations.supabase_client import supabase_admin
 from repositories.empresa_repo import EmpresaRepo
 from schemas.empresa import EmpresaCreate, EmpresaListResponse, EmpresaResponse, EmpresaUpdate
+from services._audit_payloads_rrhh import payload_alta_empresa, payload_toggle_empresa
+from services.audit_service import AuditService
 from utils.errors import AppError
 from utils.logger import logger
 
@@ -27,8 +29,9 @@ def _validate_cuit(cuit: Optional[str]) -> None:
 
 
 class EmpresaService:
-    def __init__(self, repo: Optional[EmpresaRepo] = None) -> None:
+    def __init__(self, repo: Optional[EmpresaRepo] = None, audit: Optional[AuditService] = None) -> None:
         self._repo = repo or EmpresaRepo()
+        self._audit = audit or AuditService()
 
     def list_empresas(self) -> EmpresaListResponse:
         """Retorna todas las empresas ordenadas por nombre."""
@@ -58,6 +61,7 @@ class EmpresaService:
         """
         _validate_cuit(data.cuit)
         empresa = self._repo.save(data)
+        self._audit.registrar(**payload_alta_empresa(empresa, created_by))
         logger.info("Empresa creada", extra={"empresa_id": empresa.id, "created_by": created_by})
         return empresa
 
@@ -80,6 +84,21 @@ class EmpresaService:
         if not empresa:
             raise AppError("Empresa no encontrada", "EMPRESA_NOT_FOUND", 404)
         logger.info("Empresa actualizada", extra={"empresa_id": id})
+        return empresa
+
+    def toggle_activa(self, id: str, activa: bool, usuario_id: Optional[str] = None) -> EmpresaResponse:
+        """
+        Activa/desactiva una empresa y registra el evento de auditoría.
+        Camino dedicado (no el PUT genérico) para auditar solo el toggle de estado.
+
+        Raises:
+            AppError: EMPRESA_NOT_FOUND (404) si la empresa no existe.
+        """
+        empresa = self._repo.update(id, EmpresaUpdate(activa=activa))
+        if not empresa:
+            raise AppError("Empresa no encontrada", "EMPRESA_NOT_FOUND", 404)
+        self._audit.registrar(**payload_toggle_empresa(empresa.id, activa, usuario_id))
+        logger.info("Empresa activa cambiada", extra={"empresa_id": id, "activa": activa})
         return empresa
 
     def upload_logo(

@@ -21,19 +21,23 @@ from schemas.vacaciones import (
     SolicitudVacacionesListResponse,
     SolicitudVacacionesResponse,
 )
+from services._audit_payloads import payload_cancelacion_vacacion
+from services._vacaciones_utils import derive_estado
+from services.audit_service import AuditService
 from utils.errors import AppError
 from utils.logger import logger
 
 
 class VacacionesService:
-    def __init__(self, repo: Optional[VacacionesRepo] = None) -> None:
+    def __init__(self, repo: Optional[VacacionesRepo] = None, audit: Optional[AuditService] = None) -> None:
         self._repo = repo or VacacionesRepo()
+        self._audit = audit or AuditService()
 
     def get_all(self, empresa_id: Optional[UUID] = None, area_id: Optional[UUID] = None, page: int = 1, page_size: int = 20) -> SolicitudVacacionesListResponse:
         """Retorna una página de solicitudes con estado derivado, filtradas por empresa/área. total = count real del filtro."""
         today = date.today()
         rows, total = self._repo.find_all(empresa_id, area_id, page, page_size)
-        items = [self._derive_estado(r, today) for r in rows]
+        items = [derive_estado(r, today) for r in rows]
         return SolicitudVacacionesListResponse(items=items, total=total)
 
     def get_by_id(self, id: UUID, empresa_id: Optional[UUID] = None) -> SolicitudVacacionesResponse:
@@ -41,7 +45,7 @@ class VacacionesService:
         row = self._repo.find_by_id(str(id), empresa_id)
         if not row:
             raise AppError("Solicitud de vacaciones no encontrada", "VACACION_NOT_FOUND", 404)
-        return self._derive_estado(row, date.today())
+        return derive_estado(row, date.today())
 
     def create(self, data: SolicitudVacacionesCreate, created_by: str) -> SolicitudVacacionesResponse:
         """
@@ -80,11 +84,12 @@ class VacacionesService:
             "Vacaciones registradas",
             extra={"solicitud_id": row.id, "empleado_id": str(data.empleado_id), "tipo": data.tipo, "created_by": created_by},
         )
-        return self._derive_estado(row, date.today())
+        return derive_estado(row, date.today())
 
-    def cancel(self, id: UUID, empresa_id: Optional[UUID] = None) -> SolicitudVacacionesResponse:
+    def cancel(self, id: UUID, empresa_id: Optional[UUID] = None, usuario_id: Optional[str] = None) -> SolicitudVacacionesResponse:
         """
         Cancela una solicitud seteando cancelada=True (no borra la fila — preserva historial).
+        Registra el evento de auditoría tras la cancelación exitosa (usuario_id = operador).
 
         Raises:
             AppError: VACACION_NOT_FOUND (404) si el ID no existe.
@@ -96,8 +101,9 @@ class VacacionesService:
         if row.cancelada:
             raise AppError("La solicitud ya está cancelada", "YA_CANCELADA", 422)
         updated = self._repo.cancel(str(id), empresa_id)
+        self._audit.registrar(**payload_cancelacion_vacacion(row, updated, usuario_id, row.empresa_id))
         logger.info("Vacaciones canceladas", extra={"solicitud_id": str(id)})
-        return self._derive_estado(updated, date.today())  # type: ignore[arg-type]
+        return derive_estado(updated, date.today())  # type: ignore[arg-type]
 
     def get_saldo(self, empleado_id: UUID) -> SaldoVacacionesResponse:
         """
@@ -119,7 +125,7 @@ class VacacionesService:
         gozados = 0
         pedidos = 0
         for s in self._repo.find_vacaciones_empleado(str(empleado_id)):
-            s = self._derive_estado(s, today)
+            s = derive_estado(s, today)
             if s.estado == "tomada":
                 gozados += s.dias
             elif s.estado == "planificada":
@@ -132,14 +138,3 @@ class VacacionesService:
             pedidos=pedidos,
             disponibles=asignados - gozados - pedidos,
         )
-
-    @staticmethod
-    def _derive_estado(row: SolicitudVacacionesResponse, today: date) -> SolicitudVacacionesResponse:
-        """Calcula el estado derivado y devuelve una copia del response con el campo actualizado."""
-        if row.cancelada:
-            estado = "cancelada"
-        elif today < row.fecha_desde:
-            estado = "planificada"
-        else:
-            estado = "tomada"
-        return row.model_copy(update={"estado": estado})

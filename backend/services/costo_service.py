@@ -12,6 +12,8 @@ from schemas.costo import (
     CostoArea, DashboardCostosResponse, NominaCreate, NominaResponse,
     PresupuestoCreate, PresupuestoResponse,
 )
+from services._audit_payloads_rrhh import payload_carga_nomina, payload_set_presupuesto
+from services.audit_service import AuditService
 from utils.errors import AppError
 from utils.logger import logger
 
@@ -21,9 +23,11 @@ class CostoService:
         self,
         nomina_repo: Optional[NominaRepo] = None,
         presupuesto_repo: Optional[PresupuestoRepo] = None,
+        audit: Optional[AuditService] = None,
     ) -> None:
         self._nomina = nomina_repo or NominaRepo()
         self._presupuesto = presupuesto_repo or PresupuestoRepo()
+        self._audit = audit or AuditService()
 
     def get_dashboard_costos(self, mes: int, anio: int, empresa_id: Optional[UUID] = None) -> DashboardCostosResponse:
         """
@@ -81,15 +85,17 @@ class CostoService:
         """
         return self._nomina.get_nomina_mes(mes, anio, empresa_id)
 
-    def cargar_nomina(self, data: NominaCreate, empresa_id: Optional[UUID] = None) -> NominaResponse:
+    def cargar_nomina(self, data: NominaCreate, empresa_id: Optional[UUID] = None, usuario_id: Optional[str] = None) -> NominaResponse:
         """
         Registra o actualiza la nómina de un empleado para un período dado (upsert).
         empresa_id se hereda del empleado — el repositorio lo resuelve automáticamente.
         Si empresa_id se provee, valida que el empleado pertenezca a esa empresa.
+        Registra el evento de auditoría (empresa_id = la del registro de nómina).
 
         Args:
             data: Datos de nómina (empleado, período, monto bruto y neto).
             empresa_id: Contexto de empresa para validación. None = sin validación extra.
+            usuario_id: ID del operador (trazabilidad de audit).
 
         Raises:
             AppError: NOMINA_SAVE_ERROR (500) si la operación en DB falla.
@@ -100,20 +106,23 @@ class CostoService:
             raise
         except Exception as exc:
             raise AppError("Error al guardar la nómina", "NOMINA_SAVE_ERROR", 500) from exc
+        self._audit.registrar(**payload_carga_nomina(nomina, usuario_id, nomina.empresa_id))
         logger.info(
             "Nómina cargada",
             extra={"empleado_id": data.empleado_id, "mes": data.mes, "anio": data.anio},
         )
         return nomina
 
-    def set_presupuesto_area(self, data: PresupuestoCreate, empresa_id: Optional[UUID] = None) -> PresupuestoResponse:
+    def set_presupuesto_area(self, data: PresupuestoCreate, empresa_id: Optional[UUID] = None, usuario_id: Optional[str] = None) -> PresupuestoResponse:
         """
         Establece o actualiza el presupuesto de nómina de un área para un período (upsert).
         empresa_id se hereda del área — el repositorio lo resuelve automáticamente.
+        Registra el evento de auditoría (empresa_id = el del header, puede ser None).
 
         Args:
             data: Datos del presupuesto (área, período, monto presupuestado).
-            empresa_id: Contexto de empresa para validación. None = sin validación extra.
+            empresa_id: Contexto de empresa (header) para validación y audit. None = consolidado.
+            usuario_id: ID del operador (trazabilidad de audit).
 
         Raises:
             AppError: PRESUPUESTO_SAVE_ERROR (500) si la operación en DB falla.
@@ -124,6 +133,7 @@ class CostoService:
             raise
         except Exception as exc:
             raise AppError("Error al guardar el presupuesto", "PRESUPUESTO_SAVE_ERROR", 500) from exc
+        self._audit.registrar(**payload_set_presupuesto(presupuesto, usuario_id, str(empresa_id) if empresa_id else None))
         logger.info(
             "Presupuesto de área configurado",
             extra={"area_id": data.area_id, "mes": data.mes, "anio": data.anio},

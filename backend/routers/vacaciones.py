@@ -72,4 +72,4 @@ async def cancel_vacacion(
     request: Request,
     service: VacacionesService = Depends(_svc),
 ) -> SolicitudVacacionesResponse:
-    return service.cancel(id, get_empresa_id(request))
+    return service.cancel(id, get_empresa_id(request), request.state.user.get("id", "system"))
