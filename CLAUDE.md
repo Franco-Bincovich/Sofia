@@ -1,373 +1,147 @@
 # CLAUDE.md — Sofia (HR Karstec)
 
-> **Ubicación:** raíz de `RRHH/Sofia/`, junto a `backend/` y `frontend/`.
-> Claude Code lo lee al inicio de cada sesión. No moverlo a subdirectorios.
+> **Ubicación:** este archivo va en la **raíz del repo Sofia** (`RRHH/Sofia/`), desde donde se ejecuta `claude`. Claude Code lo lee al inicio. Sofia tiene su propio `.git` dentro del mono-repo RRHH — **todas las operaciones git corren desde `RRHH/Sofia/`, nunca desde `RRHH/`**.
 
----
+## Documentos de planificación (leer al inicio)
+La dirección del producto y el schema están en estos documentos. **Tienen prioridad sobre la memoria.**
 
-## Documentos de referencia (leer cuando aplique)
-
-- `docs/MODELO_DATOS.md` — fuente de verdad del schema. Si algo contradice una tabla, manda este doc.
-- `docs/BASES-DE-DESARROLLO.md` — convenciones de arquitectura, errores, logging, testing.
-- `docs/ORDEN-Y-LEGIBILIDAD.md` — límites de archivo, naming, estructura de carpetas.
-- `docs/SEGURIDAD-PENTEST.md` — autenticación, validación, rate limiting, secrets.
-- `docs/UX-UI.md` — componentes, responsive, accesibilidad, design system.
+- @docs/MODELO_DATOS.md — **fuente de verdad del schema** (si algo contradice una tabla, manda este doc)
+- @docs/PLAN_DESARROLLO_AHORA.md — qué construimos ahora
+- @docs/PLAN_DESARROLLO_DESPUES.md — qué construimos después
 
 ---
 
 ## Qué es este proyecto
-
-Sofia es el repositorio del producto **HR Karstec**: plataforma multiempresa de gestión del ciclo de vida del empleado. Un equipo de RRHH (3 personas) administra entre 2 y 5 empresas desde la misma instancia, con datos aislados por `empresa_id` y vistas consolidadas.
-
-Módulos: empleados, organigrama, onboarding/offboarding, vacantes, costos, sucesión, assessment, vacaciones, ausencias, capacitaciones, evaluaciones de desempeño, inventario, objetivos, proyectos, reportes con IA, configuración y procesos.
-
----
+Sofia es el repositorio interno del producto **HR Karstec**: plataforma de gestión del ciclo de vida del empleado, **multiempresa** (2–5 empresas simultáneas), operada por un equipo de RRHH de 3 personas. Reporting con IA vía Claude Sonnet. Live en hrkarstec.site.
 
 ## Stack
+- **Backend**: Python 3.11 + FastAPI. Arquitectura por capas **router → service → repository** (NO hay capa de controllers).
+- **Frontend**: Next.js 16.2.4 (App Router) + TypeScript + Tailwind v4 + Shadcn/ui.
+- **DB**: Supabase (PostgreSQL + Auth + Storage), con RLS.
+- **IA**: Anthropic Claude Sonnet.
+- **Deploy**: Vercel (frontend + backend).
 
-- **Frontend**: Next.js 16.2.4 (App Router) · TypeScript estricto · Tailwind CSS · Shadcn/ui — Vercel
-- **Backend**: Python 3.11 · FastAPI · arquitectura por capas — Vercel (serverless), migración a AWS planificada
-- **Base de datos**: Supabase (PostgreSQL) · RLS activo en todas las tablas
-- **Auth**: Supabase Auth · JWT ES256 verificado vía `supabase_admin.auth.get_user(token)`
-- **Storage**: Supabase Storage — buckets: `documentos`, `cvs`, `avatars`, `reportes`
-- **IA**: Anthropic Claude Sonnet · cliente singleton en `integrations/anthropic_client.py` · timeout 25s
-- **Email**: Resend — instalado en requirements.txt, pendiente de conectar módulo por módulo
-- **Exportaciones**: openpyxl (export), reportlab (PDF)
-- **Tests frontend**: vitest (`npm run test`) — runner agregado en 16.6a; dev-only, no afecta `next build`.
-
----
-
-## Estructura de carpetas
-
+## Estructura (backend)
 ```
-Sofia/                         ← raíz del repo (acá va este CLAUDE.md)
-├── CLAUDE.md                  ← este archivo
-├── .env.example               ← todas las variables documentadas
-├── backend/
-│   ├── main.py                ← punto de entrada, registra todos los routers
-│   ├── config/
-│   │   └── settings.py        ← única fuente de variables de entorno
-│   ├── routers/               ← endpoints HTTP (max 80 líneas)
-│   ├── controllers/           ← VACÍO — capa no implementada, no usar
-│   ├── services/              ← lógica de negocio (max 150 líneas)
-│   ├── repositories/          ← acceso a DB via Supabase ORM (max 100 líneas)
-│   ├── integrations/
-│   │   ├── supabase_client.py ← proxy resiliente con recreación ante RemoteProtocolError
-│   │   └── anthropic_client.py ← singleton con timeout=25s, max_retries=0
-│   ├── schemas/               ← modelos Pydantic
-│   ├── middleware/            ← auth.py, error_handler.py, security_headers.py
-│   ├── utils/
-│   │   ├── errors.py          ← AppError centralizado
-│   │   ├── logger.py          ← logger JSON estructurado
-│   │   ├── empresa.py         ← get_empresa_id / require_empresa_id
-│   │   ├── files.py           ← validate_upload (MIME + tamaño)
-│   │   └── permisos.py        ← núcleo de permisos: enum Seccion/Accion, puede(), require_permission()
-│   ├── migrations/            ← 58 archivos SQL numerados (000–057)
-│   └── tests/
-└── frontend/
-    ├── app/
-    │   ├── (auth)/            ← login, cambio de contraseña
-    │   ├── (dashboard)/       ← 28 rutas protegidas (todos los módulos), envueltas por AuthGuard
-    │   ├── assessment/[token] ← evaluación pública sin login
-    │   ├── error.tsx          ← error boundary (Next.js 16, "use client", unstable_retry)
-    │   ├── not-found.tsx      ← página 404
-    │   └── global-error.tsx   ← error boundary global con html/body propio
-    ├── components/
-    │   ├── ui/                ← genéricos: Button, Input, Table, Modal, Skeleton
-    │   ├── auth/              ← Can.tsx (wrapper de permiso para ocultar acciones)
-    │   ├── layout/            ← Sidebar (con EmpresaSelector), UserMenu, PageHeader, ThemeProvider, AuthGuard
-    │   └── features/          ← componentes específicos por módulo
-    ├── hooks/                 ← incluye useCanWrite.ts
-    ├── services/              ← llamadas a la API + empresaStore.ts + permisos.ts (espejo de backend)
-    ├── types/
-    ├── styles/
-    │   └── design-system.ts
-    └── utils/
+backend/
+├── main.py              ← entrada, registro de routers, middleware
+├── config/settings.py   ← única fuente de config y env
+├── routers/             ← endpoints, sin lógica de negocio (límite 80 líneas)
+├── services/            ← lógica de negocio (límite 150)
+├── repositories/        ← único acceso a DB (límite 100)
+├── integrations/        ← wrappers externos (supabase_client, anthropic)
+├── schemas/             ← Pydantic in/out
+├── utils/               ← helpers (permisos.py, errors.py, logger.py)
+├── migrations/          ← SQL versionado (van por 058)
+└── tests/
 ```
-
----
-
-## Arquitectura real del backend
-
-**La capa `controllers/` existe en la carpeta pero está vacía. No usarla.**
-
-El flujo real y obligatorio es:
-
-```
-router → service → repository → DB
-       ↘ integration → Supabase / Anthropic / Resend
-```
-
-Nunca saltear capas. El router no llama al repository directamente. El service no conoce detalles HTTP.
-
----
 
 ## Convenciones de código
+- Seguir ORDEN-Y-LEGIBILIDAD.md, SEGURIDAD-PENTEST.md, BASES-DE-DESARROLLO.md y UX-UI.md de la agencia.
+- Errores: siempre `AppError(message, code, status_code)`.
+- Logs: solo eventos de negocio importantes. Sin `print()` / `console.log()` — logger centralizado.
+- Config: solo vía `settings`, nunca `os.environ` directo.
+- **Límites de líneas (estrictos)**: router 80 · controller 100 (no aplica, no hay) · service 150 · repository 100 · componente React 150 · hook 80 · otros 200.
+- Next.js 16: `params` en rutas dinámicas se await (es Promise).
+- PowerShell: sin `&&` (usar `;`). Paths con paréntesis entre comillas.
+- NO usar `from __future__ import annotations` en routers FastAPI (rompe resolución de anotaciones Pydantic).
+- Helpers Supabase en políticas RLS necesitan `SECURITY DEFINER` (evita dependencia circular en login).
 
-### Backend (Python)
-
-- **Flujo obligatorio**: `router → service → repository`. Sin controllers.
-- **Errores**: siempre `AppError(message, code, status_code)` desde `utils/errors.py`.
-- **Logs**: solo eventos de negocio importantes. Nunca `print()`. Usar `logger` de `utils/logger.py`.
-- **Config**: nunca `os.environ` directamente. Solo `from config.settings import settings`.
-- **Docstrings**: obligatorios en todos los métodos de `services/` e `integrations/`.
-- **Naming**: `snake_case` funciones/variables · `PascalCase` clases · `UPPER_SNAKE_CASE` constantes.
-- **Límites**: router 80 líneas · service 150 · repository 100. Si se supera, proponer división antes de escribir.
-- **Schemas Pydantic**: patrón `Base → Create → Update → Response`. Siempre en `schemas/`, nunca inline.
-- **IDs**: siempre `UUID` tipado en path params, nunca `str`.
-- **DB**: siempre vía ORM de Supabase (`.eq()`, `.select()`, `.insert()`). Nunca concatenar strings en queries.
-- **Secrets**: nunca hardcodeados. Solo vía `settings`.
-- **Uploads**: todo endpoint que reciba `UploadFile` debe llamar a `validate_upload()` de `utils/files.py` después de `await file.read()`.
-- **Paginación**: los endpoints de listado usan `page: int = Query(default=1, ge=1)` y `page_size: int = Query(default=20, ge=1, le=100)`. Los repos usan `.select("*", count="exact")` y `.range()`.
-- **Permisos**: todo endpoint gateable lleva `dependencies=[Depends(require_permission(SECCION, Accion.READ|WRITE))]` (ver sección "Roles y modelo de acceso"). Acción según verbo HTTP: GET=READ, POST/PUT/PATCH/DELETE=WRITE. Cada router declara `SECCION = Seccion.X`.
-
-### Frontend (TypeScript)
-
-- Nunca usar `any`. TypeScript estricto en todo el proyecto.
-- **Naming**: componentes `PascalCase` · hooks con prefijo `use` · constantes `UPPER_SNAKE_CASE`.
-- **Estados obligatorios**: todo componente que carga datos implementa skeleton (cargando), EmptyState (vacío), ErrorState (error) y vista con datos.
-- **Feedback de acciones**: usar Sonner (`toast.success`, `toast.error`) después de cada mutación. Nunca `catch {}` vacío ni silencioso.
-- **Formularios**: label siempre visible, validación en tiempo real, errores específicos y accionables.
-- **Touch targets**: mínimo 44×44px en mobile.
-- **Mobile-first**: estilos base para mobile, `md:` y `lg:` para pantallas más grandes.
-- **Next.js 16**: las páginas `error.tsx` y `global-error.tsx` usan `"use client"` y la firma `{ error, unstable_retry }`. `useRouter`/`usePathname` se importan de `next/navigation`, solo en client components. Leer `node_modules/next/dist/docs/` antes de crear páginas de error o tocar el guard.
-- **Permisos en UI**: `services/permisos.ts` es el espejo de `backend/utils/permisos.py` (fuente canónica = backend). Para ocultar acciones por rol, usar el hook `useCanWrite(seccion?)` en páginas (deriva la sección de la ruta) o el wrapper `<Can seccion accion>` / prop `canWrite` en componentes hijos. Estrategia: OCULTAR (no renderizar) entry points de escritura, NO deshabilitar. El control de seguridad real lo hace el backend (403); esto es solo UX. Mantener `permisos.ts` sincronizado con el backend.
-
-### Multiempresa
-
-- Toda tabla de negocio nueva lleva `empresa_id UUID NOT NULL REFERENCES empresas(id)`.
-- Toda query filtra por `empresa_id` usando el header `X-Empresa-Id` de la sesión activa.
-- Antes de tocar cualquier schema, leer `MODELO_DATOS.md`.
-- Toda nueva sección registra su identificador como `SECCION = Seccion.X` (enum en `utils/permisos.py`).
-- **Todo usuario accede a TODAS las empresas** (decisión de producto — ver "Roles y modelo de acceso"). No hay restricción de empresa por usuario.
-
-### Seguridad
-
-- CORS configurado con lista blanca desde `settings.allowed_origins_list`. Nunca `allow_origins=["*"]`.
-- Rate limiting con `slowapi` — ver `utils/rate_limiter.py`.
-- Validar MIME type y tamaño máximo en todo endpoint que reciba archivos — usar `utils/files.py`.
-- RLS habilitado en todas las tablas nuevas. Sin excepción.
-- Los mensajes de error de auth son siempre genéricos.
+## Reglas para Claude Code
+1. No modificar archivos fuera del scope de la tarea.
+2. Si un archivo supera su límite de líneas, **proponer cómo dividirlo antes de escribir**.
+3. Cada commit = un cambio coherente (lo hace Franco manualmente, nunca Claude Code).
+4. Docstrings en funciones de services e integrations.
+5. **Performance, escalabilidad, seguridad y legibilidad gobiernan toda decisión técnica automáticamente** — elegir siempre la opción más segura/escalable/performante sin preguntar, salvo que haya un tradeoff funcional real.
+6. Diagnóstico read-only primero → revisión → implementación. Nunca asumir nada del código sin leerlo.
+7. Una tarea atómica por sesión.
+8. Verificar contra los archivos fuente, no contra el auto-reporte de Claude Code.
+9. Producción puede driftear de las migraciones versionadas — verificar contra el schema vivo, no contra el historial de migraciones.
+10. Commits y push están desacoplados: **no hay push a GitHub hasta que Franco lo decida**.
+11. Preferir commits por sub-sesión (mejor granularidad de rollback) sobre commits por tarea entera.
+12. Cortar las sub-tareas por módulo cuando hay división de archivos de por medio (resolver el límite de líneas donde se instrumenta, no en masa).
+13. Cuando se pide un diagnóstico, devolver SOLO el diagnóstico (read-only). Cuando se pide implementación, escribir código — no devolver otro diagnóstico.
 
 ---
 
-## Reglas para Claude Code (OBLIGATORIAS)
+## Modelo de roles funcionales (T16 — COMPLETO)
+Tres roles, definidos en `utils/permisos.py`:
+- **admin_rrhh** — lectura + escritura en todo.
+- **gerencia_lectura** — lectura en todo, escritura en nada.
+- **mandos_medios** — lectura + escritura solo en VACACIONES y AUSENCIAS; sin acceso al resto.
+- Rol desconocido / None → **fail-closed** (sin acceso).
 
-1. **Leer este archivo completo antes de escribir cualquier código.**
-2. **No modificar archivos fuera del scope de la tarea.**
-3. **Si un archivo va a superar su límite de líneas, proponer cómo dividirlo ANTES de escribir.**
-4. **Nunca usar `print()` ni `console.log()`. Usar el logger centralizado.**
-5. **Ante dos enfoques válidos, elegir el más seguro, escalable y performante. Consultar solo si hay tradeoff real de funcionalidad.**
-6. **Nunca duplicar lógica que ya existe en otro módulo. Revisar antes de crear.**
-7. **Los schemas Pydantic van en `schemas/`, nunca inline.**
-8. **Los IDs son siempre `UUID` tipado, nunca `str`.**
-9. **Toda tabla nueva lleva `empresa_id`. Toda query filtra por empresa activa.**
-10. **Siempre incluir docstring en funciones de `services/` e `integrations/`.**
-11. **No crear la capa `controllers/` — no existe en la arquitectura real del proyecto.**
-12. **Cada sesión implementa una sola tarea atómica. No mezclar features.**
-13. **Verificar que el código nuevo no rompe módulos existentes antes de terminar.**
-14. **Todo endpoint que reciba UploadFile debe llamar a validate_upload() de utils/files.py.**
-15. **Todo endpoint gateable lleva require_permission con su SECCION y la acción según verbo HTTP. Los endpoints públicos (PUBLIC_ROUTES, assessment por token) NO se gatean.**
-16. **No es un diagnóstico salvo que se pida explícitamente. Si el prompt dice "implementar", escribir código — no devolver un reporte read-only.**
+Núcleo: `puede(rol, seccion, accion) -> bool` (función pura, sin ramas especiales por sección — la regla general resuelve todo), `require_permission(seccion, accion)` dependency factory que lanza `AppError(..., "FORBIDDEN", 403)`. Enum `Seccion` con 25 valores. `MANDOS_MEDIOS_SECCIONES = frozenset({VACACIONES, AUSENCIAS})`. 142 endpoints gateados inline (no router-level). Espejo frontend en `frontend/services/permisos.ts` (`puede`, `RUTA_SECCION`, `RUTAS_ORDENADAS`, `seccionDeRuta`). Sidebar filtra NAV_ITEMS por permiso, AuthGuard gatea por ruta, `useCanWrite`/`<Can>` ocultan botones de escritura.
+
+**Decisión de producto (T17 NO APLICA):** todo usuario, sin importar rol, accede a TODAS las empresas. No existe "usuario limitado a ciertas empresas". El comportamiento de empresa activa (`empresa_id=None` consolidado, o empresa puntual vía header `X-Empresa-Id`) es correcto y definitivo. No reabrir.
 
 ---
 
-## Estado del proyecto (junio 2026)
+## Audit log app-level (T18 — COMPLETO)
+Sistema de auditoría con captura **app-level** (no triggers DB). Backend (commit `92d5edf`) + UI (commit `8646a9b`).
 
-### Entrega 1 — Interna técnica ✅ COMPLETA
+**Modelo:**
+- Tabla `auditoria` (migración 024, extendida por 058): `id, tabla, registro_id, accion (CHECK INSERT|UPDATE|DELETE), datos_anteriores JSONB, datos_nuevos JSONB, usuario_id, ip, user_agent, created_at, empresa_id, entidad, evento`. Inmutable (sin policies UPDATE/DELETE). RLS de SELECT: `auditoria_select_admin_gerencia` (admin_rrhh + gerencia_lectura leen; mandos no).
+- Los triggers DB viejos (`fn_auditoria` + ~21 triggers) fueron **dropeados** en 058: registraban `usuario_id` NULL bajo service_key. La captura es ahora app-level.
+- `AuditService.registrar(*, usuario_id, entidad, registro_id, accion, evento, empresa_id, datos_anteriores, datos_nuevos)` — keyword-only, síncrono, **TRAGA todo error** (auditar nunca rompe la operación de negocio). `_jsonable()` convierte UUID/date. `_diff()` arma diff por campos cambiados.
+- `audit_repo` (insert + listar con filtros/paginación + joins manuales users/empresas). `audit_service` inyectado por constructor en cada service instrumentado (`audit: Optional[AuditService] = None`).
+- Payloads canónicos en `services/_audit_payloads.py` (vacaciones/ausencias/offboarding) y `services/_audit_payloads_rrhh.py` (empleados/costos/empresa). Funciones puras, 1 línea por evento en cada service.
 
-Todas las tareas verificadas con diagnóstico de Claude Code. Cero bloqueantes.
+**Eventos instrumentados (12):** alta/update/baja_empleado · cancelacion_vacacion · alta/update/baja_ausencia · inicio_offboarding · devolucion_activo · carga_nomina · set_presupuesto · alta_empresa · toggle_empresa_activa.
+- Diff por campos relevantes (no row completo). Read-before solo donde aporta: `empleado.update`, `empleado.deactivate` (subset), `ausencias.delete`. `vacaciones.cancel`/`ausencias.update` ya leían prior (diff gratis). Nómina/presupuesto: solo `datos_nuevos`. `empresa.toggle` audita solo el toggle dedicado (el PUT genérico NO audita).
 
-| Tarea | Descripción | Estado |
-|---|---|---|
-| 01 | Fix cliente Supabase — proxy resiliente ante RemoteProtocolError | ✅ |
-| 02 | Timeout Vercel 300s + cliente Anthropic singleton timeout 25s | ✅ |
-| 03 | Importaciones CSV en batch (empleados + nómina) | ✅ |
-| 04 | Validación MIME + tamaño en los 4 endpoints de upload | ✅ |
-| 05 | Versionar retrofit multiempresa (migraciones 054 + 055) | ✅ |
-| 06 | Completar .env.example con variables de Google OAuth y FRONTEND_URL | ✅ |
-| 07 | Páginas de error personalizadas (error.tsx, not-found.tsx, global-error.tsx) | ✅ |
-| 08 | RLS en 6 tablas sin cubrir (migración 056) | ✅ |
-| 09 | Mismatch assessment_resultados empresa_id | ✅ Resuelto por T05 |
-| 10 | Selector de empresa activa en Sidebar + badge empresa | ✅ |
-| 11 | Onboarding: add_tarea hereda empresa_id del template | ✅ |
-| 12 | Offboarding: dar_de_baja al iniciar proceso | ✅ |
-| 13 | Sonner en todas las mutaciones silenciosas | ✅ |
-| 14 | Paginación backend en vacaciones, ausencias y horas | ✅ |
-| 15 | Skeletons en objetivos y tabs de evaluaciones | ✅ |
-
-### Entrega 2 — RRHH mínimo viable (en curso)
-
-| Tarea | Descripción | Estado |
-|---|---|---|
-| 16 | Sistema de roles funcionales (admin_rrhh / gerencia_lectura / mandos_medios) | ✅ COMPLETA |
-| 17 | Validación X-Empresa-Id contra acceso real del usuario | ❌ NO APLICA (ver abajo) |
-| 18 | Audit log extendido + UI | ⬜ próxima |
-| 19 | Bloqueos por módulo | ⬜ |
-| 20 | Legajo ampliado (campos nuevos + adjuntos) | ⬜ |
-| 21 | Tracking de cambios | ⬜ |
-| 22 | Import/Export en todos los módulos | ⬜ |
-| 23 | Feature: vacaciones historial desde ingreso | ⬜ |
-| 24 | Feature: proyectos por equipo/área | ⬜ |
-| 25 | Feature: objetivos import masivo | ⬜ |
-
-**T16 — desglose de sub-sesiones (todas completas):**
-
-- **16.1** — Migración 057: CHECK de `users.rol` a los 3 roles funcionales + recreación de las 27 policies RLS que referenciaban `'management'`. Sin backfill (único usuario = admin_rrhh).
-- **16.2** — `utils/permisos.py`: enum `Seccion` (24) + `Accion`, `puede(rol, seccion, accion)` puro fail-closed, dependency `require_permission`. Tests unitarios puros.
-- **16.3** — Declarar `SECCION = Seccion.X` en los 24 routers primarios.
-- **16.4a** — Dividir routers sobre límite: `ev_plantillas` split → `ev_criterios.py`; `empleados` y `ausencias` compactados. Los 4 quedan ≤80.
-- **16.4b** — `require_permission` aplicado a los 142 endpoints gateables (inline por-endpoint) + `SECCION` en 8 sub-routers. 3 endpoints públicos exentos. Tests del 403.
-- **16.5** — Frontend: `UserRol`/`ROL_LABEL` a valores nuevos · `services/permisos.ts` (espejo) · Sidebar filtrado · `UserMenu` real + logout · `AuthGuard` montado y extendido con guard por ruta (redirige a la primera sección permitida del rol).
-- **16.6** — Ocultar botones de escritura por rol. Infra: `hooks/useCanWrite.ts` + `components/auth/Can.tsx` + tests (vitest). Cableados los entry points de escritura en todos los módulos (16.6a grupo CRUD; 16.6b acciones de estado + vacaciones/ausencias + barrido). Estrategia: ocultar entry points; submit de modales no tocados; modal de evaluación queda read-only con campos disabled (vista de consulta). `gerencia_lectura` no ve botones de escritura en ningún módulo; `mandos_medios` ve los de vacaciones/ausencias.
-
-### T17 — NO APLICA (decisión de producto, jun 2026)
-
-T17 era validar `X-Empresa-Id` contra el acceso real del usuario (restringir qué empresas ve cada uno). **No se implementa.** Decisión de producto: **todo usuario del sistema, sin importar el rol, accede a TODAS las empresas de la instancia.** Puede ver el consolidado (`empresa_id=None`, todas juntas) o seleccionar una empresa puntual vía `X-Empresa-Id`. No existe la noción de "usuario limitado a ciertas empresas", por lo tanto no hay nada que validar: no se crea la tabla `acceso_empresa` ni una dependency de empresa. El comportamiento actual es el correcto y definitivo. **NO reabrir.** (`acceso_seccion` del doc §8 quedó cubierto por el modelo de roles de T16.)
-
-### Métricas del repo (post T16/16.6)
-
-- **Migraciones SQL**: 58 (000–057)
-- **Routers registrados**: 33 (24 primarios + 9 sub-routers, incluyendo `ev_criterios`)
-- **Endpoints con permiso aplicado**: 142 gateados · 3 públicos exentos · auth sin gate
-- **Services**: 38 archivos
-- **Repositories**: 35 archivos
-- **Rutas frontend**: 28 `page.tsx` en `app/(dashboard)/`
-
-### Módulos por estado
-
-**Completos (cadena verificada):**
-Vacaciones · Ausencias · Evaluaciones de desempeño · Proyectos · Capacitaciones · Inventario · Objetivos · Empleados · Vacantes · Configuración · Procesos · Dashboard · Reportes con IA · Empresas/Selector
-
-**Parciales (gaps conocidos — Entrega 3):**
-- Assessment — UI deshabilitada por código (`assessment/page.tsx:73-75` redirige a `/dashboard`)
-- Costos — mismatch `empresa_id` en migraciones históricas
-- Sucesión — queries N+1 en `sucesion_repo` + mismatch `empresa_id`
-
-**No implementados:**
-- Asistencia — no existe ningún archivo relacionado. Requiere decisión de producto.
+**UI:** ruta `/auditoria` (admin/gerencia), `app/(dashboard)/auditoria/page.tsx` + `components/features/auditoria/` (AuditTable, AuditFilters, AuditDetailModal, auditLabels) + `components/ui/Pagination.tsx` (reutilizable). Filtros: entidad/usuario/evento/fechas. Diff legible en modal ("Cargo: Dev → Lead", no JSON). `services/auditoria.ts`, `services/usuarios.ts`, `types/auditoria.ts`.
 
 ---
 
-## Deuda técnica activa
+## Estado actual del proyecto
 
-### Archivos fuera de límite de líneas
+### Entrega 1 — COMPLETA (63h, 15 tareas). Pusheada.
 
-Deuda de mantenibilidad/legibilidad (no de funcionamiento). Dividir antes de modificar a fondo. **Candidata a tarea de refactor propia** — atacar por peores primero, con diagnóstico→implementación archivo por archivo (NO en masa). Conteo real relevado en 16.6 (la lista previa subreportaba):
+### Entrega 2 — EN CURSO
+- **T16** (roles funcionales) ✅ completa y pusheada.
+- **T17** (validación X-Empresa-Id) ❌ NO APLICA (decisión de producto).
+- **T18** (audit log app-level) ✅ completa. Backend `92d5edf` + UI `8646a9b`. Sin pushear.
+- **T19–T25** pendientes: bloqueos por módulo · legajo ampliado · tracking de cambios · import/export · vacaciones historial · proyectos por equipo · objetivos import masivo.
 
-**Frontend (límite componente/página 150):**
+**Tareas surgidas en el camino (no en el mapa original):**
+- **Reparación flujo CSV de empleados** — `update_empleado_por_dni` (en `empleado_service`) es dead code hoy (ningún caller) pero su docstring dice que es del flujo de importación CSV. Franco confirmó que el import CSV de empleados **debe estar funcional en Entrega 2** y que nunca se verificó que funcione. Tarea propia, pendiente de diagnóstico end-to-end del flujo completo. Puede solaparse con T22 (import/export). `update_empleado_por_dni` quedó **intacto** a propósito.
 
-| Archivo | Líneas |
-|---|---|
-| `frontend/.../sucesion/page.tsx` | 861 |
-| `frontend/.../costos/page.tsx` | 608 |
-| `frontend/.../vacantes/[id]/page.tsx` | 573 |
-| `frontend/.../reportes/page.tsx` | 531 |
-| `frontend/.../onboarding/page.tsx` | 405 |
-| `frontend/.../onboarding/templates/[id]/page.tsx` | 393 |
-| `frontend/.../configuracion/page.tsx` | 374 |
-| `frontend/.../empleados/page.tsx` | 295 |
-| `frontend/.../empleados/[id]/page.tsx` | 289 |
-| `frontend/.../vacaciones/page.tsx` | 282 |
-| `frontend/components/layout/Sidebar.tsx` | 277 |
-| `frontend/.../ausencias/page.tsx` | 277 |
-| `frontend/.../offboarding/page.tsx` | 268 |
-| `frontend/.../areas/page.tsx` | 253 |
-| `frontend/.../empresas/[id]/page.tsx` | 224 |
-| `frontend/.../vacantes/page.tsx` | 213 |
-| `frontend/.../empresas/page.tsx` | 194 |
-| `frontend/.../objetivos/page.tsx` | 167 |
-
-> `Sidebar.tsx` (277): dividir extrayendo `EmpresaSelector`, `NavItem`, `ThemeToggle` a archivos propios.
-
-**Backend (límite service 150 / repo 100):**
-
-| Archivo | Límite | Líneas |
-|---|---|---|
-| `services/reporte_export_service.py` | 150 | 332 |
-| `services/reporte_generators.py` | 150 | 249 |
-| `services/integracion_service.py` | 150 | 201 |
-| `services/csv_service.py` | 150 | 171 |
-| `services/reporte_anual.py` | 150 | 154 |
-| `repositories/ev_instancias_repo.py` | 100 | 146 |
-| `repositories/empleado_repo.py` | 100 | ~155 |
-| `repositories/assessment_repo.py` | 100 | 130 |
-| `repositories/costo_repo.py` | 100 | 135 |
-| `repositories/ev_plantillas_repo.py` | 100 | 129 |
-| `repositories/nomina_repo.py` | 100 | 107 |
-| `repositories/proyectos_repo.py` | 100 | 104 |
-| `repositories/ausencias_repo.py` | 100 | 101 |
-
-> `routers/ausencias.py`, `ev_plantillas.py`, `empleados.py` salieron de la lista en 16.4a (divididos/compactados, ≤80).
-
-### Build frontend rojo por errores TS pre-existentes
-
-`next build` compila pero el type-check falla por 21 errores en 7 archivos **pre-existentes, ajenos a T16/16.6**: `assessment/[id]/page.tsx:113` ('resultado' possibly null), `organigrama` (×4), `EmpleadoModal`, `ProyectoModal`. Resolver antes de cualquier deploy. No bloquea desarrollo local.
-
-### Otras
-
-- `services/integracion_service.py:19` — `os.environ.setdefault()` directo dentro de guard `if settings.app_env == "development"`. Viola convención. Baja prioridad.
-- `controllers/` — carpeta vacía. No crear controllers.
-- `assessment/page.tsx:73-75` — UI deshabilitada por código (redirect a /dashboard). **[Entrega 3]**
-- `services/assessment_service.py:130` — `save_resultado` puede llamarse sin `empresa_id` siendo columna `NOT NULL`. **[Entrega 3 — al reactivar Assessment]**
-- `exportVacacionesCSV` / `exportAusenciasCSV` — exportan array en memoria (solo la página actual). Necesitan endpoint propio para exportar todo. **[Entrega 2]**
-- `handleDeleteTarea` en `onboarding/templates/[id]/page.tsx` — usa `alert()` en lugar de Sonner. **[Entrega 2]**
-- `migrations/000_run_all.sql` — agregado bootstrap que todavía contiene literales `'management'`. Re-bootstrapear desde cero reintroduce el valor viejo y choca con el CHECK de 057. Corregir si se regenera el agregado. **[T16]**
-- `frontend/services/permisos.ts` es espejo manual de `backend/utils/permisos.py` — riesgo de divergencia. Solución durable: `GET /api/auth/me` que devuelva rol + permisos calculados por backend. **[Entrega 3]**
-- `middleware/auth.py:86-94` — `X-Empresa-Id` acepta cualquier UUID bien formado sin verificar que exista en la tabla `empresas` (UUID inexistente → cae silenciosamente a consolidado). Higiene de input, NO seguridad (todo usuario accede a toda empresa — ver T17 NO APLICA). Validar contra `empresas` y rechazar con 400 si no existe. Baja prioridad.
+**Pendiente de revisión al llegar:**
+- **T21 (tracking de cambios)** puede solaparse conceptualmente con T18 (audit log). Revisar alcance antes de construir para no duplicar.
 
 ---
 
-## Plan de entregas
+## Deuda técnica conocida
 
-### Entrega 1 ✅ COMPLETA
-Estabilidad técnica.
+### Líneas (archivos over-limit)
+**Backend:** `reporte_export_service` 332, `reporte_generators` 249, `integracion_service` 201, `csv_service` 171, `reporte_anual` 154, `empleado_repo` ~155, `ev_instancias_repo` 146, `costo_repo` 135, `assessment_repo` 130, `ev_plantillas_repo` 129, `nomina_repo` 107, `proyectos_repo` 104, `ausencias_repo` 101.
+**Frontend (límite 150):** `sucesion/page.tsx` 861, `costos/page.tsx` 608, `vacantes/[id]/page.tsx` 573, `reportes/page.tsx` 531, `onboarding/page.tsx` 405, `onboarding/templates/[id]/page.tsx` 393, `configuracion/page.tsx` 374, `empleados/page.tsx` 299, `empleados/[id]/page.tsx` 289, `vacaciones/page.tsx` 286, `ausencias/page.tsx` 285, `Sidebar.tsx` 277, `offboarding/page.tsx` 268, `areas/page.tsx` 253, `empresas/[id]/page.tsx` 224, `vacantes/page.tsx` 213, `empresas/page.tsx` 194, `objetivos/page.tsx` 167.
+- División = tarea de refactor propia (diagnóstico → implementación archivo por archivo, peores primero). NO mezclar con features. El `Pagination.tsx` de T18 sirve para refactorizar los listados over-limit.
 
-### Entrega 2 — RRHH mínimo viable (en curso)
-Roles funcionales (T16 ✅) · X-Empresa-Id (T17 ❌ no aplica) · Audit log extendido + UI (T18 próxima) · Bloqueos por módulo · Legajo ampliado · Tracking de cambios · Import/Export en todos los módulos · Features: vacaciones historial desde ingreso, proyectos por equipo/área, objetivos import masivo.
+### Routers en el límite exacto (margen cero — el próximo cambio los rompe)
+- `routers/ausencias.py` (80), `routers/empresa.py` (80). `routers/empleados.py` en 78. Compactar/dividir cuando una tarea futura los toque.
 
-**Estimación:** 111 hs · 22–28 sesiones Claude Code
+### Audit log (T18)
+- `auditoria.tabla` es columna legacy (= `entidad` internamente). Drop column o drop NOT NULL = deuda futura.
+- `ip`/`user_agent` quedan NULL. Poblar desde el middleware si se necesita (exigiría pasar datos del request al service).
+- Retención/particionado del audit: diferido. Revisar cuando el volumen lo justifique.
+- `000_run_all.sql` reintroduce los triggers viejos de auditoría si se re-bootstrapea desde cero (líneas ~1137-1216, 2469, 2550). Misma clase de deuda que 057. Corregir el agregado si se regenera.
+- Evento de audit **usuarios** (alta/cambio de rol): pendiente, atado al futuro módulo de gestión de usuarios (no existe endpoint hoy).
+- Importación CSV: si se audita, evento único por lote — NO fila por fila.
 
-### Entrega 3 — RRHH completo
-Alertas configurables · Plantillas de mail + Resend · Filtros completos por área y proyecto · Subobjetivos · Estadísticas evaluaciones · Offboarding estructurado + estadísticas IA · Organigrama como cards de proyectos · Assessment/Costos/Sucesión · AWS (Dockerfile + CI/CD + ECS).
+### Tests
+- Bloque `_TEST_ENV` (setup de env vars) duplicado en varios archivos de test. Candidato a `conftest.py` central. Cosmético.
 
-**Estimación:** 124 hs · 25–31 sesiones Claude Code
+### Otras (heredadas)
+- Rate-limiter de BCRA no implementado (otro proyecto — no aplica a Sofia).
+- `permisos.ts` es espejo manual de `permisos.py` — riesgo de divergencia.
+- `Sidebar.tsx` 277 líneas (over-limit).
+- `middleware/auth.py:86-94` acepta UUID de empresa inexistente sin verificar contra tabla `empresas` (higiene de input, baja prioridad).
 
 ---
 
-## Roles y modelo de acceso (modelo funcional vigente — T16)
-
-A partir de T16 (Entrega 2), el control de acceso por rol está implementado y activo.
-
-### Roles funcionales
-
-`public.users.rol` es `VARCHAR(20)` con CHECK `IN ('admin_rrhh', 'gerencia_lectura', 'mandos_medios')` (migración 057).
-
-| Rol | Capacidad |
-|---|---|
-| `admin_rrhh` | Acceso total: lectura + escritura en todas las secciones. |
-| `gerencia_lectura` | Lectura en todas las secciones. Sin escritura (write → 403). |
-| `mandos_medios` | Lectura + escritura SOLO en `vacaciones` y `ausencias`. El resto: sin acceso. |
-
-Rol desconocido / ausente → sin acceso (fail-closed).
-
-### Acceso a empresas
-
-**Todo usuario, sin importar el rol, accede a TODAS las empresas** (decisión de producto). Puede operar sobre el consolidado (todas) o sobre una empresa puntual vía `X-Empresa-Id`. No hay restricción de empresa por usuario (ver "T17 NO APLICA"). El eje de control de acceso es solo el rol (capacidad R/W por sección), no la empresa.
-
-### Cómo se enforcea
-
-- **Núcleo**: `utils/permisos.py` — enum `Seccion` (24), `Accion` (READ/WRITE), `puede(rol, seccion, accion) -> bool` (pura, fail-closed), `require_permission(seccion, accion)` (dependency factory). Cambiar el modelo = cambiar este archivo.
-- **Aplicación backend**: cada endpoint gateable lleva `dependencies=[Depends(require_permission(SECCION, Accion.X))]`. Acción según verbo HTTP. Cada router declara `SECCION = Seccion.X`.
-- **Orden de control**: `AuthMiddleware` corta primero (sin token → 401). `require_permission` actúa con token válido + rol, devuelve 403 `FORBIDDEN` si no alcanza.
-- **Exentos**: públicos (`PUBLIC_ROUTES`, assessment por token) no se gatean. `auth.py` sin sección.
-- **RLS**: las policies por rol existen pero están dormidas para el tráfico de la API (backend usa `service_key`, bypasea RLS). El enforcement efectivo lo hace `require_permission`. La migración 057 mantiene las policies consistentes por higiene de schema.
-
-### Frontend
-
-- `services/permisos.ts` espeja `utils/permisos.py`. Filtra navegación (Sidebar) y rutas (`AuthGuard`) por rol — UX, no seguridad.
-- Botones de escritura: ocultos por rol vía `useCanWrite()` / `<Can>` (16.6). El control real es el 403 del backend.
-- El rol viaja en la sesión (`LoginResponse.user.rol`, persistida en `localStorage`).
-- `AuthGuard`: sin sesión → `/login`; ruta sin permiso de lectura → primera sección que el rol puede ver.
-
-El empleado nunca es usuario del sistema. Donde necesita aportar datos, lo hace por link público con token, sin login.
+## Git
+- Operar siempre desde `RRHH/Sofia/`.
+- Estado actual: 3 commits ahead de origin sin pushear (16.6/CLAUDE.md, backend T18 `92d5edf`, UI T18 `8646a9b`). Push cuando Franco decida.
+- Formato de commits: convencional (`feat:`, `fix:`, `refactor:`, `chore:`, `docs:`, `test:`).

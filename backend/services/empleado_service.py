@@ -115,19 +115,6 @@ class EmpleadoService:
         total_pages = math.ceil(total / page_size) if page_size > 0 else 0
         return EmpleadoListResponse(items=items, total=total, page=page, page_size=page_size, total_pages=total_pages)
 
-    def update_empleado_por_dni(self, dni: str, empresa_id: UUID, data: EmpleadoUpdate, created_by: str) -> Optional[EmpleadoResponse]:
-        """
-        Busca el empleado por (empresa_id, dni) y aplica el UPDATE con los campos provistos.
-        Retorna None si el DNI no existe en la empresa (puede ocurrir si se eliminó entre preview y confirmar).
-        Usado exclusivamente por el flujo de importación CSV.
-        """
-        existente = self._repo.find_by_dni(dni, empresa_id)
-        if not existente:
-            return None
-        actualizado = self._repo.update(existente.id, data, empresa_id)
-        logger.info("Empleado actualizado vía importación CSV", extra={"dni": dni, "empresa_id": str(empresa_id), "created_by": created_by})
-        return actualizado
-
     def get_empleado(self, id: UUID, empresa_id: Optional[UUID] = None) -> EmpleadoResponse:
         """
         Retorna el detalle completo de un empleado por ID.

@@ -1,56 +1,32 @@
 """
-Servicio de importación masiva de empleados via CSV.
-parse_empleados_csv: parsea, valida y resuelve áreas desde un string CSV.
+Importación de empleados via CSV — orquestación del preview.
+
+parse_empleados_csv coordina: carga de áreas y existentes (DB, vía empleado_import_repo,
+con chequeo DIRIGIDO por los valores del CSV) + validación pura por fila (_csv_empleados_utils).
+No accede a Supabase directamente ni valida inline; solo coordina.
 """
 import csv
 import io
-from datetime import date
 
-from integrations.supabase_client import supabase_admin
+from repositories.empleado_import_repo import EmpleadoImportRepo
+from services._csv_empleados_utils import REQUIRED_FIELDS, validar_fila
 from utils.logger import logger
-
-VALID_TIPO_CONTRATO = {"efectivo", "plazo_fijo", "contratado", "pasantia"}
-VALID_MODALIDAD = {"presencial", "remoto", "hibrido"}
-REQUIRED_FIELDS = {
-    "nombre", "apellido", "email_corporativo", "cargo",
-    "area", "tipo_contrato", "modalidad_trabajo", "fecha_ingreso", "dni",
-}
-
-
-def _load_areas(empresa_id: str) -> dict[str, str]:
-    """Carga áreas activas de la empresa indicada y retorna mapa nombre → id."""
-    result = (
-        supabase_admin.table("areas")
-        .select("id, nombre")
-        .eq("activo", True)
-        .eq("empresa_id", empresa_id)
-        .execute()
-    )
-    return {row["nombre"]: str(row["id"]) for row in (result.data or [])}
-
-
-def _existing_dnis(empresa_id: str) -> set[str]:
-    """Retorna el conjunto de DNIs ya registrados en empleados de la empresa."""
-    result = supabase_admin.table("empleados").select("dni").eq("empresa_id", empresa_id).execute()
-    return {row["dni"] for row in (result.data or []) if row.get("dni")}
 
 
 def parse_empleados_csv(content: str, empresa_id: str) -> tuple[list[dict], list[dict]]:
     """
-    Parsea y valida el contenido de un CSV de empleados para la empresa indicada.
+    Parsea y valida un CSV de empleados para la empresa indicada.
 
     Args:
-        content: String con el contenido del archivo CSV (header + filas de datos).
-        empresa_id: ID de la empresa destino; filtra las áreas disponibles y detecta
-                    DNIs que ya existen para marcar filas como actualizaciones (UPSERT).
+        content: Contenido del archivo CSV (header + filas).
+        empresa_id: Empresa destino; filtra áreas y acota el chequeo de duplicados.
 
     Returns:
-        Tupla (filas_validas, errores). Cada fila válida incluye area_id resuelto,
-        dni y es_actualizacion=True si el DNI ya existe en la empresa.
+        Tupla (filas_validas, errores). Cada error es {fila, campo, error}. Las filas válidas
+        traen area_id resuelto y es_actualizacion=True si el DNI ya existe en la empresa.
     """
-    areas_map = _load_areas(empresa_id)
-    existing_dnis = _existing_dnis(empresa_id)
-
+    repo = EmpleadoImportRepo()
+    areas_map = repo.areas_map(empresa_id)
     try:
         reader = csv.DictReader(io.StringIO(content))
         if not reader.fieldnames:
@@ -59,106 +35,29 @@ def parse_empleados_csv(content: str, empresa_id: str) -> tuple[list[dict], list
         fieldnames_lower = {f.strip().lower() for f in reader.fieldnames if f}
         missing = REQUIRED_FIELDS - fieldnames_lower
         if missing:
-            return [], [{
-                "fila": 0,
-                "campo": "encabezados",
-                "error": f"Faltan columnas requeridas: {', '.join(sorted(missing))}",
-            }]
+            return [], [{"fila": 0, "campo": "encabezados", "error": f"Faltan columnas requeridas: {', '.join(sorted(missing))}"}]
 
+        rows = [
+            (fila_num, {k.strip().lower(): (v.strip() if v else "") for k, v in raw.items() if k})
+            for fila_num, raw in enumerate(reader, start=2)
+        ]
+        dnis = repo.existing_dnis(empresa_id, [r["dni"] for _, r in rows if r.get("dni")])
+        emails = repo.existing_emails([r["email_corporativo"] for _, r in rows if r.get("email_corporativo")])
+        legajos = repo.existing_legajos(empresa_id, [r["legajo"] for _, r in rows if r.get("legajo")])
+
+        seen_email: set = set()
+        seen_dni: set = set()
+        seen_legajo: set = set()
         validas: list[dict] = []
         errores: list[dict] = []
-
-        for fila_num, raw_row in enumerate(reader, start=2):
-            row = {
-                k.strip().lower(): (v.strip() if v else "")
-                for k, v in raw_row.items()
-                if k
-            }
-
-            # Campos requeridos vacíos
-            missing_values = [f for f in REQUIRED_FIELDS if not row.get(f)]
-            if missing_values:
-                errores.append({
-                    "fila": fila_num,
-                    "campo": "múltiples",
-                    "error": f"Campos requeridos vacíos: {', '.join(sorted(missing_values))}",
-                })
-                continue
-
-            # tipo_contrato
-            if row["tipo_contrato"] not in VALID_TIPO_CONTRATO:
-                errores.append({
-                    "fila": fila_num,
-                    "campo": "tipo_contrato",
-                    "error": (
-                        f"Valor inválido '{row['tipo_contrato']}'. "
-                        f"Válidos: {', '.join(sorted(VALID_TIPO_CONTRATO))}"
-                    ),
-                })
-                continue
-
-            # modalidad_trabajo
-            if row["modalidad_trabajo"] not in VALID_MODALIDAD:
-                errores.append({
-                    "fila": fila_num,
-                    "campo": "modalidad_trabajo",
-                    "error": (
-                        f"Valor inválido '{row['modalidad_trabajo']}'. "
-                        f"Válidos: {', '.join(sorted(VALID_MODALIDAD))}"
-                    ),
-                })
-                continue
-
-            # fecha_ingreso
-            try:
-                fecha = date.fromisoformat(row["fecha_ingreso"])
-            except ValueError:
-                errores.append({
-                    "fila": fila_num,
-                    "campo": "fecha_ingreso",
-                    "error": f"Formato inválido '{row['fecha_ingreso']}'. Usar YYYY-MM-DD",
-                })
-                continue
-
-            # email básico
-            email = row["email_corporativo"]
-            if "@" not in email or "." not in email.split("@")[-1]:
-                errores.append({
-                    "fila": fila_num,
-                    "campo": "email_corporativo",
-                    "error": f"Email inválido '{email}'",
-                })
-                continue
-
-            # área → id (filtrada por empresa)
-            area_nombre = row["area"]
-            area_id = areas_map.get(area_nombre)
-            if not area_id:
-                errores.append({
-                    "fila": fila_num,
-                    "campo": "area",
-                    "error": f"Área '{area_nombre}' no encontrada en la empresa seleccionada",
-                })
-                continue
-
-            dni = row["dni"]
-            validas.append({
-                "fila": fila_num,
-                "nombre": row["nombre"],
-                "apellido": row["apellido"],
-                "email_corporativo": email,
-                "cargo": row["cargo"],
-                "rol": row.get("rol") or None,
-                "area_id": area_id,
-                "area_nombre": area_nombre,
-                "tipo_contrato": row["tipo_contrato"],
-                "modalidad_trabajo": row["modalidad_trabajo"],
-                "fecha_ingreso": str(fecha),
-                "dni": dni,
-                "cuil": row.get("cuil") or None,
-                "legajo": row.get("legajo") or None,
-                "es_actualizacion": dni in existing_dnis,
-            })
+        for fila_num, row in rows:
+            valida, error = validar_fila(
+                row, fila_num, areas_map, dnis, emails, legajos, seen_email, seen_dni, seen_legajo,
+            )
+            if error:
+                errores.append(error)
+            if valida:
+                validas.append(valida)
 
         logger.info(
             "CSV de empleados parseado",

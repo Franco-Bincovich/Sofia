@@ -88,3 +88,16 @@ def payload_toggle_empresa(empresa_id: str, activa: bool, usuario_id: Optional[s
         "accion": "UPDATE", "evento": "toggle_empresa_activa", "empresa_id": empresa_id,
         "datos_anteriores": None, "datos_nuevos": {"activa": activa},
     }
+
+
+def payload_importacion_empleados(
+    empresa_id: Optional[str], importados: int, actualizados: int, errores: int,
+    usuario_id: Optional[str],
+) -> dict:
+    """Evento de auditoría de un lote de importación CSV (UN evento por lote, no por fila)."""
+    return {
+        "usuario_id": usuario_id, "entidad": "empleado", "registro_id": empresa_id or "lote",
+        "accion": "INSERT", "evento": "importacion_empleados", "empresa_id": empresa_id,
+        "datos_anteriores": None,
+        "datos_nuevos": {"importados": importados, "actualizados": actualizados, "errores": errores},
+    }

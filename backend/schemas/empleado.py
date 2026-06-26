@@ -16,7 +16,7 @@ class EmpleadoBase(BaseModel):
     area_id: UUID
     cargo: str
     modalidad_trabajo: str  # presencial | remoto | hibrido
-    tipo_contrato: str      # indefinido | plazo_fijo | honorarios
+    tipo_contrato: str      # efectivo | plazo_fijo | contratado | pasantia
     fecha_ingreso: date
 
 
