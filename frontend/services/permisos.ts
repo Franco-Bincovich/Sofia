@@ -60,6 +60,7 @@ const RUTA_SECCION: Readonly<Record<string, Seccion>> = {
   objetivos: "objetivos",
   procesos: "procesos",
   proyectos: "proyectos",
+  auditoria: "auditoria",
 }
 
 /** Seccion correspondiente a un pathname, o null si la ruta no se gatea por permiso. */
@@ -93,6 +94,7 @@ const RUTAS_ORDENADAS: ReadonlyArray<{ ruta: string; seccion: Seccion }> = [
   { ruta: "/inventario", seccion: "inventario" },
   { ruta: "/objetivos", seccion: "objetivos" },
   { ruta: "/reportes", seccion: "reportes" },
+  { ruta: "/auditoria", seccion: "auditoria" },
 ]
 
 /** Primera ruta (en orden de nav) que el rol puede leer, o null si ninguna (fail-closed). */

@@ -21,6 +21,7 @@ import {
   ClipboardCheck,
   Package,
   Target,
+  ScrollText,
   Menu,
   X,
   Settings,
@@ -67,6 +68,7 @@ const NAV_ITEMS: ReadonlyArray<{
   { label: "Inventario", href: "/inventario", icon: Package, seccion: "inventario" },
   { label: "Objetivos", href: "/objetivos", icon: Target, seccion: "objetivos" },
   { label: "Reportes", href: "/reportes", icon: BarChart3, seccion: "reportes" },
+  { label: "Auditoría", href: "/auditoria", icon: ScrollText, seccion: "auditoria" },
   { label: "Configuración", href: "/configuracion", icon: Settings, seccion: null },
 ]
 
