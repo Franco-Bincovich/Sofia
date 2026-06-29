@@ -19,6 +19,13 @@ export async function fetchVacaciones(
   )
 }
 
+/** Lista las vacaciones (no canceladas) de un empleado, para su ficha. Endpoint dedicado. */
+export async function fetchVacacionesEmpleado(
+  empleadoId: string,
+): Promise<SolicitudVacacionesListResponse> {
+  return apiFetch<SolicitudVacacionesListResponse>(`/api/vacaciones/empleado/${empleadoId}`)
+}
+
 export async function fetchVacacion(id: string): Promise<SolicitudVacaciones> {
   return apiFetch<SolicitudVacaciones>(`/api/vacaciones/${id}`)
 }

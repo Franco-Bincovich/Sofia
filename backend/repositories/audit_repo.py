@@ -63,11 +63,12 @@ class AuditRepo:
         fecha_hasta: Optional[date] = None,
         page: int = 1,
         page_size: int = 20,
+        registro_id: Optional[str] = None,
     ) -> Tuple[List[AuditLogResponse], int]:
         """Retorna (página de eventos ordenados por created_at desc, total real del filtro).
 
-        Filtros opcionales por empresa, usuario, entidad, evento y rango de fechas
-        (fecha_hasta incluye todo el día). Resuelve nombre de usuario y empresa."""
+        Filtros opcionales por empresa, usuario, entidad, evento, registro_id y rango de
+        fechas (fecha_hasta incluye todo el día). Resuelve nombre de usuario y empresa."""
         q = supabase_admin.table(_T).select("*", count="exact").order("created_at", desc=True)
         if empresa_id:
             q = q.eq("empresa_id", str(empresa_id))
@@ -75,6 +76,8 @@ class AuditRepo:
             q = q.eq("usuario_id", str(usuario_id))
         if entidad:
             q = q.eq("entidad", entidad)
+        if registro_id:
+            q = q.eq("registro_id", registro_id)
         if evento:
             q = q.eq("evento", evento)
         if fecha_desde:

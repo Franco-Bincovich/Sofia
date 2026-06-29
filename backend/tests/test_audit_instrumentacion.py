@@ -134,6 +134,19 @@ class TestAusenciasAudit:
         assert c["datos_anteriores"]["empleado_id"] == "emp1"  # subset del prior
 
 
+class TestVacacionesPorEmpleado:
+    def test_get_by_empleado_devuelve_lista_con_total(self) -> None:
+        class _Repo:
+            def find_vacaciones_empleado(self, _emp):
+                return [_vacacion(cancelada=False), _vacacion(cancelada=False)]
+
+        svc = VacacionesService(repo=_Repo(), audit=_FakeAudit())
+        res = svc.get_by_empleado(uuid4())
+        assert res.total == 2
+        assert len(res.items) == 2
+        assert res.items[0].empleado_id == "emp1"
+
+
 class TestNoRegistraSiFalla:
     def test_cancel_ya_cancelada_no_registra(self) -> None:
         # Mutación que falla con AppError (ya cancelada) → no se audita.

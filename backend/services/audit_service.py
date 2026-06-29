@@ -79,10 +79,12 @@ class AuditService:
         fecha_hasta: Optional[date] = None,
         page: int = 1,
         page_size: int = 20,
+        registro_id: Optional[str] = None,
     ) -> AuditLogListResponse:
         """Retorna una página de eventos de auditoría filtrada. total = count real del filtro."""
         items, total = self._repo.listar(
             empresa_id, usuario_id, entidad, evento, fecha_desde, fecha_hasta, page, page_size,
+            registro_id=registro_id,
         )
         return AuditLogListResponse(items=items, total=total)
 

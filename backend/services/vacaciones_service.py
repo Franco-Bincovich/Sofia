@@ -40,6 +40,12 @@ class VacacionesService:
         items = [derive_estado(r, today) for r in rows]
         return SolicitudVacacionesListResponse(items=items, total=total)
 
+    def get_by_empleado(self, empleado_id: UUID) -> SolicitudVacacionesListResponse:
+        """Retorna las vacaciones (no canceladas) de un empleado, con estado derivado."""
+        today = date.today()
+        items = [derive_estado(r, today) for r in self._repo.find_vacaciones_empleado(str(empleado_id))]
+        return SolicitudVacacionesListResponse(items=items, total=len(items))
+
     def get_by_id(self, id: UUID, empresa_id: Optional[UUID] = None) -> SolicitudVacacionesResponse:
         """Retorna el detalle de una solicitud. Raises VACACION_NOT_FOUND (404) si no existe."""
         row = self._repo.find_by_id(str(id), empresa_id)

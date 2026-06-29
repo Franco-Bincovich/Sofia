@@ -48,6 +48,11 @@ async def get_saldo(
     return service.get_saldo(empleado_id)
 
 
+@router.get("/empleado/{empleado_id}", response_model=SolicitudVacacionesListResponse, dependencies=[Depends(require_permission(SECCION, Accion.READ))])
+async def list_vacaciones_empleado(empleado_id: UUID, service: VacacionesService = Depends(_svc)) -> SolicitudVacacionesListResponse:
+    return service.get_by_empleado(empleado_id)
+
+
 @router.get("/{id}", response_model=SolicitudVacacionesResponse, dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def get_vacacion(
     id: UUID,

@@ -5,6 +5,7 @@ export interface AuditoriaFiltros {
   usuario_id?: string
   entidad?: string
   evento?: string
+  registro_id?: string
   fecha_desde?: string
   fecha_hasta?: string
   page?: number
@@ -21,6 +22,7 @@ export async function fetchAuditoria(filtros: AuditoriaFiltros = {}): Promise<Au
   if (filtros.usuario_id) params.set("usuario_id", filtros.usuario_id)
   if (filtros.entidad) params.set("entidad", filtros.entidad)
   if (filtros.evento) params.set("evento", filtros.evento)
+  if (filtros.registro_id) params.set("registro_id", filtros.registro_id)
   if (filtros.fecha_desde) params.set("fecha_desde", filtros.fecha_desde)
   if (filtros.fecha_hasta) params.set("fecha_hasta", filtros.fecha_hasta)
   if (filtros.page) params.set("page", String(filtros.page))

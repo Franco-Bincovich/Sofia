@@ -102,7 +102,18 @@ Flujo full-stack de importación CSV que hace **alta masiva + update masivo** po
 - **email duplicado = error, no update** (el match de negocio es el DNI; el email es identidad global).
 - **Confirmar robusto:** `EmpleadoImportService.confirmar` (router→service→repo) re-chequea la carrera antes del INSERT, inserta los válidos, reporta los que fallan (`ConfirmarError {fila, error}`), envuelve el batch en try/except → `AppError` tipado (nunca 500 opaco). Batch eficiente: 1 INSERT altas + 1 UPSERT updates (no por-fila). Audita el lote con **un evento único** (`importacion_empleados`).
 - **UI:** `components/features/empleados/import/` (UploadStep, PreviewStep, ConfirmStep, ResultStep) + orquestador `ImportarCSVModal.tsx`. El **ResultStep** muestra "Se procesaron N (X altas, Y actualizaciones)" + lista de errores con motivo + botón "Descargar errores" (CSV). La recarga de la lista ocurre al **cerrar el resultado**, no al confirmar.
-- Backend: `csv_service.py` (orquestador delgado) + `_csv_empleados_utils.py` (validación pura) + `empleado_import_repo.py` (batch + loaders dirigidos) + `empleado_import_service.py`. `routers/importacion.py` gateado con `Seccion.IMPORTACION + Accion.WRITE` (solo admin_rrhh).
+- Backend: `csv_service.py` (orquestador delgado) + `_csv_empleados_utils.py` (validación pura) + `empleado_import_repo.py` (batch + loaders en `_empleado_import_utils.py`) + `empleado_import_service.py`. `routers/importacion.py` gateado con `Seccion.IMPORTACION + Accion.WRITE` (solo admin_rrhh).
+
+---
+
+## Campo Roles multi-valor en empleados (S1–S5 COMPLETO, S6 limpieza PENDIENTE)
+Unificación de los campos `cargo` + `rol` (029) en un único campo **`roles TEXT[]`** multi-valor. Reemplazó la parte "cargo→rol" del legajo ampliado y creció a 6 sub-sesiones.
+
+- **Modelo:** columna `roles TEXT[]` (migración 059). Principal = `roles[0]`. CHECK `array_length(roles,1) >= 1` (garantía a nivel datos, el backend usa service_key). Texto libre con autocompletado **compartido entre empresas** (`SELECT DISTINCT` aplanado en Python, vía `empleado_roles_repo.get_roles_conocidos`); al menos 1 obligatorio, resto opcional.
+- **Decisiones de producto pendientes de las pruebas:** "peso del principal" y "suma vs reemplaza" (un `TEXT[]` soporta ambas; se define al probar). Multi-valor en el CSV (delimitador `|`) diferido hasta tener un Excel de ejemplo.
+- **Estado por sub-sesión:** S1 (migración+modelo) ✅ · S2 (lecturas → `roles[0]` con fallback `?? cargo`) ✅ · S3 (form: componente `RolesInput` chips + endpoint `roles-conocidos`) ✅ · S4 (audit: `_CAMPOS_EMPLEADO` cargo→roles, diff de listas legible en el modal) ✅ · S5 (import: columna CSV `rol`, construye `roles:[valor]`, compat un valor) ✅ · **S6 (limpieza) PENDIENTE** — va DESPUÉS de la prueba funcional.
+- **S6 pendiente:** DROP COLUMN `cargo`/`rol` · corregir `000_run_all.sql` + demo `035` · quitar los fallbacks `?? cargo` de S2 · (futuro) parseo multi-valor del CSV.
+- **⚠️ Despliegue:** la migración 059 deja `roles NOT NULL`. En producción, **059 + S3 + S5 van JUNTAS** — correr 059 sola rompe alta/import de empleados (las lecturas siguen OK). Los datos viejos (`cargo` + `rol`) se preservaron como lista inicial en el backfill.
 
 ---
 
@@ -114,15 +125,41 @@ Flujo full-stack de importación CSV que hace **alta masiva + update masivo** po
 - **T16** (roles funcionales) ✅ completa y pusheada.
 - **T17** (validación X-Empresa-Id) ❌ NO APLICA (decisión de producto).
 - **T18** (audit log app-level) ✅ completa. Backend `92d5edf` + UI `8646a9b`. Sin pushear.
-- **T18.6** (importación CSV de empleados) ✅ completa. Flujo funcional verificado estructuralmente; falta prueba funcional manual (ver hito de cierre). Sin pushear.
-- **T19–T25** pendientes: bloqueos por módulo · legajo ampliado · tracking de cambios · import/export · vacaciones historial · proyectos por equipo · objetivos import masivo.
+- **T18.6** (importación CSV de empleados) ✅ completa. Sin pushear.
+- **Campo Roles multi-valor** (S1–S5 ✅, S6 limpieza pendiente tras pruebas). Reemplazó la parte cargo→rol del legajo ampliado. Sin pushear.
+- **T19–T25 / tandas pendientes** (ver mapa real abajo).
+
+### Mapa real de pendientes (relevado contra código, ordenado por dependencia)
+El mapa "T19–T25" era una simplificación; el plan real tiene 16 ítems. Pendientes, en orden de ataque recomendado:
+
+**Resto del legajo ampliado** → ahora es **A1** dentro de la Tanda A (ver abajo). Varios campos del plan ya existían (`presencialidad`=`modalidad_trabajo`, `superior inmediato`=`manager_id`, seniority=`nivel`); solo faltan `sexo`/`domicilio`/`horas_contrato`.
+
+**Tanda A — la ficha del empleado (A2/A3/A4 ✅ COMPLETOS, solo falta A1):**
+- **Refactor previo de la ficha** ✅ — `empleados/[id]/page.tsx` dividida en `components/features/empleados/ficha/`: `_primitives.tsx` (Field/Section/LoadingSkeleton), `OffboardingModal.tsx`, `DatosEmpleadoSection.tsx`. La page quedó como orquestador delgado (127 líneas reales). Cada sección de la Tanda A es autoabastecida (recibe `empleadoId`, fetch propio, loading/error/vacío).
+- **A2 — Tracking de cambios** ✅ — filtro `registro_id` aditivo end-to-end (`audit_repo.listar` + service + router `Query(None)` + `auditoria.ts`); `HistorialCambiosSection.tsx` filtra por `entidad="empleado"` + `registro_id`, reusa `AuditTable`/`AuditDetailModal`/`Pagination`. La pantalla `/auditoria` quedó intacta (el filtro se pasa por keyword, llamadas sin él idénticas).
+- **A3 — Inventario en la ficha** ✅ — `InventarioSection.tsx`, pura UI (backend/service/type ya existían). Tabla con equipo, n° serie, fecha, estado de devolución legible.
+- **A4 — Vacaciones en la ficha** ✅ — endpoint dedicado `GET /api/vacaciones/empleado/{empleado_id}` (gateado VACACIONES+READ, colocado antes de `/{id}` para evitar colisión de rutas) + `get_by_empleado` service + `fetchVacacionesEmpleado` front + `VacacionesSection.tsx`. Reusa `find_vacaciones_empleado`. Listado por área intacto.
+- **A1 — Columnas del legajo (PENDIENTE)**: agregar `sexo`, `domicilio`, `horas_contrato`. Requiere migración nueva (la corre Franco) + 2 decisiones de producto: (1) ¿"liderazgo/gerencia" es un rol más dentro de `roles[]` —recomendado, sin columna— o un flag `es_lider`?; (2) tipo/semántica de `horas_contrato` (¿numeric horas semanales?). Va al final de la tanda.
+
+**Tanda B — reuso de moldes:**
+- Export en Inventario/Objetivos/Evaluaciones (ítem 10) + estandarizar (ítem 11): replica `reporte_export_service`.
+- Import vacaciones por área (ítem 7): reusa molde T18.6 + parser XLSX nuevo (extraer el modal de import a genérico). "Por equipo" bloqueado (no existe tabla `equipos`).
+- Adjuntos genéricos (ítem 4): sobre infra Supabase Storage existente.
+- Bloqueos por módulo con fecha (ítem 1): tabla nueva + check en services de escritura + panel. Reusa enum `Seccion`.
+
+**Tanda C — requieren modelo/diseño nuevo (las más pesadas):**
+- Proyectos: asignar por área (ítem 12): bulk insert. "Por equipo" bloqueado por `equipos`.
+- Import objetivos (ítem 8): bloqueado por rediseño del modelo (objetivos cuelgan de `user`, no de empleado).
+- Evaluaciones de desempeño + import (ítem 9): módulo nuevo + cálculo de promedios/nota única. La más grande.
+
+**Fuera de Entrega 2:** tabla `equipos` (fase "Después") → bloquea variantes "por equipo" de ítems 7 y 12.
 
 **Pendiente de revisión al llegar:**
 - **T21 (tracking de cambios)** puede solaparse conceptualmente con T18 (audit log). Revisar alcance antes de construir para no duplicar.
 - **T22 (import/export)** puede solaparse con T18.6 (CSV de empleados ya hecho). Revisar qué cubre T22 que no esté ya resuelto.
 
 **Hito de cierre de Entrega 2 (pendiente):**
-- **Prueba funcional exhaustiva end-to-end** de todo el sistema (no solo CSV) antes de dar Entrega 2 por terminada. Se difirieron los spot-checks puntuales a esta verificación completa final.
+- **Prueba funcional exhaustiva end-to-end** de todo el sistema antes de dar Entrega 2 por terminada. Incluye S6 (limpieza del campo Roles) y el spot-check de los flujos tocados. Se difirieron los spot-checks puntuales a esta verificación completa final.
 
 ---
 
@@ -149,6 +186,13 @@ Flujo full-stack de importación CSV que hace **alta masiva + update masivo** po
 - `empleado_repo.find_by_dni` (y posiblemente `find_by_legajo`) podrían haber quedado **sin callers** tras borrar `update_empleado_por_dni` en 18.6d. Verificar y limpiar en una pasada futura.
 - `ImportarCSVModal.tsx` se dividió en `import/` (UploadStep, PreviewStep, ConfirmStep, ResultStep) — orquestador en 139.
 
+### Campo Roles (S1–S5)
+- `EmpleadoModal.tsx` en **402 líneas** (ya estaba en 385 antes, +17 por S3). Muy over-limit (2.7x). Candidato a dividir: extraer los `<select>`, EMPTY/TEXT_FIELDS y `validate` a subcomponentes. Refactor propio, no mezclar con feature.
+- ⚠️ **PRIORIDAD ALTA — compactación de routers**: `vacaciones.py` (80/80, margen CERO), `ausencias.py` (80), `empresa.py` (80), `empleados.py` (79). **El próximo cambio que toque cualquiera rompe el límite.** Dejó de ser "conviene pronto" — es lo siguiente a hacer ANTES de tocar un router de nuevo. Tarea propia (refactor de varios archivos).
+- ⚠️ **Conteos de líneas históricos posiblemente subestimados**: hasta A4, Claude Code midió con `Measure-Object -Line` (descarta líneas en blanco); el límite cuenta líneas reales (`.Count`). Caso detectado: `page.tsx` reportada en 142/146 estaba realmente en 164 (over-limit) — corregida a 127 real en A4. **Al hacer la compactación de routers, re-medir TODO con `.Count`** y no fiarse de los números viejos. Los componentes nuevos (reportados 34–96) probablemente sigan OK; los que estaban al filo (routers, `EmpleadoModal` 402) podrían estar peor.
+- `roles-conocidos` aplana en Python (PostgREST no expone `unnest` sin RPC). OK por volumen; migrar a RPC/vista materializada si crece.
+- Fallbacks `roles[0] ?? cargo` activos en lecturas (S2) — se quitan en S6.
+
 ### Tests
 - Bloque `_TEST_ENV` (setup de env vars) duplicado en varios archivos de test. Candidato a `conftest.py` central. Cosmético.
 
@@ -162,5 +206,5 @@ Flujo full-stack de importación CSV que hace **alta masiva + update masivo** po
 
 ## Git
 - Operar siempre desde `RRHH/Sofia/`.
-- Estado actual: 4 commits ahead de origin sin pushear (16.6/CLAUDE.md, backend T18 `92d5edf`, UI T18 `8646a9b`, CSV T18.6). Push cuando Franco decida.
+- Estado actual: 6 commits ahead de origin sin pushear (16.6/CLAUDE.md, backend T18 `92d5edf`, UI T18 `8646a9b`, CSV T18.6, campo Roles S1–S5, Tanda A A2/A3/A4 + refactor ficha). Push cuando Franco decida. **Nota despliegue:** la migración 059 (campo Roles) + S3 + S5 van juntas a producción.
 - Formato de commits: convencional (`feat:`, `fix:`, `refactor:`, `chore:`, `docs:`, `test:`).
