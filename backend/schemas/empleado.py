@@ -148,6 +148,7 @@ class EmpleadoResponse(BaseModel):
     fecha_ingreso: date
     telefono: Optional[str] = None
     fecha_nacimiento: Optional[date] = None
+    dni: Optional[str] = None
     cuil: Optional[str] = None
     legajo: Optional[str] = None
     cargo: Optional[str] = None       # DEPRECADO (se dropea en S6)

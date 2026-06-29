@@ -9,28 +9,51 @@ const ESTADO_VARIANTS = {
 } as const
 
 /**
- * Bloque estático de la ficha: datos personales + laborales + documentos (placeholder).
- * Presentación pura a partir del empleado ya cargado (sin fetch propio).
+ * Bloque estático de la ficha: información personal + laboral (espejo del formulario)
+ * + documentos (placeholder). Presentación pura a partir del empleado ya cargado.
  * Mantiene el fallback de roles roles[0] ?? cargo hasta la limpieza S6.
+ * Nota: "Superior inmediato" (manager) no se muestra: el dato no viene resuelto en el
+ * objeto empleado (ni id ni nombre); se agregará cuando la API lo exponga.
  */
 export function DatosEmpleadoSection({ empleado }: { empleado: Empleado }) {
+  const horasContrato = empleado.horas_contrato != null ? String(empleado.horas_contrato) : null
+  const roles = (empleado.roles ?? []).join(", ") || empleado.cargo
+
   return (
     <>
-      <Section title="Datos personales">
-        <Field label="Email corporativo" value={empleado.email_corporativo} />
-        <Field label="Teléfono" value={empleado.telefono} />
+      <Section title="Información personal">
+        <Field label="Tipo de documento" value={empleado.tipo_documento} />
+        <Field label="Documento" value={empleado.dni} />
+        <Field label="CUIT/CUIL" value={empleado.cuil} />
+        <Field label="N° de legajo" value={empleado.legajo} />
+        <Field label="Sexo" value={empleado.sexo} />
         <Field label="Fecha de nacimiento" value={empleado.fecha_nacimiento} />
-        <Field label="CUIL" value={empleado.cuil} />
+        <Field label="Teléfono" value={empleado.telefono} />
+        <Field label="Teléfono alternativo" value={empleado.telefono_alternativo} />
+        <Field label="Email" value={empleado.email_corporativo} />
+        <Field label="Email alternativo" value={empleado.email_personal} />
+        <Field label="Domicilio" value={empleado.domicilio} />
+        <Field label="Estudios" value={empleado.estudios} />
       </Section>
 
-      <Section title="Datos laborales">
+      <Section title="Información laboral">
         <Field label="Empresa" value={empleado.empresa_nombre} />
         <Field label="Área" value={empleado.area_nombre} />
-        <Field label="Roles" value={(empleado.roles ?? []).join(", ") || empleado.cargo} />
-        <Field label="Legajo" value={empleado.legajo} />
-        <Field label="Modalidad" value={empleado.modalidad_trabajo} />
-        <Field label="Tipo de contrato" value={empleado.tipo_contrato} />
+        <Field label="Rol" value={roles} />
+        <Field label="Ubicación" value={empleado.ubicacion} />
+        <Field label="Turno" value={empleado.turno} />
+        <Field label="Horas de contrato" value={horasContrato} />
+        <Field label="Organismo" value={empleado.organismo} />
+        <Field label="Gerencia" value={empleado.gerencia} />
+        <Field label="Sector" value={empleado.sector} />
+        <Field label="Seniority" value={empleado.seniority} />
+        <Field label="Perfil" value={empleado.perfil} />
+        <Field label="Categoría" value={empleado.categoria} />
         <Field label="Fecha de ingreso" value={empleado.fecha_ingreso} />
+        <Field label="Modalidad de trabajo" value={empleado.modalidad_trabajo} />
+        <Field label="Tipo de contrato" value={empleado.tipo_contrato} />
+        <Field label="Modalidad de contratación" value={empleado.modalidad_contratacion} />
+        <Field label="Líder" value={empleado.es_lider ? "Sí" : "No"} />
         <div>
           <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Estado
