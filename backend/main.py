@@ -16,6 +16,7 @@ from routers.areas import router as areas_router
 from routers.auth import limiter, router as auth_router
 from routers.costos import router as costos_router
 from routers.empleados import router as empleados_router
+from routers.empleados_catalogos import router as empleados_catalogos_router
 from routers.empresa import router as empresa_router
 from routers.offboarding import router as offboarding_router
 from routers.onboarding import router as onboarding_router
@@ -80,6 +81,7 @@ async def health_check():
 # ── Routers ───────────────────────────────────────────────────────────────────
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(areas_router, prefix="/api/areas", tags=["areas"])
+app.include_router(empleados_catalogos_router, prefix="/api/empleados", tags=["empleados"])  # ANTES de empleados (rutas estáticas vs /{id})
 app.include_router(empleados_router, prefix="/api/empleados", tags=["empleados"])
 app.include_router(ausencias_router, prefix="/api/ausencias", tags=["ausencias"])
 app.include_router(vacaciones_router, prefix="/api/vacaciones", tags=["vacaciones"])

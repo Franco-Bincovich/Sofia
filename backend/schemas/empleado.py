@@ -40,6 +40,25 @@ class EmpleadoBase(BaseModel):
     fecha_ingreso: date
     cargo: Optional[str] = None  # DEPRECADO (se dropea en S6); lo migran S2/S5
     rol: Optional[str] = None    # DEPRECADO (se dropea en S6); lo migran S2/S5
+    # Legajo ampliado (A1.1, migración 060) — todos opcionales, texto libre.
+    email_personal: Optional[str] = None
+    tipo_documento: Optional[str] = None
+    sexo: Optional[str] = None
+    telefono_alternativo: Optional[str] = None
+    domicilio: Optional[str] = None
+    estudios: Optional[str] = None
+    ubicacion: Optional[str] = None
+    turno: Optional[str] = None
+    horas_contrato: Optional[int] = None
+    organismo: Optional[str] = None
+    gerencia: Optional[str] = None
+    sector: Optional[str] = None
+    seniority: Optional[str] = None
+    perfil: Optional[str] = None
+    categoria: Optional[str] = None
+    modalidad_contratacion: Optional[str] = None
+    referido: Optional[str] = None
+    es_lider: bool = False
 
     @field_validator("roles")
     @classmethod
@@ -75,6 +94,25 @@ class EmpleadoUpdate(BaseModel):
     roles: Optional[List[str]] = None  # si se provee, reemplaza la lista completa
     rol: Optional[str] = None          # DEPRECADO (se dropea en S6)
     dias_vacaciones_asignados: Optional[int] = None
+    # Legajo ampliado (A1.1, migración 060) — todos opcionales.
+    email_personal: Optional[str] = None
+    tipo_documento: Optional[str] = None
+    sexo: Optional[str] = None
+    telefono_alternativo: Optional[str] = None
+    domicilio: Optional[str] = None
+    estudios: Optional[str] = None
+    ubicacion: Optional[str] = None
+    turno: Optional[str] = None
+    horas_contrato: Optional[int] = None
+    organismo: Optional[str] = None
+    gerencia: Optional[str] = None
+    sector: Optional[str] = None
+    seniority: Optional[str] = None
+    perfil: Optional[str] = None
+    categoria: Optional[str] = None
+    modalidad_contratacion: Optional[str] = None
+    referido: Optional[str] = None
+    es_lider: Optional[bool] = None
 
     @field_validator("roles")
     @classmethod
@@ -116,6 +154,25 @@ class EmpleadoResponse(BaseModel):
     rol: Optional[str] = None         # DEPRECADO (se dropea en S6)
     estado: str
     dias_vacaciones_asignados: int = 14
+    # Legajo ampliado (A1.1, migración 060) — todos opcionales.
+    email_personal: Optional[str] = None
+    tipo_documento: Optional[str] = None
+    sexo: Optional[str] = None
+    telefono_alternativo: Optional[str] = None
+    domicilio: Optional[str] = None
+    estudios: Optional[str] = None
+    ubicacion: Optional[str] = None
+    turno: Optional[str] = None
+    horas_contrato: Optional[int] = None
+    organismo: Optional[str] = None
+    gerencia: Optional[str] = None
+    sector: Optional[str] = None
+    seniority: Optional[str] = None
+    perfil: Optional[str] = None
+    categoria: Optional[str] = None
+    modalidad_contratacion: Optional[str] = None
+    referido: Optional[str] = None
+    es_lider: bool = False
     created_at: datetime
 
 

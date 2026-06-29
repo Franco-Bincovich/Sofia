@@ -38,3 +38,7 @@ export async function updateEmpleado(id: string, data: EmpleadoUpdate): Promise<
 export async function fetchRolesConocidos(): Promise<string[]> {
   return apiFetch<string[]>("/api/empleados/roles-conocidos")
 }
+
+export async function fetchValoresConocidos(campo: string): Promise<string[]> {
+  return apiFetch<string[]>(`/api/empleados/valores-conocidos?campo=${encodeURIComponent(campo)}`)
+}

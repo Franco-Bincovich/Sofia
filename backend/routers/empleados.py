@@ -33,12 +33,6 @@ async def list_empleados(
     return service.get_empleados(page, page_size, empresa_id, area_id, estado, search)
 
 
-@router.get("/roles-conocidos", response_model=list[str], dependencies=[Depends(require_permission(SECCION, Accion.READ))])
-async def roles_conocidos(service: EmpleadoService = Depends(_service)) -> list[str]:
-    """Pool compartido de roles ya usados (todas las empresas), para autocompletar."""
-    return service.get_roles_conocidos()
-
-
 @router.get("/{id}", response_model=EmpleadoResponse, dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def get_empleado(
     id: UUID, request: Request, service: EmpleadoService = Depends(_service),

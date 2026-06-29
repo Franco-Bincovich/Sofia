@@ -34,6 +34,7 @@ from types import SimpleNamespace
 
 from config.settings import settings
 from main import app
+from services.empleado_catalogos_service import CAMPOS_AUTOCOMPLETABLES, EmpleadoCatalogosService
 from utils.errors import AppError
 from utils.permisos import Accion, Seccion, puede, require_permission
 
@@ -227,3 +228,28 @@ class TestRequirePermission:
         with pytest.raises(AppError) as exc:
             await dep(_req(None))
         assert exc.value.code == "FORBIDDEN"
+
+
+# ─── Valores conocidos / autocompletado del legajo (A1.2) ───────────────────────
+
+
+class _FakeRolesRepo:
+    """Repo fake que evita tocar Supabase en los tests del whitelist."""
+    def get_valores_conocidos(self, campo: str) -> list[str]:
+        return ["Capital Humano", "Sistemas"]
+
+
+class TestValoresConocidos:
+    def test_whitelist_tiene_9_campos(self) -> None:
+        assert len(CAMPOS_AUTOCOMPLETABLES) == 9
+
+    def test_campo_fuera_de_whitelist_lanza_400(self) -> None:
+        svc = EmpleadoCatalogosService(roles_repo=_FakeRolesRepo())
+        with pytest.raises(AppError) as exc:
+            svc.get_valores_conocidos("email_corporativo")
+        assert exc.value.code == "CAMPO_INVALIDO"
+        assert exc.value.status_code == 400
+
+    def test_campo_valido_devuelve_lista(self) -> None:
+        svc = EmpleadoCatalogosService(roles_repo=_FakeRolesRepo())
+        assert svc.get_valores_conocidos("gerencia") == ["Capital Humano", "Sistemas"]
