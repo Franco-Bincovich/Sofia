@@ -3,10 +3,11 @@ Servicio de exportación de reportes a PDF y Excel.
 Flujo: router → service → repository → DB
 """
 import io
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional
 from uuid import UUID
 
 from repositories.reporte_repo import ReporteRepo
+from services._reporte_export_descarga import ReporteDescarga, empaquetar_descarga
 from utils.errors import AppError
 from utils.logger import logger
 
@@ -62,6 +63,11 @@ class ReporteExportService:
         except Exception as exc:
             logger.error("Error al generar Excel", extra={"reporte_id": str(reporte_id), "error": str(exc)})
             raise AppError("Error al generar el Excel", "REPORTE_EXPORT_ERROR", 500) from exc
+
+    def build_export(self, reporte_id: UUID, formato: Literal["pdf", "excel"]) -> ReporteDescarga:
+        """Exporta el reporte y lo empaqueta para descarga: contenido + filename + media_type."""
+        content = self.export_pdf(reporte_id) if formato == "pdf" else self.export_excel(reporte_id)
+        return empaquetar_descarga(content, reporte_id, formato)
 
 
 # ── PDF builder ────────────────────────────────────────────────────────────────

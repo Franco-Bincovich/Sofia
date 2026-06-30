@@ -16,12 +16,8 @@ router = APIRouter()
 SECCION = Seccion.AUSENCIAS
 
 
-def _svc() -> AusenciasService:
-    return AusenciasService()
-
-
-def _tipos_svc() -> TiposAusenciaService:
-    return TiposAusenciaService()
+def _svc() -> AusenciasService: return AusenciasService()
+def _tipos_svc() -> TiposAusenciaService: return TiposAusenciaService()
 
 
 # ── Tipos de ausencia (catálogo global) ────────────────────────────────────────
@@ -56,11 +52,7 @@ async def get_ausencia(id: UUID, request: Request, service: AusenciasService = D
 
 
 @router.post("", response_model=AusenciaResponse, status_code=201, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
-async def create_ausencia(
-    request: Request,
-    body: AusenciaCreate,
-    service: AusenciasService = Depends(_svc),
-) -> AusenciaResponse:
+async def create_ausencia(request: Request, body: AusenciaCreate, service: AusenciasService = Depends(_svc)) -> AusenciaResponse:
     return service.create(body, request.state.user.get("id", "system"))
 
 

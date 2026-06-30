@@ -1,10 +1,4 @@
-"""
-Router de Assessment Engine.
-Rutas protegidas requieren AuthMiddleware; evaluacion/* son públicas (sin X-Empresa-Id).
-empresa_id para lecturas autenticadas: header X-Empresa-Id.
-empresa_id para CREATE campaña: viene en el body (root entity).
-empresa_id para resultados de evaluación pública: heredada de la campaña por el service.
-"""
+"""Router de Assessment Engine. evaluacion/* son públicas (sin X-Empresa-Id); el resto gateado. empresa_id: header en lecturas, body en CREATE campaña."""
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request

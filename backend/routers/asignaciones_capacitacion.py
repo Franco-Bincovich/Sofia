@@ -1,6 +1,4 @@
-"""Router de asignaciones de capacitaciones. Prefijo: /api/capacitaciones/asignaciones.
-empresa_id en lecturas: X-Empresa-Id. En escrituras: heredado del empleado.
-"""
+"""Router de asignaciones de capacitaciones. empresa_id en lecturas: X-Empresa-Id; en escrituras: heredado del empleado."""
 from typing import Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
@@ -28,11 +26,7 @@ async def list_asignaciones(
 
 
 @router.post("", response_model=AsignacionResponse, status_code=201, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
-async def create_asignacion(
-    request: Request,
-    body: AsignacionCreate,
-    service: AsignacionService = Depends(_svc),
-) -> AsignacionResponse:
+async def create_asignacion(request: Request, body: AsignacionCreate, service: AsignacionService = Depends(_svc)) -> AsignacionResponse:
     return service.create(body, request.state.user.get("id", "system"))
 
 
@@ -47,11 +41,7 @@ async def update_asignacion(
 
 
 @router.delete("/{id}", status_code=200, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
-async def delete_asignacion(
-    id: UUID,
-    request: Request,
-    service: AsignacionService = Depends(_svc),
-) -> dict:
+async def delete_asignacion(id: UUID, request: Request, service: AsignacionService = Depends(_svc)) -> dict:
     service.delete(id, get_empresa_id(request))
     return {"ok": True}
 

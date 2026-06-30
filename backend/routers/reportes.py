@@ -1,11 +1,4 @@
-"""
-Router de Reportes — generación, consulta del historial y exportación.
-Rutas protegidas por AuthMiddleware (requieren JWT válido).
-empresa_id: header X-Empresa-Id.
-  - generar: si hay empresa activa, el reporte queda atado a ella; si es "Todas" → consolidado (null).
-  - historial: empresa activa muestra sus reportes + consolidados; "Todas" muestra todo.
-"""
-import re
+"""Router de Reportes — generar, historial y exportar. empresa_id: header X-Empresa-Id (empresa activa atada al reporte; "Todas" → consolidado null)."""
 from typing import List, Literal
 from uuid import UUID
 
@@ -20,8 +13,6 @@ from utils.permisos import Accion, Seccion, require_permission
 
 router = APIRouter()
 SECCION = Seccion.REPORTES
-
-_SAFE_NAME_RE = re.compile(r"[^\w\s\-áéíóúüñÁÉÍÓÚÜÑ]")
 
 
 def _service() -> ReporteService:
@@ -65,16 +56,6 @@ async def exportar_reporte(
     formato: Literal["pdf", "excel"] = Query(...),
     svc: ReporteExportService = Depends(_export_service),
 ) -> Response:
-    if formato == "pdf":
-        data = svc.export_pdf(reporte_id)
-        media_type = "application/pdf"
-        ext = "pdf"
-    else:
-        data = svc.export_excel(reporte_id)
-        media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        ext = "xlsx"
-
-    safe = _SAFE_NAME_RE.sub("", str(reporte_id))[:40]
-    filename = f"reporte_{safe}.{ext}"
-    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
-    return Response(content=data, media_type=media_type, headers=headers)
+    export = svc.build_export(reporte_id, formato)
+    headers = {"Content-Disposition": f'attachment; filename="{export.filename}"'}
+    return Response(content=export.content, media_type=export.media_type, headers=headers)

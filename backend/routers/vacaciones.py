@@ -1,9 +1,4 @@
-"""
-Router de vacaciones.
-Sección: "vacaciones" (identificador estable para la futura capa de permisos).
-empresa_id para lecturas: header X-Empresa-Id (get_empresa_id).
-empresa_id para escrituras: se hereda del empleado en el service — no se solicita al usuario.
-"""
+"""Router de vacaciones. empresa_id: lecturas por X-Empresa-Id; escrituras heredadas del empleado en el service."""
 from typing import Optional
 from uuid import UUID
 
@@ -41,10 +36,7 @@ async def list_vacaciones(
 
 # /saldo/{id} debe ir ANTES de /{id} para evitar colisión de rutas
 @router.get("/saldo/{empleado_id}", response_model=SaldoVacacionesResponse, dependencies=[Depends(require_permission(SECCION, Accion.READ))])
-async def get_saldo(
-    empleado_id: UUID,
-    service: VacacionesService = Depends(_svc),
-) -> SaldoVacacionesResponse:
+async def get_saldo(empleado_id: UUID, service: VacacionesService = Depends(_svc)) -> SaldoVacacionesResponse:
     return service.get_saldo(empleado_id)
 
 
@@ -54,11 +46,7 @@ async def list_vacaciones_empleado(empleado_id: UUID, service: VacacionesService
 
 
 @router.get("/{id}", response_model=SolicitudVacacionesResponse, dependencies=[Depends(require_permission(SECCION, Accion.READ))])
-async def get_vacacion(
-    id: UUID,
-    request: Request,
-    service: VacacionesService = Depends(_svc),
-) -> SolicitudVacacionesResponse:
+async def get_vacacion(id: UUID, request: Request, service: VacacionesService = Depends(_svc)) -> SolicitudVacacionesResponse:
     return service.get_by_id(id, get_empresa_id(request))
 
 
@@ -72,9 +60,5 @@ async def create_vacacion(
 
 
 @router.put("/{id}/cancelar", response_model=SolicitudVacacionesResponse, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
-async def cancel_vacacion(
-    id: UUID,
-    request: Request,
-    service: VacacionesService = Depends(_svc),
-) -> SolicitudVacacionesResponse:
+async def cancel_vacacion(id: UUID, request: Request, service: VacacionesService = Depends(_svc)) -> SolicitudVacacionesResponse:
     return service.cancel(id, get_empresa_id(request), request.state.user.get("id", "system"))

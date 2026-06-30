@@ -1,10 +1,4 @@
-"""
-Router de vacantes y pipeline de candidatos.
-Rutas protegidas por AuthMiddleware (requieren JWT válido).
-empresa_id para lecturas: header X-Empresa-Id (get_empresa_id).
-empresa_id para CREATE de vacante: body.empresa_id (dato explícito, igual que empleados).
-empresa_id para candidatos: se hereda de la vacante — no se solicita al usuario.
-"""
+"""Router de vacantes y pipeline de candidatos. empresa_id: lecturas por X-Empresa-Id, CREATE vacante por body.empresa_id, candidatos heredan de la vacante."""
 from typing import List, Optional
 from uuid import UUID
 

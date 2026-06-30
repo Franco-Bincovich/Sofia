@@ -1,9 +1,4 @@
-"""
-Router de sucesión — mapa de talento y planes de carrera.
-Rutas protegidas por AuthMiddleware.
-empresa_id para lecturas: header X-Empresa-Id (filtro de vista, None = todas).
-empresa_id para CREATE: heredada del empleado (el service la resuelve internamente).
-"""
+"""Router de sucesión — mapa de talento y planes de carrera. empresa_id: lecturas por X-Empresa-Id (None = todas); CREATE heredada del empleado en el service."""
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request

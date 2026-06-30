@@ -1,7 +1,4 @@
-"""
-Router de empresas — CRUD completo + upload de logo.
-Rutas protegidas por AuthMiddleware (requieren JWT válido).
-"""
+"""Router de empresas — CRUD + upload de logo. Rutas protegidas por AuthMiddleware (JWT)."""
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Request, UploadFile
@@ -26,17 +23,12 @@ def _service() -> EmpresaService:
 
 
 @router.get("", response_model=EmpresaListResponse, dependencies=[Depends(require_permission(SECCION, Accion.READ))])
-async def list_empresas(
-    service: EmpresaService = Depends(_service),
-) -> EmpresaListResponse:
+async def list_empresas(service: EmpresaService = Depends(_service)) -> EmpresaListResponse:
     return service.list_empresas()
 
 
 @router.get("/{id}", response_model=EmpresaResponse, dependencies=[Depends(require_permission(SECCION, Accion.READ))])
-async def get_empresa(
-    id: UUID,
-    service: EmpresaService = Depends(_service),
-) -> EmpresaResponse:
+async def get_empresa(id: UUID, service: EmpresaService = Depends(_service)) -> EmpresaResponse:
     return service.get_empresa(str(id))
 
 
@@ -51,11 +43,7 @@ async def create_empresa(
 
 
 @router.put("/{id}", response_model=EmpresaResponse, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
-async def update_empresa(
-    id: UUID,
-    body: EmpresaUpdate,
-    service: EmpresaService = Depends(_service),
-) -> EmpresaResponse:
+async def update_empresa(id: UUID, body: EmpresaUpdate, service: EmpresaService = Depends(_service)) -> EmpresaResponse:
     return service.update_empresa(str(id), body)
 
 
@@ -70,11 +58,7 @@ async def toggle_activa(
 
 
 @router.post("/{id}/logo", response_model=EmpresaResponse, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
-async def upload_logo(
-    id: UUID,
-    file: UploadFile = File(...),
-    service: EmpresaService = Depends(_service),
-) -> EmpresaResponse:
+async def upload_logo(id: UUID, file: UploadFile = File(...), service: EmpresaService = Depends(_service)) -> EmpresaResponse:
     content = await file.read()
     validate_upload(content, file.content_type, ALLOWED_TYPES_IMAGEN, MAX_SIZE_LOGO, "logo")
     return service.upload_logo(str(id), content, file.filename or "logo", file.content_type or "image/jpeg")
