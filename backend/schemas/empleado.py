@@ -73,6 +73,7 @@ class EmpleadoCreate(EmpleadoBase):
     dni: Optional[str] = None
     cuil: Optional[str] = None
     legajo: Optional[str] = None
+    manager_id: Optional[UUID] = None  # superior inmediato (self-FK a empleados)
     dias_vacaciones_asignados: Optional[int] = None  # default 14 en DB si no se provee
 
 
@@ -90,6 +91,7 @@ class EmpleadoUpdate(BaseModel):
     dni: Optional[str] = None
     cuil: Optional[str] = None
     legajo: Optional[str] = None
+    manager_id: Optional[UUID] = None  # superior inmediato (self-FK a empleados)
     estado: Optional[str] = None
     roles: Optional[List[str]] = None  # si se provee, reemplaza la lista completa
     rol: Optional[str] = None          # DEPRECADO (se dropea en S6)
@@ -151,6 +153,8 @@ class EmpleadoResponse(BaseModel):
     dni: Optional[str] = None
     cuil: Optional[str] = None
     legajo: Optional[str] = None
+    manager_id: Optional[str] = None      # superior inmediato (id)
+    manager_nombre: Optional[str] = None  # "Apellido, Nombre" resuelto por join
     cargo: Optional[str] = None       # DEPRECADO (se dropea en S6)
     rol: Optional[str] = None         # DEPRECADO (se dropea en S6)
     estado: str
@@ -183,3 +187,10 @@ class EmpleadoListResponse(BaseModel):
     page: int
     page_size: int
     total_pages: int
+
+
+class EmpleadoSeleccionable(BaseModel):
+    """Proyección liviana de un empleado para poblar selects (ej. superior inmediato)."""
+    id: str
+    nombre: str
+    apellido: str

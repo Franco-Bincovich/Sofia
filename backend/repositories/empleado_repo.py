@@ -14,6 +14,13 @@ from utils.logger import logger
 
 _TABLE = "empleados"
 
+# Select con joins resueltos en una sola query (sin N+1): nombre de área, empresa y
+# del manager (self-join vía la FK empleados_manager_id_fkey, columna manager_id).
+_SELECT = (
+    "*, areas!empleados_area_id_fkey(nombre), empresas(nombre), "
+    "manager:empleados!empleados_manager_id_fkey(nombre, apellido)"
+)
+
 
 def _with_empresa(query, empresa_id: Optional[UUID]):
     """Aplica filtro de empresa a una query de Supabase si empresa_id no es None."""
@@ -22,13 +29,19 @@ def _with_empresa(query, empresa_id: Optional[UUID]):
 
 def _row(r: dict) -> EmpleadoResponse:
     """Convierte un dict de Supabase en EmpleadoResponse.
-    Si incluye 'areas' (join), extrae area_nombre. Si incluye 'empresas', extrae empresa_nombre."""
+    Extrae area_nombre ('areas'), empresa_nombre ('empresas') y manager_nombre ('manager',
+    self-join) cuando vienen embebidos. manager_nombre = 'Apellido, Nombre' o None."""
     area_info = r.get("areas")
     empresa_info = r.get("empresas")
+    manager_info = r.get("manager")
     data = {
-        **{k: v for k, v in r.items() if k not in ("areas", "empresas")},
+        **{k: v for k, v in r.items() if k not in ("areas", "empresas", "manager")},
         "area_nombre": area_info["nombre"] if isinstance(area_info, dict) else None,
         "empresa_nombre": empresa_info["nombre"] if isinstance(empresa_info, dict) else None,
+        "manager_nombre": (
+            f"{manager_info['apellido']}, {manager_info['nombre']}"
+            if isinstance(manager_info, dict) else None
+        ),
     }
     return EmpleadoResponse.model_validate(data)
 
@@ -47,9 +60,7 @@ class EmpleadoRepo:
         start = (page - 1) * page_size
         end = start + page_size - 1
 
-        query = supabase_admin.table(_TABLE).select(
-            "*, areas!empleados_area_id_fkey(nombre), empresas(nombre)", count="exact"
-        )
+        query = supabase_admin.table(_TABLE).select(_SELECT, count="exact")
         query = _with_empresa(query, empresa_id)
 
         if area_id:
@@ -69,9 +80,7 @@ class EmpleadoRepo:
     def find_by_id(self, id: str, empresa_id: Optional[UUID] = None) -> Optional[EmpleadoResponse]:
         """Busca un empleado por UUID. Si empresa_id se provee, valida pertenencia. Devuelve None si no existe o no pertenece."""
         query = _with_empresa(
-            supabase_admin.table(_TABLE)
-            .select("*, areas!empleados_area_id_fkey(nombre), empresas(nombre)")
-            .eq("id", id),
+            supabase_admin.table(_TABLE).select(_SELECT).eq("id", id),
             empresa_id,
         )
         result = query.maybe_single().execute()
@@ -87,6 +96,8 @@ class EmpleadoRepo:
         payload["fecha_ingreso"] = str(data.fecha_ingreso)
         if data.fecha_nacimiento:
             payload["fecha_nacimiento"] = str(data.fecha_nacimiento)
+        if data.manager_id:
+            payload["manager_id"] = str(data.manager_id)
         payload["estado"] = "activo"
 
         result = supabase_admin.table(_TABLE).insert(payload).execute()
@@ -103,6 +114,8 @@ class EmpleadoRepo:
 
         if "area_id" in patch:
             patch["area_id"] = str(patch["area_id"])
+        if "manager_id" in patch:
+            patch["manager_id"] = str(patch["manager_id"])
         if "fecha_ingreso" in patch:
             patch["fecha_ingreso"] = str(patch["fecha_ingreso"])
         if "fecha_nacimiento" in patch and patch["fecha_nacimiento"]:
@@ -117,14 +130,14 @@ class EmpleadoRepo:
     def find_by_legajo(self, legajo: str, empresa_id: UUID) -> Optional[EmpleadoResponse]:
         """Busca un empleado por legajo dentro de la empresa. Devuelve None si no existe."""
         res = (supabase_admin.table(_TABLE)
-               .select("*, areas!empleados_area_id_fkey(nombre), empresas(nombre)")
+               .select(_SELECT)
                .eq("legajo", legajo).eq("empresa_id", str(empresa_id))
                .maybe_single().execute())
         return _row(res.data) if res.data else None
 
     def find_by_dni(self, dni: str, empresa_id: UUID) -> Optional[EmpleadoResponse]:
         """Busca un empleado por DNI en la empresa indicada. Devuelve None si no existe."""
-        res = supabase_admin.table(_TABLE).select("*, areas!empleados_area_id_fkey(nombre), empresas(nombre)").eq("dni", dni).eq("empresa_id", str(empresa_id)).maybe_single().execute()
+        res = supabase_admin.table(_TABLE).select(_SELECT).eq("dni", dni).eq("empresa_id", str(empresa_id)).maybe_single().execute()
         return _row(res.data) if res.data else None
 
     def soft_delete(self, id: str, empresa_id: Optional[UUID] = None) -> bool:

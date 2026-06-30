@@ -10,6 +10,7 @@ import {
   type AutocompleteKey, type FieldFactory, type FormData, type FormErrors,
 } from "./_constants"
 import type { Area } from "@/types/area"
+import type { EmpleadoSeleccionable } from "@/types/empleado"
 import type { Empresa } from "@/types/empresa"
 
 interface Props {
@@ -20,6 +21,8 @@ interface Props {
   empresasLoading: boolean
   areas: Area[]
   areasLoading: boolean
+  seleccionables: EmpleadoSeleccionable[]
+  currentEmpleadoId?: string
   rolesSugeridos: string[]
   field: FieldFactory
   onEmpresaChange: (e: ChangeEvent<HTMLSelectElement>) => void
@@ -35,7 +38,8 @@ interface Props {
  */
 export function DatosLaboralesFields({
   form, errors, isEdit, empresas, empresasLoading, areas, areasLoading,
-  rolesSugeridos, field, onEmpresaChange, onRolesChange, onValue, onLider,
+  seleccionables, currentEmpleadoId, rolesSugeridos, field, onEmpresaChange,
+  onRolesChange, onValue, onLider,
 }: Props) {
   return (
     <>
@@ -60,6 +64,8 @@ export function DatosLaboralesFields({
         empresasLoading={empresasLoading}
         areas={areas}
         areasLoading={areasLoading}
+        seleccionables={seleccionables}
+        currentEmpleadoId={currentEmpleadoId}
         field={field}
         onEmpresaChange={onEmpresaChange}
       />

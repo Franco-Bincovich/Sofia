@@ -1,7 +1,10 @@
 """
-Repositorio de lectura de los pools de autocompletado de empleados (roles y campos
-del legajo). Vive aparte de empleado_repo.py (ya en su límite de líneas) para no agravarlo.
+Repositorio de lecturas de apoyo de empleados: pools de autocompletado (roles y campos
+del legajo) y listas livianas de selección (seleccionables). Vive aparte de empleado_repo.py
+(ya en su límite de líneas) para no agravarlo.
 """
+from uuid import UUID
+
 from integrations.supabase_client import supabase_admin
 
 _TABLE = "empleados"
@@ -36,3 +39,16 @@ class EmpleadoRolesRepo:
             if valor is not None and str(valor).strip():
                 unicos.add(str(valor).strip())
         return sorted(unicos)
+
+    def get_seleccionables(self, empresa_id: UUID) -> list[dict]:
+        """Lista liviana (id, nombre, apellido) de empleados ACTIVOS de una empresa.
+
+        Select acotado a 3 columnas (no `*`), filtrado por empresa y estado='activo',
+        ordenado por apellido/nombre. Pensado para poblar selects (ej. superior inmediato)."""
+        rows = (supabase_admin.table(_TABLE)
+                .select("id, nombre, apellido")
+                .eq("empresa_id", str(empresa_id))
+                .eq("estado", "activo")
+                .order("apellido").order("nombre")
+                .execute().data)
+        return rows or []

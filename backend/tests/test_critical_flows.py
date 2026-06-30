@@ -238,6 +238,10 @@ class _FakeRolesRepo:
     def get_valores_conocidos(self, campo: str) -> list[str]:
         return ["Capital Humano", "Sistemas"]
 
+    def get_seleccionables(self, empresa_id: object) -> list[dict]:
+        self.empresa_id = empresa_id  # captura para aserción
+        return [{"id": "1", "nombre": "Ana", "apellido": "García"}]
+
 
 class TestValoresConocidos:
     def test_whitelist_tiene_9_campos(self) -> None:
@@ -253,3 +257,52 @@ class TestValoresConocidos:
     def test_campo_valido_devuelve_lista(self) -> None:
         svc = EmpleadoCatalogosService(roles_repo=_FakeRolesRepo())
         assert svc.get_valores_conocidos("gerencia") == ["Capital Humano", "Sistemas"]
+
+
+# ─── Manager / superior inmediato (A1.6a) ───────────────────────────────────────
+
+
+def _empleado_row(**extra: object) -> dict:
+    """Row mínimo válido para EmpleadoResponse (campos requeridos del schema)."""
+    base = {
+        "id": "11111111-1111-1111-1111-111111111111",
+        "nombre": "Ana", "apellido": "García",
+        "email_corporativo": "ana@karstec.com",
+        "area_id": "22222222-2222-2222-2222-222222222222",
+        "roles": ["Analista"], "modalidad_trabajo": "presencial",
+        "tipo_contrato": "efectivo", "fecha_ingreso": "2024-01-01",
+        "estado": "activo", "created_at": "2024-01-01T00:00:00Z",
+    }
+    base.update(extra)
+    return base
+
+
+class TestManagerRow:
+    def test_manager_nombre_resuelto_apellido_nombre(self) -> None:
+        from repositories.empleado_repo import _row
+        row = _empleado_row(
+            manager_id="33333333-3333-3333-3333-333333333333",
+            manager={"nombre": "Carlos", "apellido": "Pérez"},
+        )
+        emp = _row(row)
+        assert emp.manager_id == "33333333-3333-3333-3333-333333333333"
+        assert emp.manager_nombre == "Pérez, Carlos"
+
+    def test_sin_manager_nombre_none(self) -> None:
+        from repositories.empleado_repo import _row
+        emp = _row(_empleado_row())
+        assert emp.manager_nombre is None
+
+
+# ─── Empleados seleccionables (superior inmediato, A1.6b) ────────────────────────
+
+
+class TestSeleccionables:
+    def test_service_delega_al_repo_y_pasa_empresa(self) -> None:
+        from uuid import UUID
+        fake = _FakeRolesRepo()
+        svc = EmpleadoCatalogosService(roles_repo=fake)
+        empresa = UUID("44444444-4444-4444-4444-444444444444")
+        result = svc.get_seleccionables(empresa)
+        assert result == [{"id": "1", "nombre": "Ana", "apellido": "García"}]
+        assert fake.empresa_id == empresa

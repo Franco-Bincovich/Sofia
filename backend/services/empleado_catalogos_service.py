@@ -5,6 +5,7 @@ catálogos viva junta, simétrica al router empleados_catalogos.py.
 Flujo: router → service → repository → DB
 """
 from typing import Optional
+from uuid import UUID
 
 from repositories.empleado_roles_repo import EmpleadoRolesRepo
 from utils.errors import AppError
@@ -34,3 +35,7 @@ class EmpleadoCatalogosService:
         if campo not in CAMPOS_AUTOCOMPLETABLES:
             raise AppError("Campo no válido", "CAMPO_INVALIDO", 400)
         return self._roles_repo.get_valores_conocidos(campo)
+
+    def get_seleccionables(self, empresa_id: UUID) -> list[dict]:
+        """Lista liviana de empleados activos de una empresa, para poblar selects (ej. superior inmediato)."""
+        return self._roles_repo.get_seleccionables(empresa_id)

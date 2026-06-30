@@ -17,6 +17,8 @@ export interface Empleado {
   dni: string | null
   cuil: string | null
   legajo: string | null
+  manager_id: string | null // superior inmediato (id)
+  manager_nombre: string | null // "Apellido, Nombre" resuelto por el backend
   estado: "activo" | "baja" | "licencia"
   dias_vacaciones_asignados: number
   // Legajo ampliado (A1)
@@ -64,6 +66,7 @@ export interface EmpleadoCreate {
   dni?: string
   cuil?: string
   legajo?: string
+  manager_id?: string // superior inmediato (id)
   cargo?: string // DEPRECADO (se quita en S6); el form ya no lo manda
   rol?: string // DEPRECADO (se quita en S6)
   dias_vacaciones_asignados?: number
@@ -89,3 +92,10 @@ export interface EmpleadoCreate {
 }
 
 export type EmpleadoUpdate = Partial<EmpleadoCreate> & { estado?: string }
+
+/** Proyección liviana de empleado para poblar selects (ej. superior inmediato). */
+export interface EmpleadoSeleccionable {
+  id: string
+  nombre: string
+  apellido: string
+}

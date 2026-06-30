@@ -2,23 +2,25 @@
 
 import { useEffect, useState } from "react"
 
-import { fetchRolesConocidos } from "@/services/empleados"
+import { fetchEmpleadosSeleccionables, fetchRolesConocidos } from "@/services/empleados"
 import { fetchAreas } from "@/services/areas"
 import { fetchEmpresas } from "@/services/empresas"
 import type { Area } from "@/types/area"
+import type { EmpleadoSeleccionable } from "@/types/empleado"
 import type { Empresa } from "@/types/empresa"
 
 /**
  * Datos de SOPORTE del modal (no son estado del form, que vive en el orquestador):
- * empresas activas, áreas y el pool de roles para autocompletar. Replica los fetch
- * que vivían inline en EmpleadoModal, con las mismas dependencias y comportamiento.
+ * empresas activas, áreas, pool de roles y empleados seleccionables como superior.
+ * `managerEmpresaId` = empresa efectiva del superior (empleado en edición / elegida al crear).
  */
-export function useEmpleadoFormData(open: boolean, isEdit: boolean, empresaId: string) {
+export function useEmpleadoFormData(open: boolean, isEdit: boolean, empresaId: string, managerEmpresaId: string) {
   const [empresas, setEmpresas] = useState<Empresa[]>([])
   const [empresasLoading, setEmpresasLoading] = useState(false)
   const [areas, setAreas] = useState<Area[]>([])
   const [areasLoading, setAreasLoading] = useState(false)
   const [rolesSugeridos, setRolesSugeridos] = useState<string[]>([])
+  const [seleccionables, setSeleccionables] = useState<EmpleadoSeleccionable[]>([])
 
   // Pool compartido de roles para autocompletar (se recarga al abrir el modal)
   useEffect(() => {
@@ -64,5 +66,13 @@ export function useEmpleadoFormData(open: boolean, isEdit: boolean, empresaId: s
       .finally(() => setAreasLoading(false))
   }, [open, empresaId, isEdit])
 
-  return { empresas, empresasLoading, areas, areasLoading, rolesSugeridos }
+  // Empleados elegibles como superior: activos de la empresa efectiva (sin empresa → vacío).
+  useEffect(() => {
+    if (!open || !managerEmpresaId) return setSeleccionables([])
+    fetchEmpleadosSeleccionables(managerEmpresaId)
+      .then(setSeleccionables)
+      .catch(() => setSeleccionables([]))
+  }, [open, managerEmpresaId])
+
+  return { empresas, empresasLoading, areas, areasLoading, rolesSugeridos, seleccionables }
 }

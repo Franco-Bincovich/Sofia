@@ -38,6 +38,7 @@ export function toFormData(empleado: Empleado): FormData {
     dni: empleado.dni ?? "",
     cuil: empleado.cuil ?? "",
     legajo: empleado.legajo ?? "",
+    manager_id: empleado.manager_id ?? "",
     dias_vacaciones_asignados: String(empleado.dias_vacaciones_asignados ?? 14),
     tipo_documento: empleado.tipo_documento ?? "",
     sexo: empleado.sexo ?? "",
@@ -76,6 +77,7 @@ export function buildPayload(form: FormData): Omit<EmpleadoCreate, "empresa_id">
     dni: form.dni || undefined,
     cuil: form.cuil || undefined,
     legajo: form.legajo || undefined,
+    manager_id: form.manager_id || undefined,
     dias_vacaciones_asignados: form.dias_vacaciones_asignados
       ? parseInt(form.dias_vacaciones_asignados, 10)
       : undefined,

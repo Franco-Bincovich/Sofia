@@ -12,8 +12,6 @@ const ESTADO_VARIANTS = {
  * Bloque estático de la ficha: información personal + laboral (espejo del formulario)
  * + documentos (placeholder). Presentación pura a partir del empleado ya cargado.
  * Mantiene el fallback de roles roles[0] ?? cargo hasta la limpieza S6.
- * Nota: "Superior inmediato" (manager) no se muestra: el dato no viene resuelto en el
- * objeto empleado (ni id ni nombre); se agregará cuando la API lo exponga.
  */
 export function DatosEmpleadoSection({ empleado }: { empleado: Empleado }) {
   const horasContrato = empleado.horas_contrato != null ? String(empleado.horas_contrato) : null
@@ -39,6 +37,7 @@ export function DatosEmpleadoSection({ empleado }: { empleado: Empleado }) {
       <Section title="Información laboral">
         <Field label="Empresa" value={empleado.empresa_nombre} />
         <Field label="Área" value={empleado.area_nombre} />
+        <Field label="Superior inmediato" value={empleado.manager_nombre} />
         <Field label="Rol" value={roles} />
         <Field label="Ubicación" value={empleado.ubicacion} />
         <Field label="Turno" value={empleado.turno} />

@@ -32,8 +32,8 @@ export function EmpleadoModal({ open, onClose, onSuccess, empleado }: EmpleadoMo
   const [submitting, setSubmitting] = useState(false)
   const [serverError, setServerError] = useState("")
 
-  const { empresas, empresasLoading, areas, areasLoading, rolesSugeridos } =
-    useEmpleadoFormData(open, isEdit, form.empresa_id)
+  const { empresas, empresasLoading, areas, areasLoading, rolesSugeridos, seleccionables } =
+    useEmpleadoFormData(open, isEdit, form.empresa_id, isEdit ? empleado?.empresa_id ?? "" : form.empresa_id)
 
   // Resetear formulario al abrir/cerrar
   useEffect(() => {
@@ -109,6 +109,7 @@ export function EmpleadoModal({ open, onClose, onSuccess, empleado }: EmpleadoMo
                 empresasLoading={empresasLoading}
                 areas={areas}
                 areasLoading={areasLoading}
+                seleccionables={seleccionables} currentEmpleadoId={empleado?.id}
                 rolesSugeridos={rolesSugeridos}
                 field={field}
                 onEmpresaChange={handleEmpresaChange}

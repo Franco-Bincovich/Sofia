@@ -15,6 +15,7 @@ export type FormData = {
   dni: string
   cuil: string
   legajo: string
+  manager_id: string
   dias_vacaciones_asignados: string
   // Legajo ampliado (A1.3b)
   tipo_documento: string
@@ -74,6 +75,7 @@ export const EMPTY: FormData = {
   dni: "",
   cuil: "",
   legajo: "",
+  manager_id: "",
   dias_vacaciones_asignados: "14",
   tipo_documento: "",
   sexo: "",

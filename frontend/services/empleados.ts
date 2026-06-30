@@ -1,4 +1,6 @@
-import type { Empleado, EmpleadoCreate, EmpleadoListResponse, EmpleadoUpdate } from "@/types/empleado"
+import type {
+  Empleado, EmpleadoCreate, EmpleadoListResponse, EmpleadoSeleccionable, EmpleadoUpdate,
+} from "@/types/empleado"
 import { apiFetch } from "@/services/api"
 
 export async function fetchEmpleados(
@@ -41,4 +43,12 @@ export async function fetchRolesConocidos(): Promise<string[]> {
 
 export async function fetchValoresConocidos(campo: string): Promise<string[]> {
   return apiFetch<string[]>(`/api/empleados/valores-conocidos?campo=${encodeURIComponent(campo)}`)
+}
+
+export async function fetchEmpleadosSeleccionables(
+  empresaId: string,
+): Promise<EmpleadoSeleccionable[]> {
+  return apiFetch<EmpleadoSeleccionable[]>(
+    `/api/empleados/seleccionables?empresa_id=${encodeURIComponent(empresaId)}`,
+  )
 }
