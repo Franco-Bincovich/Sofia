@@ -1,7 +1,8 @@
 """Router de ausencias. Sección: "ausencias". empresa_id en lecturas: X-Empresa-Id; en escrituras: heredado del empleado. Tipos: catálogo global."""
-from typing import Optional
+from typing import Literal, Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import Response
 
 from schemas.ausencias import (
     AusenciaCreate, AusenciaListResponse, AusenciaResponse, AusenciaUpdate,
@@ -44,6 +45,12 @@ async def list_ausencias(
     service: AusenciasService = Depends(_svc),
 ) -> AusenciaListResponse:
     return service.get_all(get_empresa_id(request), area_id, tipo_id, page, page_size)
+
+
+@router.get("/exportar", dependencies=[Depends(require_permission(SECCION, Accion.READ))])
+async def exportar_ausencias(request: Request, formato: Literal["pdf", "excel", "csv", "word"] = Query("excel"), service: AusenciasService = Depends(_svc)) -> Response:
+    d = service.exportar(get_empresa_id(request), formato)
+    return Response(content=d.content, media_type=d.media_type, headers={"Content-Disposition": f'attachment; filename="{d.filename}"'})
 
 
 @router.get("/{id}", response_model=AusenciaResponse, dependencies=[Depends(require_permission(SECCION, Accion.READ))])

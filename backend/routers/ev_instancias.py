@@ -1,8 +1,9 @@
 """Router de instancias y resultados de evaluación de desempeño."""
-from typing import Optional
+from typing import Literal, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import Response
 
 from schemas.evaluaciones import (
     InstanciaCreate, InstanciaDetalleResponse, InstanciaListResponse, ResultadoUpdate,
@@ -27,6 +28,16 @@ async def list_instancias(
     service: EvInstanciasService = Depends(_svc),
 ) -> InstanciaListResponse:
     return service.get_all(get_empresa_id(request), ciclo_id, estado)
+
+
+@router.get("/exportar", dependencies=[Depends(require_permission(SECCION, Accion.READ))])
+async def exportar_instancias(
+    request: Request,
+    formato: Literal["pdf", "excel", "csv", "word"] = Query("excel"),
+    service: EvInstanciasService = Depends(_svc),
+) -> Response:
+    d = service.exportar(get_empresa_id(request), formato)
+    return Response(content=d.content, media_type=d.media_type, headers={"Content-Disposition": f'attachment; filename="{d.filename}"'})
 
 
 @router.get("/{id}", response_model=InstanciaDetalleResponse, dependencies=[Depends(require_permission(SECCION, Accion.READ))])

@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { AlertCircle, Download, Pencil, Plus, Trash2 } from "lucide-react"
+import { AlertCircle, Pencil, Plus, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { ErrorState } from "@/components/ui/ErrorState"
@@ -12,7 +12,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { AsignacionModal } from "@/components/features/capacitaciones/AsignacionModal"
 import { CertificadoCell } from "@/components/features/capacitaciones/CertificadoCell"
 import { EstadoModal } from "@/components/features/capacitaciones/EstadoModal"
-import { fetchAsignaciones, deleteAsignacion, exportAsignacionesCSV } from "@/services/capacitaciones"
+import { fetchAsignaciones, deleteAsignacion, exportarCapacitaciones } from "@/services/capacitaciones"
+import { ExportMenu } from "@/components/features/export/ExportMenu"
 import { fetchEmpresas } from "@/services/empresas"
 import { fetchAreas } from "@/services/areas"
 import { getEmpresaActivaId } from "@/services/empresaStore"
@@ -122,9 +123,7 @@ export function AsignacionesTab({ canWrite }: { canWrite: boolean }) {
         </div>
         <div className="flex gap-2">
           {!loading && !error && asignaciones.length > 0 && (
-            <Button variant="outline" className="min-h-11" onClick={() => exportAsignacionesCSV(asignaciones)}>
-              <Download className="size-4" /> Exportar CSV
-            </Button>
+            <ExportMenu onExport={(f) => exportarCapacitaciones(f, !empresaActivaId && empresaFiltro ? empresaFiltro : undefined)} />
           )}
           {canWrite && (
             <Button className="min-h-11" onClick={() => setAsignacionModal(true)}>

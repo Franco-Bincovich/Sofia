@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { FileDown, CheckCircle } from "lucide-react"
+import { CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -18,6 +18,7 @@ import {
   exportarEvaluaciones, fetchCiclos, fetchInstancia, fetchInstancias,
   finalizarInstancia, updateResultado,
 } from "@/services/evaluacionesService"
+import { ExportMenu } from "@/components/features/export/ExportMenu"
 import type { Ciclo, Instancia, InstanciaDetalle, ResultadoUpdate } from "@/types/evaluaciones"
 
 function TableSkeleton() {
@@ -174,7 +175,6 @@ export function EvaluacionesTab({ canWrite }: { canWrite: boolean }) {
   const [filtroCiclo, setFiltroCiclo] = useState("")
   const [filtroEstado, setFiltroEstado] = useState("")
   const [evaluandoId, setEvaluandoId] = useState<string | null>(null)
-  const [exportLoading, setExportLoading] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -195,13 +195,6 @@ export function EvaluacionesTab({ canWrite }: { canWrite: boolean }) {
 
   useEffect(() => { void load() }, [load])
 
-  async function handleExport() {
-    setExportLoading(true)
-    try { await exportarEvaluaciones(instancias) }
-    catch { /* silencioso */ }
-    finally { setExportLoading(false) }
-  }
-
   if (loading) return <TableSkeleton />
   if (error) return <div className="py-12 text-center text-destructive">{error}</div>
 
@@ -220,10 +213,7 @@ export function EvaluacionesTab({ canWrite }: { canWrite: boolean }) {
           <option value="finalizada">Finalizada</option>
         </select>
         <div className="ml-auto">
-          <Button variant="outline" size="sm" onClick={handleExport} disabled={exportLoading || instancias.length === 0}>
-            <FileDown className="mr-2 size-4" />
-            {exportLoading ? "Exportando…" : "Exportar Excel"}
-          </Button>
+          <ExportMenu onExport={(f) => exportarEvaluaciones(f)} />
         </div>
       </div>
 

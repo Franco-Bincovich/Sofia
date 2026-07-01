@@ -72,3 +72,55 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   if (!res.ok) throw await toApiError(res)
   return res.json() as Promise<T>
 }
+
+// ── Subida de archivos (multipart genérico) ─────────────────────────────────────
+
+/**
+ * Sube un archivo a `path` vía multipart/form-data. Agrega `file` + cada par de `campos`
+ * como campos de texto del form. Omite Content-Type a propósito: así el browser fija el
+ * boundary del multipart automáticamente (no funciona si se envía application/json).
+ */
+export async function subirArchivo<T>(
+  path: string,
+  file: File,
+  campos?: Record<string, string>,
+): Promise<T> {
+  const form = new FormData()
+  form.append("file", file)
+  if (campos) for (const [k, v] of Object.entries(campos)) form.append(k, v)
+  const headers = authHeaders()
+  delete headers["Content-Type"] // el browser fija el boundary multipart
+  const res = await fetch(`${API_BASE}${path}`, { method: "POST", headers, body: form })
+  if (!res.ok) throw await toApiError(res)
+  return res.json() as Promise<T>
+}
+
+// ── Descarga de archivos (motor de export genérico) ─────────────────────────────
+
+export type FormatoExport = "pdf" | "excel" | "csv" | "word"
+
+const EXPORT_EXT: Record<string, string> = { pdf: "pdf", excel: "xlsx", csv: "csv", word: "docx" }
+
+/** Descarga el blob de `path?formato=...` y dispara la descarga con la extensión correcta. */
+export async function descargarArchivo(
+  path: string,
+  formato: string,
+  nombreBase: string,
+  extraHeaders?: Record<string, string>,
+): Promise<void> {
+  const res = await fetch(`${API_BASE}${path}?formato=${formato}`, {
+    headers: { ...authHeaders(), ...extraHeaders },
+  })
+  if (!res.ok) throw await toApiError(res)
+  const blob = await res.blob()
+  const ext = EXPORT_EXT[formato] ?? formato
+  const safe = nombreBase.replace(/[^\w\s-]/g, "").trim() || "export"
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = `${safe}.${ext}`
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}

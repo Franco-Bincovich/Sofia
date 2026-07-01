@@ -1,5 +1,5 @@
 """
-Armado de payloads de auditoría para empleados, costos y empresa (T18.4c).
+Armado de payloads de auditoría para empleados, costos, empresa (T18.4c) y adjuntos (B4.1).
 
 Continuación de services/_audit_payloads.py (18.4b): se separó en un módulo propio
 porque sumar estos 7 eventos cruzaba el límite de 150 líneas del helper original.
@@ -87,6 +87,27 @@ def payload_toggle_empresa(empresa_id: str, activa: bool, usuario_id: Optional[s
         "usuario_id": usuario_id, "entidad": "empresa", "registro_id": empresa_id,
         "accion": "UPDATE", "evento": "toggle_empresa_activa", "empresa_id": empresa_id,
         "datos_anteriores": None, "datos_nuevos": {"activa": activa},
+    }
+
+
+def payload_alta_adjunto(adj, usuario_id: Optional[str]) -> dict:
+    """Evento INSERT de alta de adjunto. Se registra bajo la ENTIDAD PADRE (entidad/entidad_id
+    del adjunto) para que aparezca en el historial de ese registro (ej. empleado)."""
+    return {
+        "usuario_id": usuario_id, "entidad": adj.entidad, "registro_id": adj.entidad_id,
+        "accion": "INSERT", "evento": "alta_adjunto", "empresa_id": adj.empresa_id,
+        "datos_anteriores": None,
+        "datos_nuevos": {"adjunto_id": adj.id, "nombre_archivo": adj.nombre_archivo, "categoria": adj.categoria},
+    }
+
+
+def payload_baja_adjunto(adj, usuario_id: Optional[str]) -> dict:
+    """Evento DELETE (soft) de adjunto, bajo la entidad padre (mismo criterio que el alta)."""
+    return {
+        "usuario_id": usuario_id, "entidad": adj.entidad, "registro_id": adj.entidad_id,
+        "accion": "DELETE", "evento": "baja_adjunto", "empresa_id": adj.empresa_id,
+        "datos_anteriores": {"adjunto_id": adj.id, "nombre_archivo": adj.nombre_archivo},
+        "datos_nuevos": None,
     }
 
 

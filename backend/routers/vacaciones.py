@@ -1,8 +1,9 @@
 """Router de vacaciones. empresa_id: lecturas por X-Empresa-Id; escrituras heredadas del empleado en el service."""
-from typing import Optional
+from typing import Literal, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import Response
 
 from schemas.vacaciones import (
     SaldoVacacionesResponse,
@@ -32,6 +33,12 @@ async def list_vacaciones(
     service: VacacionesService = Depends(_svc),
 ) -> SolicitudVacacionesListResponse:
     return service.get_all(get_empresa_id(request), area_id, page, page_size)
+
+
+@router.get("/exportar", dependencies=[Depends(require_permission(SECCION, Accion.READ))])
+async def exportar_vacaciones(request: Request, formato: Literal["pdf", "excel", "csv", "word"] = Query("excel"), service: VacacionesService = Depends(_svc)) -> Response:
+    d = service.exportar(get_empresa_id(request), formato)
+    return Response(content=d.content, media_type=d.media_type, headers={"Content-Disposition": f'attachment; filename="{d.filename}"'})
 
 
 # /saldo/{id} debe ir ANTES de /{id} para evitar colisión de rutas

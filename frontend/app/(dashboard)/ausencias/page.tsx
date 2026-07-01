@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback, useEffect } from "react"
-import { AlertCircle, Download, Pencil, Plus, Trash2 } from "lucide-react"
+import { AlertCircle, Pencil, Plus, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -14,8 +14,9 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
 import { AusenciaModal } from "@/components/features/ausencias/AusenciaModal"
-import { fetchAusencias, deleteAusencia, exportAusenciasCSV } from "@/services/ausencias"
+import { fetchAusencias, deleteAusencia, exportarAusencias } from "@/services/ausencias"
 import { fetchTiposAusencia } from "@/services/ausencias"
+import { ExportMenu } from "@/components/features/export/ExportMenu"
 import { fetchEmpresas } from "@/services/empresas"
 import { fetchAreas } from "@/services/areas"
 import { getEmpresaActivaId } from "@/services/empresaStore"
@@ -143,10 +144,7 @@ export default function AusenciasPage() {
         action={
           <div className="flex gap-2">
             {!loading && !error && ausencias.length > 0 && (
-              <Button variant="outline" className="min-h-11" onClick={() => exportAusenciasCSV(ausencias)}>
-                <Download className="size-4" />
-                Exportar CSV
-              </Button>
+              <ExportMenu onExport={(f) => exportarAusencias(f, !empresaActivaId && empresaFiltro ? empresaFiltro : undefined)} />
             )}
             {canWrite && (
               <Button className="min-h-11" onClick={handleNew}>

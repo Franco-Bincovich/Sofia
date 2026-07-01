@@ -1,4 +1,4 @@
-import { apiFetch } from "@/services/api"
+import { apiFetch, descargarArchivo, type FormatoExport } from "@/services/api"
 import type {
   Ciclo, CicloCreate, CicloListResponse,
   CriterioCreate, Criterio,
@@ -100,21 +100,9 @@ export async function finalizarInstancia(id: string): Promise<InstanciaDetalle> 
   return apiFetch(`${BASE}/instancias/${id}/finalizar`, { method: "POST" })
 }
 
-// ── Export Excel (client-side) ────────────────────────────────────────────────
+// ── Export (motor genérico: pdf/excel/csv/word) ───────────────────────────────
 
-export async function exportarEvaluaciones(instancias: import("@/types/evaluaciones").Instancia[]): Promise<void> {
-  const { utils, writeFile } = await import("xlsx")
-  const rows = instancias.map((i) => ({
-    Empleado: i.empleado_nombre ?? "",
-    Area: i.empleado_area ?? "",
-    Ciclo: i.ciclo_nombre ?? "",
-    Evaluador: i.evaluador_nombre ?? "",
-    Estado: i.estado,
-    "Puntaje global": i.puntaje_global ?? "",
-    "Fecha evaluación": i.fecha_evaluacion ?? "",
-  }))
-  const ws = utils.json_to_sheet(rows)
-  const wb = utils.book_new()
-  utils.book_append_sheet(wb, ws, "Evaluaciones")
-  writeFile(wb, "evaluaciones_desempeno.xlsx")
+export function exportarEvaluaciones(formato: FormatoExport, empresaIdOverride?: string): Promise<void> {
+  const headers = empresaIdOverride ? { "X-Empresa-Id": empresaIdOverride } : undefined
+  return descargarArchivo(`${BASE}/instancias/exportar`, formato, "evaluaciones_desempeno", headers)
 }

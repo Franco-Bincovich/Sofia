@@ -48,6 +48,7 @@ from routers.proyectos import router as proyectos_router
 from routers.proyecto_asignaciones import router as proyecto_asignaciones_router
 from routers.proyecto_horas import router as proyecto_horas_router
 from routers.auditoria import router as auditoria_router
+from routers.adjuntos import router as adjuntos_router
 
 app = FastAPI(
     title="HR Karstec API",
@@ -115,3 +116,4 @@ app.include_router(proyectos_router, prefix="/api/proyectos", tags=["proyectos"]
 app.include_router(proyecto_asignaciones_router, prefix="/api/proyectos", tags=["proyectos"])
 app.include_router(proyecto_horas_router, prefix="/api/proyectos", tags=["proyectos"])
 app.include_router(auditoria_router, prefix="/api/auditoria", tags=["auditoria"])
+app.include_router(adjuntos_router, prefix="/api/adjuntos", tags=["adjuntos"])

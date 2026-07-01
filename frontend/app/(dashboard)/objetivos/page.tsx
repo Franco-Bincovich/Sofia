@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { Download, Plus } from "lucide-react"
+import { Plus } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -10,7 +10,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { KanbanView } from "@/components/features/objetivos/KanbanView"
 import { ListView } from "@/components/features/objetivos/ListView"
 import { ObjetivoModal } from "@/components/features/objetivos/ObjetivoModal"
-import { cambiarEstadoObjetivo, deleteObjetivo, fetchObjetivos, fetchUsuariosActivos } from "@/services/objetivos"
+import { ExportMenu } from "@/components/features/export/ExportMenu"
+import { cambiarEstadoObjetivo, deleteObjetivo, exportarObjetivos, fetchObjetivos, fetchUsuariosActivos } from "@/services/objetivos"
 import { fetchEmpresas } from "@/services/empresas"
 import { getEmpresaActivaId } from "@/services/empresaStore"
 import { useCanWrite } from "@/hooks/useCanWrite"
@@ -77,26 +78,7 @@ export default function ObjetivosPage() {
     catch { toast.error("No se pudo eliminar el objetivo. Intentá de nuevo.") } finally { setDeletingId(null) }
   }
 
-  async function exportarTerminados() {
-    const terminados = objetivos.filter((o) => o.estado === "terminado")
-    if (!terminados.length) return
-    const { utils, writeFile } = await import("xlsx")
-    const rows = terminados.map((o) => ({
-      Título:            o.titulo,
-      Responsable:       o.responsable_nombre ?? "",
-      Prioridad:         o.prioridad,
-      Empresa:           o.empresa_nombre ?? "",
-      "Fecha entrega":   o.fecha_entrega ?? "",
-      "Fecha terminado": o.updated_at.slice(0, 10),
-    }))
-    const ws = utils.json_to_sheet(rows)
-    const wb = utils.book_new()
-    utils.book_append_sheet(wb, ws, "Objetivos Terminados")
-    writeFile(wb, "objetivos_terminados.xlsx")
-  }
-
   const mostrarEmpresa = !empresaActivaId
-  const hayTerminados  = objetivos.some((o) => o.estado === "terminado")
 
   return (
     <div>
@@ -130,11 +112,7 @@ export default function ObjetivosPage() {
           )}
         </div>
         <div className="flex gap-2">
-          {hayTerminados && (
-            <Button variant="outline" className="min-h-11 gap-2" onClick={exportarTerminados}>
-              <Download className="size-4" /> Exportar terminados
-            </Button>
-          )}
+          <ExportMenu onExport={(f) => exportarObjetivos(f, !empresaActivaId && empresaFiltro ? empresaFiltro : undefined)} />
           {canWrite && (
             <Button className="min-h-11 gap-2" onClick={() => { setEditing(null); setModalOpen(true) }}>
               <Plus className="size-4" /> Nuevo objetivo

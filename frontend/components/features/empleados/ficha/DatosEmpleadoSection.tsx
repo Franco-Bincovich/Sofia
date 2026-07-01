@@ -9,8 +9,9 @@ const ESTADO_VARIANTS = {
 } as const
 
 /**
- * Bloque estático de la ficha: información personal + laboral (espejo del formulario)
- * + documentos (placeholder). Presentación pura a partir del empleado ya cargado.
+ * Bloque estático de la ficha: información personal + laboral (espejo del formulario).
+ * Presentación pura a partir del empleado ya cargado. Los documentos adjuntos viven en
+ * AdjuntosSection (sección propia, autoabastecida).
  * Mantiene el fallback de roles roles[0] ?? cargo hasta la limpieza S6.
  */
 export function DatosEmpleadoSection({ empleado }: { empleado: Empleado }) {
@@ -62,12 +63,6 @@ export function DatosEmpleadoSection({ empleado }: { empleado: Empleado }) {
               {empleado.estado}
             </Badge>
           </dd>
-        </div>
-      </Section>
-
-      <Section title="Documentos">
-        <div className="col-span-full text-sm text-muted-foreground">
-          La gestión de documentos estará disponible en una próxima versión.
         </div>
       </Section>
     </>

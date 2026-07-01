@@ -1,4 +1,4 @@
-import { API_BASE, apiFetch, authHeaders } from "@/services/api"
+import { API_BASE, apiFetch, authHeaders, descargarArchivo, type FormatoExport } from "@/services/api"
 import type {
   Asignacion,
   AsignacionCreate,
@@ -93,34 +93,10 @@ export async function getCertificadoUrl(id: string): Promise<string> {
   return data.url
 }
 
-// ── Export CSV ────────────────────────────────────────────────────────────────
+// ── Export ────────────────────────────────────────────────────────────────────
 
-export function exportAsignacionesCSV(items: Asignacion[]): void {
-  const ESTADO_LABEL: Record<string, string> = {
-    pendiente: "Pendiente", en_curso: "En curso", completado: "Completado",
-  }
-  const headers = [
-    "Empleado", "Área", "Empresa", "Capacitación", "Estado",
-    "Fecha asignación", "Fecha límite", "Fecha completado",
-  ]
-  const rows = items.map((a) => [
-    a.empleado_nombre ?? "",
-    a.area_nombre ?? "",
-    a.empresa_nombre ?? "",
-    a.capacitacion_nombre ?? "",
-    ESTADO_LABEL[a.estado] ?? a.estado,
-    a.fecha_asignacion ?? "",
-    a.fecha_limite ?? "",
-    a.fecha_completado ?? "",
-  ])
-  const csv = [headers, ...rows]
-    .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
-    .join("\n")
-  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement("a")
-  a.href = url
-  a.download = "asignaciones_capacitaciones.csv"
-  a.click()
-  URL.revokeObjectURL(url)
+/** Exporta el listado de asignaciones de capacitación (pdf/excel/csv/word) vía el motor central. */
+export function exportarCapacitaciones(formato: FormatoExport, empresaIdOverride?: string): Promise<void> {
+  const headers = empresaIdOverride ? { "X-Empresa-Id": empresaIdOverride } : undefined
+  return descargarArchivo("/api/capacitaciones/asignaciones/exportar", formato, "capacitaciones", headers)
 }

@@ -11,6 +11,7 @@ import { EmpleadoModal } from "@/components/features/empleados/EmpleadoModal"
 import { LoadingSkeleton } from "@/components/features/empleados/ficha/_primitives"
 import { OffboardingModal } from "@/components/features/empleados/ficha/OffboardingModal"
 import { DatosEmpleadoSection } from "@/components/features/empleados/ficha/DatosEmpleadoSection"
+import { AdjuntosSection } from "@/components/features/adjuntos/AdjuntosSection"
 import { InventarioSection } from "@/components/features/empleados/ficha/InventarioSection"
 import { HistorialCambiosSection } from "@/components/features/empleados/ficha/HistorialCambiosSection"
 import { VacacionesSection } from "@/components/features/empleados/ficha/VacacionesSection"
@@ -95,6 +96,7 @@ export default function EmpleadoDetailPage() {
 
       <div className="space-y-4">
         <DatosEmpleadoSection empleado={empleado} />
+        <AdjuntosSection entidad="empleado" entidadId={id} />
         <InventarioSection empleadoId={id} />
         <HistorialCambiosSection empleadoId={id} />
         <VacacionesSection empleadoId={id} />

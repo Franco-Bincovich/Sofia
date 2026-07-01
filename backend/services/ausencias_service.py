@@ -19,6 +19,7 @@ from services._audit_payloads import (
     payload_alta_ausencia, payload_baja_ausencia, payload_update_ausencia,
 )
 from services.audit_service import AuditService
+from services.export import Descarga, build_export
 from utils.errors import AppError
 from utils.logger import logger
 
@@ -37,6 +38,11 @@ class AusenciasService:
         """
         rows, total = self._repo.find_all(empresa_id, area_id, tipo_id, page, page_size)
         return AusenciaListResponse(items=rows, total=total)
+
+    def exportar(self, empresa_id: Optional[UUID] = None, formato: str = "excel") -> Descarga:
+        """Exporta la lista completa de ausencias al formato pedido vía el motor genérico."""
+        items = [i.model_dump(mode="json") for i in self.get_all(empresa_id, None, None, 1, 100000).items]
+        return build_export(nombre="Ausencias", datos={"Ausencias": items}, filename_base="ausencias", formato=formato)
 
     def get_by_id(self, id: UUID, empresa_id: Optional[UUID] = None) -> AusenciaResponse:
         """

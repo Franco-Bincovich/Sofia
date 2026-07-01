@@ -17,6 +17,7 @@ from schemas.evaluaciones import (
     InstanciaCreate, InstanciaDetalleResponse, InstanciaListResponse,
     InstanciaResponse, ResultadoUpdate,
 )
+from services.export import Descarga, build_export
 from utils.errors import AppError
 from utils.logger import logger
 
@@ -37,6 +38,12 @@ class EvInstanciasService:
         """Retorna instancias con nombres resueltos, filtradas por empresa/ciclo/estado."""
         items = self._repo.find_all(empresa_id, ciclo_id, estado)
         return InstanciaListResponse(items=items, total=len(items))
+
+    def exportar(self, empresa_id: Optional[UUID] = None, formato: str = "excel") -> Descarga:
+        """Exporta la lista de instancias (InstanciaResponse plano) al formato pedido vía el motor genérico."""
+        items = self._repo.find_all(empresa_id)
+        datos = {"Evaluaciones": [i.model_dump(mode="json") for i in items]}
+        return build_export(nombre="Evaluaciones de desempeño", datos=datos, filename_base="evaluaciones_desempeno", formato=formato)
 
     def get_by_id(self, id: UUID, empresa_id: Optional[UUID] = None) -> InstanciaDetalleResponse:
         """

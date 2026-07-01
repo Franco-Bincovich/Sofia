@@ -17,6 +17,7 @@ from repositories.inventario_items_repo import InventarioItemsRepo
 from schemas.inventario import (
     AsignacionCreate, AsignacionListResponse, AsignacionResponse, DevolucionRequest,
 )
+from services.export import Descarga, build_export
 from utils.errors import AppError
 from utils.logger import logger
 
@@ -34,6 +35,24 @@ class InventarioAsignacionesService:
         """Retorna asignaciones activas (sin fecha_devolucion). None = todas las empresas."""
         items = self._repo.find_all(empresa_id, empleado_id)
         return AsignacionListResponse(items=items, total=len(items))
+
+    def exportar(self, empresa_id: Optional[UUID] = None, formato: str = "excel") -> Descarga:
+        """
+        Exporta las asignaciones activas al formato pedido vía el motor genérico de export.
+
+        Replica el dataset del listado (find_all: solo asignaciones activas, con joins de
+        empresa/ítem/empleado). model_dump(mode="json") coacciona UUID/date a string.
+
+        Args:
+            empresa_id: empresa activa (None = consolidado, todas las empresas).
+            formato: "pdf" | "excel" | "csv" | "word".
+
+        Returns:
+            Descarga lista para que el router arme la respuesta HTTP.
+        """
+        items = self._repo.find_all(empresa_id)
+        datos = {"Asignaciones": [i.model_dump(mode="json") for i in items]}
+        return build_export(nombre="Inventario asignado", datos=datos, filename_base="inventario_asignaciones", formato=formato)
 
     def get_historial(self, item_id: UUID, empresa_id: Optional[UUID] = None) -> AsignacionListResponse:
         """

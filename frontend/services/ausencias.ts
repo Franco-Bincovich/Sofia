@@ -1,4 +1,4 @@
-import { apiFetch } from "@/services/api"
+import { apiFetch, descargarArchivo, type FormatoExport } from "@/services/api"
 import type {
   Ausencia,
   AusenciaCreate,
@@ -52,28 +52,8 @@ export async function deleteAusencia(id: string): Promise<void> {
   await apiFetch<{ ok: boolean }>(`/api/ausencias/${id}`, { method: "DELETE" })
 }
 
-/** Genera y descarga un CSV con el listado de ausencias. Sin dependencias externas. */
-export function exportAusenciasCSV(items: Ausencia[]): void {
-  const headers = ["Empleado", "Área", "Empresa", "Tipo", "Desde", "Hasta", "Días", "Justificada", "Motivo"]
-  const rows = items.map((a) => [
-    a.empleado_nombre ?? "",
-    a.area_nombre ?? "",
-    a.empresa_nombre ?? "",
-    a.tipo_nombre ?? "",
-    a.fecha_desde,
-    a.fecha_hasta,
-    String(a.dias),
-    a.justificada ? "Sí" : "No",
-    a.motivo ?? "",
-  ])
-  const csv = [headers, ...rows]
-    .map((row) => row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(","))
-    .join("\n")
-  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement("a")
-  a.href = url
-  a.download = "ausencias.csv"
-  a.click()
-  URL.revokeObjectURL(url)
+/** Exporta el listado de ausencias (pdf/excel/csv/word) vía el motor central. */
+export function exportarAusencias(formato: FormatoExport, empresaIdOverride?: string): Promise<void> {
+  const headers = empresaIdOverride ? { "X-Empresa-Id": empresaIdOverride } : undefined
+  return descargarArchivo("/api/ausencias/exportar", formato, "ausencias", headers)
 }

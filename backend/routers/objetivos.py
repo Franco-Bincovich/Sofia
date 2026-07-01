@@ -3,10 +3,11 @@ Router de objetivos. Sección: "objetivos".
 empresa_id para lecturas: X-Empresa-Id (get_empresa_id).
 empresa_id para crear: explícito en el body.
 """
-from typing import Optional
+from typing import Literal, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import Response
 
 from schemas.objetivo import (
     CambiarEstadoRequest, ObjetivoCreate, ObjetivoListResponse, ObjetivoResponse, ObjetivoUpdate,
@@ -40,6 +41,16 @@ async def create_objetivo(
     service: ObjetivoService = Depends(_svc),
 ) -> ObjetivoResponse:
     return service.create(body, request.state.user.get("id", "system"))
+
+
+@router.get("/exportar", dependencies=[Depends(require_permission(SECCION, Accion.READ))])
+async def exportar_objetivos(
+    request: Request,
+    formato: Literal["pdf", "excel", "csv", "word"] = Query("excel"),
+    service: ObjetivoService = Depends(_svc),
+) -> Response:
+    d = service.exportar(get_empresa_id(request), formato)
+    return Response(content=d.content, media_type=d.media_type, headers={"Content-Disposition": f'attachment; filename="{d.filename}"'})
 
 
 @router.put("/{id}/estado", response_model=ObjetivoResponse, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])

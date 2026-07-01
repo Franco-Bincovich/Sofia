@@ -7,10 +7,20 @@ from utils.errors import AppError
 MAX_SIZE_CERTIFICADO = 10 * 1024 * 1024  # 10 MB
 MAX_SIZE_LOGO = 2 * 1024 * 1024  # 2 MB
 MAX_SIZE_CSV = 5 * 1024 * 1024  # 5 MB
+MAX_SIZE_ADJUNTO = 10 * 1024 * 1024  # 10 MB
 
 ALLOWED_TYPES_CERTIFICADO = ("application/pdf", "image/jpeg", "image/png", "image/webp")
 ALLOWED_TYPES_IMAGEN = ("image/jpeg", "image/png", "image/webp")
 ALLOWED_TYPES_CSV = ("text/csv", "text/plain", "application/vnd.ms-excel", "application/octet-stream")
+# Adjuntos genéricos: PDF, Word (.docx), Excel (.xlsx) e imágenes.
+ALLOWED_TYPES_ADJUNTO = (
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+)
 
 
 def validate_upload(

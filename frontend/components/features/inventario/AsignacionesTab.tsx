@@ -10,7 +10,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { AsignarModal } from "@/components/features/inventario/AsignarModal"
 import { DevolverModal } from "@/components/features/inventario/DevolverModal"
-import { fetchAsignaciones } from "@/services/inventario"
+import { ExportMenu } from "@/components/features/export/ExportMenu"
+import { exportarInventarioAsignaciones, fetchAsignaciones } from "@/services/inventario"
 import { fetchEmpresas } from "@/services/empresas"
 import { getEmpresaActivaId } from "@/services/empresaStore"
 import type { Asignacion } from "@/types/inventario"
@@ -67,11 +68,14 @@ export function AsignacionesTab({ canWrite }: { canWrite: boolean }) {
             </select>
           )}
         </div>
-        {canWrite && (
-          <Button className="min-h-11" onClick={() => setAsignarModal(true)}>
-            <Plus className="size-4" /> Asignar ítem
-          </Button>
-        )}
+        <div className="flex gap-2">
+          <ExportMenu onExport={(f) => exportarInventarioAsignaciones(f, !empresaActivaId && empresaFiltro ? empresaFiltro : undefined)} />
+          {canWrite && (
+            <Button className="min-h-11" onClick={() => setAsignarModal(true)}>
+              <Plus className="size-4" /> Asignar ítem
+            </Button>
+          )}
+        </div>
       </div>
 
       {loading && <Skeleton5 />}

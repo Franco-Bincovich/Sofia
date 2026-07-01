@@ -13,6 +13,7 @@ from integrations.supabase_client import supabase_admin
 from repositories.asignacion_repo import AsignacionRepo
 from repositories.capacitacion_repo import CapacitacionRepo
 from schemas.capacitacion import AsignacionCreate, AsignacionListResponse, AsignacionResponse, AsignacionUpdate
+from services.export import Descarga, build_export
 from utils.errors import AppError
 from utils.logger import logger
 
@@ -30,6 +31,11 @@ class AsignacionService:
         """Retorna asignaciones filtradas (empresa None = todas)."""
         items = self._repo.find_all(empresa_id, empleado_id, capacitacion_id, estado, area_id)
         return AsignacionListResponse(items=items, total=len(items))
+
+    def exportar(self, empresa_id: Optional[UUID] = None, formato: str = "excel") -> Descarga:
+        """Exporta la lista de asignaciones de capacitación al formato pedido vía el motor genérico."""
+        items = [i.model_dump(mode="json") for i in self.get_all(empresa_id).items]
+        return build_export(nombre="Capacitaciones", datos={"Asignaciones": items}, filename_base="capacitaciones", formato=formato)
 
     def get_by_id(self, id: UUID, empresa_id: Optional[UUID] = None) -> AsignacionResponse:
         """Retorna asignación por ID. Raises ASIGNACION_NOT_FOUND (404)."""

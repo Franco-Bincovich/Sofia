@@ -3,13 +3,18 @@ import type {
   DevolucionRequest, InventarioItem, InventarioItemCreate, InventarioItemUpdate,
   ItemListResponse,
 } from "@/types/inventario"
-import { apiFetch } from "@/services/api"
+import { apiFetch, descargarArchivo, type FormatoExport } from "@/services/api"
 
 const ITEMS  = "/api/inventario/items"
 const ASIG   = "/api/inventario/asignaciones"
 
 function override(empresaId?: string): RequestInit {
   return empresaId ? { headers: { "X-Empresa-Id": empresaId } } : {}
+}
+
+export function exportarInventarioAsignaciones(formato: FormatoExport, empresaIdOverride?: string): Promise<void> {
+  const headers = empresaIdOverride ? { "X-Empresa-Id": empresaIdOverride } : undefined
+  return descargarArchivo(`${ASIG}/exportar`, formato, "inventario_asignaciones", headers)
 }
 
 export async function fetchItems(empresaIdOverride?: string, estado?: string): Promise<ItemListResponse> {

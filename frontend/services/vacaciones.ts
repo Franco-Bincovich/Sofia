@@ -4,7 +4,7 @@ import type {
   SolicitudVacacionesCreate,
   SolicitudVacacionesListResponse,
 } from "@/types/vacaciones"
-import { apiFetch } from "@/services/api"
+import { apiFetch, descargarArchivo, type FormatoExport } from "@/services/api"
 
 export async function fetchVacaciones(
   empresaIdOverride?: string,
@@ -55,25 +55,8 @@ export async function fetchSaldoVacaciones(
   )
 }
 
-/** Genera y descarga un archivo CSV con el listado de vacaciones. No requiere dependencias externas. */
-export function exportVacacionesCSV(items: SolicitudVacaciones[]): void {
-  const headers = ["Empleado", "Desde", "Hasta", "Días", "Estado", "Comentario"]
-  const rows = items.map((v) => [
-    v.empleado_nombre ?? v.empleado_id,
-    v.fecha_desde,
-    v.fecha_hasta,
-    String(v.dias),
-    v.estado,
-    v.comentario ?? "",
-  ])
-  const csvContent = [headers, ...rows]
-    .map((row) => row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(","))
-    .join("\n")
-  const blob = new Blob(["﻿" + csvContent], { type: "text/csv;charset=utf-8;" })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement("a")
-  a.href = url
-  a.download = "vacaciones.csv"
-  a.click()
-  URL.revokeObjectURL(url)
+/** Exporta el listado de vacaciones (pdf/excel/csv/word) vía el motor central. */
+export function exportarVacaciones(formato: FormatoExport, empresaIdOverride?: string): Promise<void> {
+  const headers = empresaIdOverride ? { "X-Empresa-Id": empresaIdOverride } : undefined
+  return descargarArchivo("/api/vacaciones/exportar", formato, "vacaciones", headers)
 }

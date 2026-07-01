@@ -2,10 +2,11 @@
 Router de asignaciones de inventario. Montado en /api/inventario/asignaciones.
 empresa_id para lecturas: X-Empresa-Id. Para asignar: heredado del ítem en el service.
 """
-from typing import Optional
+from typing import Literal, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import Response
 
 from schemas.inventario import (
     AsignacionCreate, AsignacionListResponse, AsignacionResponse, DevolucionRequest,
@@ -37,6 +38,16 @@ async def asignar_item(
     service: InventarioAsignacionesService = Depends(_svc),
 ) -> AsignacionResponse:
     return service.asignar(body, request.state.user.get("id", "system"))
+
+
+@router.get("/exportar", dependencies=[Depends(require_permission(SECCION, Accion.READ))])
+async def exportar_asignaciones(
+    request: Request,
+    formato: Literal["pdf", "excel", "csv", "word"] = Query("excel"),
+    service: InventarioAsignacionesService = Depends(_svc),
+) -> Response:
+    d = service.exportar(get_empresa_id(request), formato)
+    return Response(content=d.content, media_type=d.media_type, headers={"Content-Disposition": f'attachment; filename="{d.filename}"'})
 
 
 @router.post("/{id}/devolver", response_model=AsignacionResponse, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])

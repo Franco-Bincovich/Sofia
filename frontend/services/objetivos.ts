@@ -1,9 +1,16 @@
 import type {
   CambiarEstadoRequest, Objetivo, ObjetivoCreate, ObjetivoListResponse, ObjetivoUpdate, UserItem,
 } from "@/types/objetivo"
-import { apiFetch } from "@/services/api"
+import { apiFetch, descargarArchivo, type FormatoExport } from "@/services/api"
 
 const BASE = "/api/objetivos"
+
+export type { FormatoExport }
+
+export function exportarObjetivos(formato: FormatoExport, empresaIdOverride?: string): Promise<void> {
+  const headers = empresaIdOverride ? { "X-Empresa-Id": empresaIdOverride } : undefined
+  return descargarArchivo(`${BASE}/exportar`, formato, "objetivos", headers)
+}
 
 function override(id?: string): RequestInit {
   return id ? { headers: { "X-Empresa-Id": id } } : {}

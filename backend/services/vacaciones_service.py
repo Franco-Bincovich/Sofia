@@ -16,14 +16,13 @@ from uuid import UUID
 
 from repositories.vacaciones_repo import VacacionesRepo
 from schemas.vacaciones import (
-    SaldoVacacionesResponse,
-    SolicitudVacacionesCreate,
-    SolicitudVacacionesListResponse,
-    SolicitudVacacionesResponse,
+    SaldoVacacionesResponse, SolicitudVacacionesCreate,
+    SolicitudVacacionesListResponse, SolicitudVacacionesResponse,
 )
 from services._audit_payloads import payload_cancelacion_vacacion
 from services._vacaciones_utils import derive_estado
 from services.audit_service import AuditService
+from services.export import Descarga, build_export
 from utils.errors import AppError
 from utils.logger import logger
 
@@ -39,6 +38,11 @@ class VacacionesService:
         rows, total = self._repo.find_all(empresa_id, area_id, page, page_size)
         items = [derive_estado(r, today) for r in rows]
         return SolicitudVacacionesListResponse(items=items, total=total)
+
+    def exportar(self, empresa_id: Optional[UUID] = None, formato: str = "excel", area_id: Optional[UUID] = None) -> Descarga:
+        """Exporta la lista completa de vacaciones (con estado derivado) al formato pedido vía el motor."""
+        items = [i.model_dump(mode="json") for i in self.get_all(empresa_id, area_id, 1, 100000).items]
+        return build_export(nombre="Vacaciones", datos={"Vacaciones": items}, filename_base="vacaciones", formato=formato)
 
     def get_by_empleado(self, empleado_id: UUID) -> SolicitudVacacionesListResponse:
         """Retorna las vacaciones (no canceladas) de un empleado, con estado derivado."""

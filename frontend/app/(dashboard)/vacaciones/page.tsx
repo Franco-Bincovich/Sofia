@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback, useEffect } from "react"
-import { Umbrella, Plus, Download } from "lucide-react"
+import { Umbrella, Plus } from "lucide-react"
 import { toast } from "sonner"
 
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -15,7 +15,8 @@ import {
 } from "@/components/ui/table"
 import { VacacionesModal } from "@/components/features/vacaciones/VacacionesModal"
 import { MapaVacaciones } from "@/components/features/vacaciones/MapaVacaciones"
-import { fetchVacaciones, cancelarVacacion, exportVacacionesCSV } from "@/services/vacaciones"
+import { fetchVacaciones, cancelarVacacion, exportarVacaciones } from "@/services/vacaciones"
+import { ExportMenu } from "@/components/features/export/ExportMenu"
 import { fetchEmpresas } from "@/services/empresas"
 import { fetchAreas } from "@/services/areas"
 import { getEmpresaActivaId } from "@/services/empresaStore"
@@ -152,10 +153,7 @@ export default function VacacionesPage() {
         action={
           <div className="flex gap-2">
             {!loading && !error && solicitudes.length > 0 && (
-              <Button variant="outline" className="min-h-11" onClick={() => exportVacacionesCSV(filtered)}>
-                <Download className="size-4" />
-                Exportar CSV
-              </Button>
+              <ExportMenu onExport={(f) => exportarVacaciones(f, !empresaActivaId && empresaFiltro ? empresaFiltro : undefined)} />
             )}
             {canWrite && (
               <Button className="min-h-11" onClick={() => setModalOpen(true)}>

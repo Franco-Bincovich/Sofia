@@ -1,7 +1,8 @@
 """Router de asignaciones de capacitaciones. empresa_id en lecturas: X-Empresa-Id; en escrituras: heredado del empleado."""
-from typing import Optional
+from typing import Literal, Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
+from fastapi.responses import Response
 from schemas.capacitacion import AsignacionCreate, AsignacionListResponse, AsignacionResponse, AsignacionUpdate
 from services.asignacion_service import AsignacionService
 from utils.empresa import get_empresa_id
@@ -23,6 +24,12 @@ async def list_asignaciones(
     service: AsignacionService = Depends(_svc),
 ) -> AsignacionListResponse:
     return service.get_all(get_empresa_id(request), empleado_id, capacitacion_id, estado, area_id)
+
+
+@router.get("/exportar", dependencies=[Depends(require_permission(SECCION, Accion.READ))])
+async def exportar_asignaciones(request: Request, formato: Literal["pdf", "excel", "csv", "word"] = Query("excel"), service: AsignacionService = Depends(_svc)) -> Response:
+    d = service.exportar(get_empresa_id(request), formato)
+    return Response(content=d.content, media_type=d.media_type, headers={"Content-Disposition": f'attachment; filename="{d.filename}"'})
 
 
 @router.post("", response_model=AsignacionResponse, status_code=201, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
