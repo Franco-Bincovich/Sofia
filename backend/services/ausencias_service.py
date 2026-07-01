@@ -12,12 +12,14 @@ from typing import Optional
 from uuid import UUID
 
 from repositories.ausencias_repo import AusenciasRepo
+from repositories.periodo_repo import PeriodoRepo
 from schemas.ausencias import (
     AusenciaCreate, AusenciaListResponse, AusenciaResponse, AusenciaUpdate,
 )
 from services._audit_payloads import (
     payload_alta_ausencia, payload_baja_ausencia, payload_update_ausencia,
 )
+from services._periodo_utils import verificar_periodo_abierto
 from services.audit_service import AuditService
 from services.export import Descarga, build_export
 from utils.errors import AppError
@@ -25,9 +27,10 @@ from utils.logger import logger
 
 
 class AusenciasService:
-    def __init__(self, repo: Optional[AusenciasRepo] = None, audit: Optional[AuditService] = None) -> None:
+    def __init__(self, repo: Optional[AusenciasRepo] = None, audit: Optional[AuditService] = None, periodo_repo: Optional[PeriodoRepo] = None) -> None:
         self._repo = repo or AusenciasRepo()
         self._audit = audit or AuditService()
+        self._periodos = periodo_repo or PeriodoRepo()
 
     def get_all(self, empresa_id: Optional[UUID] = None, area_id: Optional[UUID] = None, tipo_id: Optional[UUID] = None, page: int = 1, page_size: int = 20) -> AusenciaListResponse:
         """
@@ -70,6 +73,7 @@ class AusenciasService:
         empresa_id = self._repo.find_empresa_for_empleado(str(data.empleado_id))
         if not empresa_id:
             raise AppError("Empleado no encontrado", "EMPLEADO_NOT_FOUND", 404)
+        verificar_periodo_abierto(empresa_id, "ausencias", desde=data.fecha_desde, hasta=data.fecha_hasta, repo=self._periodos)
         dias = (data.fecha_hasta - data.fecha_desde).days + 1
         row = self._repo.save(
             str(data.empleado_id), empresa_id, str(data.tipo_id),
@@ -90,6 +94,9 @@ class AusenciasService:
         existing = self._repo.find_by_id(str(id), empresa_id)
         if not existing:
             raise AppError("Ausencia no encontrada", "AUSENCIA_NOT_FOUND", 404)
+        # Bloqueo por período: no se puede sacar de un período cerrado (fechas viejas) ni meter en uno (nuevas).
+        verificar_periodo_abierto(existing.empresa_id, "ausencias", desde=existing.fecha_desde, hasta=existing.fecha_hasta, repo=self._periodos)
+        verificar_periodo_abierto(existing.empresa_id, "ausencias", desde=data.fecha_desde or existing.fecha_desde, hasta=data.fecha_hasta or existing.fecha_hasta, repo=self._periodos)
         payload: dict = {}
         if data.tipo_id is not None:
             payload["tipo_id"] = str(data.tipo_id)
@@ -121,6 +128,8 @@ class AusenciasService:
             AppError: AUSENCIA_NOT_FOUND (404) si no existe.
         """
         prior = self._repo.find_by_id(str(id), empresa_id)
+        if prior:
+            verificar_periodo_abierto(prior.empresa_id, "ausencias", desde=prior.fecha_desde, hasta=prior.fecha_hasta, repo=self._periodos)
         if not self._repo.delete(str(id), empresa_id):
             raise AppError("Ausencia no encontrada", "AUSENCIA_NOT_FOUND", 404)
         if prior:

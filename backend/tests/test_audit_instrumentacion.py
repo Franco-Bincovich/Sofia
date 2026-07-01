@@ -38,6 +38,13 @@ class _FakeAudit:
         self.calls.append(kwargs)
 
 
+class _SinPeriodos:
+    """periodo_repo fake sin cierres: el check de B3.2 no bloquea nada."""
+
+    def find_cerrados(self, _empresa, _modulo):
+        return []
+
+
 def _vacacion(cancelada: bool) -> SolicitudVacacionesResponse:
     return SolicitudVacacionesResponse(
         id="v1", empresa_id="e1", empleado_id="emp1",
@@ -92,7 +99,7 @@ class _FakeAusRepo:
 class TestVacacionesAudit:
     def test_cancel_registra_evento(self) -> None:
         audit = _FakeAudit()
-        svc = VacacionesService(repo=_FakeVacRepo(), audit=audit)
+        svc = VacacionesService(repo=_FakeVacRepo(), audit=audit, periodo_repo=_SinPeriodos())
         svc.cancel(uuid4(), empresa_id=None, usuario_id="u1")
         assert len(audit.calls) == 1
         c = audit.calls[0]
@@ -108,7 +115,7 @@ class TestVacacionesAudit:
 class TestAusenciasAudit:
     def test_create_registra_alta(self) -> None:
         audit = _FakeAudit()
-        svc = AusenciasService(repo=_FakeAusRepo(), audit=audit)
+        svc = AusenciasService(repo=_FakeAusRepo(), audit=audit, periodo_repo=_SinPeriodos())
         from schemas.ausencias import AusenciaCreate
         svc.create(
             AusenciaCreate(empleado_id=uuid4(), tipo_id=uuid4(),
@@ -124,7 +131,7 @@ class TestAusenciasAudit:
 
     def test_delete_lee_prior_y_registra_baja(self) -> None:
         audit = _FakeAudit()
-        svc = AusenciasService(repo=_FakeAusRepo(), audit=audit)
+        svc = AusenciasService(repo=_FakeAusRepo(), audit=audit, periodo_repo=_SinPeriodos())
         svc.delete(uuid4(), empresa_id=None, usuario_id="u1")
         assert len(audit.calls) == 1
         c = audit.calls[0]
@@ -155,7 +162,7 @@ class TestNoRegistraSiFalla:
         audit = _FakeAudit()
         repo = _FakeVacRepo()
         repo.prior = _vacacion(cancelada=True)  # ya cancelada → YA_CANCELADA
-        svc = VacacionesService(repo=repo, audit=audit)
+        svc = VacacionesService(repo=repo, audit=audit, periodo_repo=_SinPeriodos())
         try:
             svc.cancel(uuid4(), usuario_id="u1")
         except AppError:

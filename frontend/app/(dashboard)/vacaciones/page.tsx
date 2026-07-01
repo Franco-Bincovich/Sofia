@@ -121,8 +121,8 @@ export default function VacacionesPage() {
     try {
       await cancelarVacacion(id)
       await load()
-    } catch {
-      toast.error("No se pudo cancelar la solicitud. Intentá de nuevo.")
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "No se pudo cancelar la solicitud. Intentá de nuevo.")
     } finally {
       setCancelingId(null)
     }

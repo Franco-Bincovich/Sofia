@@ -98,8 +98,8 @@ export default function AusenciasPage() {
     try {
       await deleteAusencia(id)
       await load()
-    } catch {
-      toast.error("No se pudo eliminar la ausencia. Intentá de nuevo.")
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "No se pudo eliminar la ausencia. Intentá de nuevo.")
     } finally {
       setDeletingId(null)
     }

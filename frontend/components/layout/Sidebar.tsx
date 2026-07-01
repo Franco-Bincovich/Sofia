@@ -22,6 +22,7 @@ import {
   Package,
   Target,
   ScrollText,
+  CalendarClock,
   Menu,
   X,
   Settings,
@@ -69,6 +70,7 @@ const NAV_ITEMS: ReadonlyArray<{
   { label: "Objetivos", href: "/objetivos", icon: Target, seccion: "objetivos" },
   { label: "Reportes", href: "/reportes", icon: BarChart3, seccion: "reportes" },
   { label: "Auditoría", href: "/auditoria", icon: ScrollText, seccion: "auditoria" },
+  { label: "Períodos", href: "/periodos", icon: CalendarClock, seccion: "periodos" },
   { label: "Configuración", href: "/configuracion", icon: Settings, seccion: null },
 ]
 

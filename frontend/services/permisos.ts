@@ -16,7 +16,7 @@ export type Seccion =
   | "assessment" | "organigrama" | "dashboard" | "empresa" | "reportes"
   | "importacion" | "integraciones" | "capacitaciones" | "evaluaciones"
   | "inventario" | "objetivos" | "usuarios" | "procesos" | "proyectos"
-  | "auditoria"
+  | "auditoria" | "periodos"
 
 const MANDOS_MEDIOS_SECCIONES: ReadonlySet<Seccion> = new Set<Seccion>([
   "vacaciones",
@@ -61,6 +61,7 @@ const RUTA_SECCION: Readonly<Record<string, Seccion>> = {
   procesos: "procesos",
   proyectos: "proyectos",
   auditoria: "auditoria",
+  periodos: "periodos",
 }
 
 /** Seccion correspondiente a un pathname, o null si la ruta no se gatea por permiso. */
@@ -95,6 +96,7 @@ const RUTAS_ORDENADAS: ReadonlyArray<{ ruta: string; seccion: Seccion }> = [
   { ruta: "/objetivos", seccion: "objetivos" },
   { ruta: "/reportes", seccion: "reportes" },
   { ruta: "/auditoria", seccion: "auditoria" },
+  { ruta: "/periodos", seccion: "periodos" },
 ]
 
 /** Primera ruta (en orden de nav) que el rol puede leer, o null si ninguna (fail-closed). */

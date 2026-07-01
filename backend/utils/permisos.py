@@ -61,6 +61,7 @@ class Seccion(str, Enum):
     PROCESOS = "procesos"
     PROYECTOS = "proyectos"
     AUDITORIA = "auditoria"
+    PERIODOS = "periodos"
 
 
 # mandos_medios solo opera (R+W) sobre estas secciones; en el resto no puede nada.

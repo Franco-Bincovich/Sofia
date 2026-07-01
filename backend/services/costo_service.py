@@ -3,16 +3,20 @@ Servicio de Costos de Personal. Lógica de negocio del módulo de Costos.
 Flujo: router → service → repository → DB
 CRÍTICO: todo cálculo de totales y agregaciones filtra por empresa_id cuando se provee.
 """
+from calendar import monthrange
+from datetime import date
 from typing import List, Optional
 from uuid import UUID
 
 from repositories.nomina_repo import NominaRepo
+from repositories.periodo_repo import PeriodoRepo
 from repositories.presupuesto_repo import PresupuestoRepo
 from schemas.costo import (
     CostoArea, DashboardCostosResponse, NominaCreate, NominaResponse,
     PresupuestoCreate, PresupuestoResponse,
 )
 from services._audit_payloads_rrhh import payload_carga_nomina, payload_set_presupuesto
+from services._periodo_utils import verificar_periodo_abierto
 from services.audit_service import AuditService
 from utils.errors import AppError
 from utils.logger import logger
@@ -24,10 +28,12 @@ class CostoService:
         nomina_repo: Optional[NominaRepo] = None,
         presupuesto_repo: Optional[PresupuestoRepo] = None,
         audit: Optional[AuditService] = None,
+        periodo_repo: Optional[PeriodoRepo] = None,
     ) -> None:
         self._nomina = nomina_repo or NominaRepo()
         self._presupuesto = presupuesto_repo or PresupuestoRepo()
         self._audit = audit or AuditService()
+        self._periodos = periodo_repo or PeriodoRepo()
 
     def get_dashboard_costos(self, mes: int, anio: int, empresa_id: Optional[UUID] = None) -> DashboardCostosResponse:
         """
@@ -87,19 +93,14 @@ class CostoService:
 
     def cargar_nomina(self, data: NominaCreate, empresa_id: Optional[UUID] = None, usuario_id: Optional[str] = None) -> NominaResponse:
         """
-        Registra o actualiza la nómina de un empleado para un período dado (upsert).
-        empresa_id se hereda del empleado — el repositorio lo resuelve automáticamente.
-        Si empresa_id se provee, valida que el empleado pertenezca a esa empresa.
-        Registra el evento de auditoría (empresa_id = la del registro de nómina).
-
-        Args:
-            data: Datos de nómina (empleado, período, monto bruto y neto).
-            empresa_id: Contexto de empresa para validación. None = sin validación extra.
-            usuario_id: ID del operador (trazabilidad de audit).
+        Registra o actualiza la nómina de un empleado para un período (upsert). empresa_id
+        se hereda del empleado (lo resuelve el repo); auditado. Bloquea si el mes está cerrado.
 
         Raises:
-            AppError: NOMINA_SAVE_ERROR (500) si la operación en DB falla.
+            AppError: NOMINA_SAVE_ERROR (500) si la DB falla; PERIODO_CERRADO (409) si el mes está cerrado.
         """
+        ult = monthrange(data.anio, data.mes)[1]
+        verificar_periodo_abierto(empresa_id, "costos", desde=date(data.anio, data.mes, 1), hasta=date(data.anio, data.mes, ult), repo=self._periodos)
         try:
             nomina = self._nomina.save_nomina(data)
         except AppError:

@@ -1,5 +1,6 @@
 """
-Armado de payloads de auditoría para empleados, costos, empresa (T18.4c) y adjuntos (B4.1).
+Armado de payloads de auditoría para empleados, costos, empresa (T18.4c), adjuntos (B4.1)
+y períodos cerrados (B3.1).
 
 Continuación de services/_audit_payloads.py (18.4b): se separó en un módulo propio
 porque sumar estos 7 eventos cruzaba el límite de 150 líneas del helper original.
@@ -108,6 +109,25 @@ def payload_baja_adjunto(adj, usuario_id: Optional[str]) -> dict:
         "accion": "DELETE", "evento": "baja_adjunto", "empresa_id": adj.empresa_id,
         "datos_anteriores": {"adjunto_id": adj.id, "nombre_archivo": adj.nombre_archivo},
         "datos_nuevos": None,
+    }
+
+
+def payload_cierre_periodo(p, usuario_id: Optional[str]) -> dict:
+    """Evento INSERT de cierre de período (bloqueo). registro_id = id del período."""
+    return {
+        "usuario_id": usuario_id, "entidad": "periodo", "registro_id": p.id,
+        "accion": "INSERT", "evento": "cierre_periodo", "empresa_id": p.empresa_id,
+        "datos_anteriores": None,
+        "datos_nuevos": {"modulo": p.modulo, "desde": str(p.desde), "hasta": str(p.hasta)},
+    }
+
+
+def payload_reapertura_periodo(p, usuario_id: Optional[str]) -> dict:
+    """Evento UPDATE de reapertura de un período (estado cerrado → abierto)."""
+    return {
+        "usuario_id": usuario_id, "entidad": "periodo", "registro_id": p.id,
+        "accion": "UPDATE", "evento": "reapertura_periodo", "empresa_id": p.empresa_id,
+        "datos_anteriores": {"estado": "cerrado"}, "datos_nuevos": {"estado": "abierto"},
     }
 
 

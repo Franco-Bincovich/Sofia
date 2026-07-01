@@ -269,8 +269,8 @@ export default function CostosPage() {
       })
       setEditItem(null)
       await Promise.all([load(), loadNomina()])
-    } catch {
-      setEditError("No se pudo guardar. Intentá de nuevo.")
+    } catch (err: unknown) {
+      setEditError(err instanceof Error ? err.message : "No se pudo guardar. Intentá de nuevo.")
     } finally {
       setEditSaving(false)
     }

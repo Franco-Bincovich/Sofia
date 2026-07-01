@@ -14,12 +14,14 @@ from datetime import date
 from typing import Optional
 from uuid import UUID
 
+from repositories.periodo_repo import PeriodoRepo
 from repositories.vacaciones_repo import VacacionesRepo
 from schemas.vacaciones import (
     SaldoVacacionesResponse, SolicitudVacacionesCreate,
     SolicitudVacacionesListResponse, SolicitudVacacionesResponse,
 )
 from services._audit_payloads import payload_cancelacion_vacacion
+from services._periodo_utils import verificar_periodo_abierto
 from services._vacaciones_utils import derive_estado
 from services.audit_service import AuditService
 from services.export import Descarga, build_export
@@ -28,9 +30,10 @@ from utils.logger import logger
 
 
 class VacacionesService:
-    def __init__(self, repo: Optional[VacacionesRepo] = None, audit: Optional[AuditService] = None) -> None:
+    def __init__(self, repo: Optional[VacacionesRepo] = None, audit: Optional[AuditService] = None, periodo_repo: Optional[PeriodoRepo] = None) -> None:
         self._repo = repo or VacacionesRepo()
         self._audit = audit or AuditService()
+        self._periodos = periodo_repo or PeriodoRepo()
 
     def get_all(self, empresa_id: Optional[UUID] = None, area_id: Optional[UUID] = None, page: int = 1, page_size: int = 20) -> SolicitudVacacionesListResponse:
         """Retorna una página de solicitudes con estado derivado, filtradas por empresa/área. total = count real del filtro."""
@@ -73,6 +76,7 @@ class VacacionesService:
         empresa_id = self._repo.find_empresa_for_empleado(str(data.empleado_id))
         if not empresa_id:
             raise AppError("Empleado no encontrado", "EMPLEADO_NOT_FOUND", 404)
+        verificar_periodo_abierto(empresa_id, "vacaciones", desde=data.fecha_desde, hasta=data.fecha_hasta, repo=self._periodos)
 
         overlapping = self._repo.find_overlapping(
             str(data.empleado_id), data.fecha_desde, data.fecha_hasta, data.tipo
@@ -108,6 +112,7 @@ class VacacionesService:
         row = self._repo.find_by_id(str(id), empresa_id)
         if not row:
             raise AppError("Solicitud de vacaciones no encontrada", "VACACION_NOT_FOUND", 404)
+        verificar_periodo_abierto(row.empresa_id, "vacaciones", desde=row.fecha_desde, hasta=row.fecha_hasta, repo=self._periodos)
         if row.cancelada:
             raise AppError("La solicitud ya está cancelada", "YA_CANCELADA", 422)
         updated = self._repo.cancel(str(id), empresa_id)
@@ -116,17 +121,9 @@ class VacacionesService:
         return derive_estado(updated, date.today())  # type: ignore[arg-type]
 
     def get_saldo(self, empleado_id: UUID) -> SaldoVacacionesResponse:
-        """
-        Calcula el saldo anual de vacaciones pagas del empleado.
-        Solo las solicitudes tipo='vacaciones' no canceladas descuentan:
-          - gozados: estado 'tomada'
-          - pedidos: estado 'planificada'
-          - disponibles = asignados − gozados − pedidos
-        Si el empleado no tiene solicitudes, gozados y pedidos son 0 y disponibles = asignados.
-
-        Raises:
-            AppError: EMPLEADO_NOT_FOUND (404) si el empleado no existe.
-        """
+        """Saldo anual de vacaciones pagas. Solo tipo='vacaciones' no cancelado descuenta:
+        gozados (estado 'tomada') + pedidos (estado 'planificada'); disponibles = asignados − ambos.
+        Raises EMPLEADO_NOT_FOUND (404) si el empleado no existe."""
         asignados = self._repo.find_dias_asignados(str(empleado_id))
         if asignados is None:
             raise AppError("Empleado no encontrado", "EMPLEADO_NOT_FOUND", 404)
