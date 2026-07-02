@@ -15,14 +15,17 @@ interface EmpleadoLiderSelectProps {
   loading: boolean
   error: boolean
   onRetry: () => void
+  hint?: string // texto de ayuda bajo el label (varía según qué empleados se listan)
 }
 
 function etiqueta(e: EmpleadoLider): string {
   return `${e.apellido}, ${e.nombre}${e.legajo ? ` · ${e.legajo}` : ""}`
 }
 
-/** Selector buscable de empleados líderes (para vincular al usuario). Incluye "sin vincular". */
-export function EmpleadoLiderSelect({ value, onChange, options, loading, error, onRetry }: EmpleadoLiderSelectProps) {
+const HINT_DEFAULT = "Opcional. Solo se listan empleados marcados como líderes."
+
+/** Selector buscable de empleados para vincular al usuario. Incluye "sin vincular". */
+export function EmpleadoLiderSelect({ value, onChange, options, loading, error, onRetry, hint }: EmpleadoLiderSelectProps) {
   const [query, setQuery] = useState("")
 
   const filtradas = useMemo(() => {
@@ -35,7 +38,7 @@ export function EmpleadoLiderSelect({ value, onChange, options, loading, error, 
       <div className="flex flex-col gap-1.5">
         <Label>Empleado vinculado</Label>
         <div className="rounded-md border border-destructive/40 p-3 text-sm">
-          <span className="text-destructive">No se pudieron cargar los líderes.</span>{" "}
+          <span className="text-destructive">No se pudieron cargar los empleados.</span>{" "}
           <button type="button" className="underline hover:text-primary" onClick={onRetry}>
             Reintentar
           </button>
@@ -47,22 +50,20 @@ export function EmpleadoLiderSelect({ value, onChange, options, loading, error, 
   return (
     <div className="flex flex-col gap-1.5">
       <Label htmlFor="empleado-lider-search">Empleado vinculado</Label>
-      <p className="text-xs text-muted-foreground">
-        Opcional. Solo se listan empleados marcados como líderes.
-      </p>
+      <p className="text-xs text-muted-foreground">{hint ?? HINT_DEFAULT}</p>
       <div className="relative">
         <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           id="empleado-lider-search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder={loading ? "Cargando líderes..." : "Buscar por nombre o legajo..."}
+          placeholder={loading ? "Cargando..." : "Buscar por nombre o legajo..."}
           className="pl-8"
           disabled={loading}
           autoComplete="off"
         />
       </div>
-      <ul role="listbox" aria-label="Empleados líderes" className="max-h-44 overflow-y-auto rounded-md border">
+      <ul role="listbox" aria-label="Empleados" className="max-h-44 overflow-y-auto rounded-md border">
         <li>
           <Opcion selected={value === ""} onClick={() => onChange("")}>
             <span className="italic text-muted-foreground">Sin vincular</span>

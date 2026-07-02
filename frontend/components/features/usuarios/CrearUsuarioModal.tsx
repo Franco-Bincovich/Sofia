@@ -11,14 +11,10 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { EmpleadoLiderSelect } from "@/components/features/usuarios/EmpleadoLiderSelect"
-import { TextField } from "@/components/features/usuarios/_fields"
-import {
-  crearUsuario,
-  fetchEmpleadosLideres,
-  type CrearUsuarioPayload,
-  type CrearUsuarioResult,
-  type EmpleadoLider,
-} from "@/services/usuarios"
+import { SelectField, TextField } from "@/components/features/usuarios/_fields"
+import { useEmpleadosPorRol } from "@/hooks/useEmpleadosPorRol"
+import { crearUsuario, type CrearUsuarioPayload, type CrearUsuarioResult } from "@/services/usuarios"
+import { ROL_LABEL, type UserRol } from "@/types/auth"
 
 interface CrearUsuarioModalProps {
   open: boolean
@@ -26,11 +22,12 @@ interface CrearUsuarioModalProps {
   onCreated: (result: CrearUsuarioResult) => void
 }
 
-type FormData = { nombre: string; apellido: string; email: string; username: string; empleadoId: string }
-type FormErrors = Partial<Record<Exclude<keyof FormData, "empleadoId">, string>>
+type FormData = { nombre: string; apellido: string; email: string; username: string; rol: string; empleadoId: string }
+type FormErrors = Partial<Record<Exclude<keyof FormData, "empleadoId" | "rol">, string>>
 
-const EMPTY: FormData = { nombre: "", apellido: "", email: "", username: "", empleadoId: "" }
+const EMPTY: FormData = { nombre: "", apellido: "", email: "", username: "", rol: "mandos_medios", empleadoId: "" }
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const ROL_OPTIONS = (Object.keys(ROL_LABEL) as UserRol[]).map((r) => ({ value: r, label: ROL_LABEL[r] }))
 
 function validate(f: FormData): FormErrors {
   const e: FormErrors = {}
@@ -47,37 +44,25 @@ export function CrearUsuarioModal({ open, onClose, onCreated }: CrearUsuarioModa
   const [errors, setErrors] = useState<FormErrors>({})
   const [submitting, setSubmitting] = useState(false)
   const [serverError, setServerError] = useState("")
-  const [lideres, setLideres] = useState<EmpleadoLider[]>([])
-  const [lideresLoading, setLideresLoading] = useState(false)
-  const [lideresError, setLideresError] = useState(false)
-
-  async function loadLideres() {
-    setLideresLoading(true)
-    setLideresError(false)
-    try {
-      setLideres(await fetchEmpleadosLideres())
-    } catch {
-      setLideresError(true)
-    } finally {
-      setLideresLoading(false)
-    }
-  }
+  const { empleados, loading: empLoading, error: empError, reload } = useEmpleadosPorRol(open, form.rol)
 
   useEffect(() => {
     if (!open) return
     setForm(EMPTY)
     setErrors({})
     setServerError("")
-    void loadLideres()
   }, [open])
 
-  function field(key: Exclude<keyof FormData, "empleadoId">) {
+  function field(key: keyof FormErrors) {
     return (e: React.ChangeEvent<HTMLInputElement>) => {
       const val = e.target.value
       setForm((p) => ({ ...p, [key]: val }))
       if (errors[key]) setErrors((p) => ({ ...p, [key]: undefined }))
     }
   }
+
+  // Al cambiar el rol se resetea el vínculo: la lista de empleados cambia (líderes ↔ todos).
+  const handleRol = (rol: string) => setForm((p) => ({ ...p, rol, empleadoId: "" }))
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -94,6 +79,7 @@ export function CrearUsuarioModal({ open, onClose, onCreated }: CrearUsuarioModa
         apellido: form.apellido.trim(),
         email: form.email.trim(),
         username: form.username.trim(),
+        rol: form.rol,
         empleado_id: form.empleadoId || undefined,
       }
       onCreated(await crearUsuario(payload))
@@ -103,6 +89,10 @@ export function CrearUsuarioModal({ open, onClose, onCreated }: CrearUsuarioModa
       setSubmitting(false)
     }
   }
+
+  const hint = form.rol === "mandos_medios"
+    ? "Opcional. Solo se listan empleados marcados como líderes."
+    : "Opcional. Se listan todos los empleados activos."
 
   return (
     <Dialog open={open} onOpenChange={(o: boolean) => { if (!o) onClose() }}>
@@ -119,13 +109,15 @@ export function CrearUsuarioModal({ open, onClose, onCreated }: CrearUsuarioModa
             </div>
             <TextField id="email" label="Email" type="email" value={form.email} onChange={field("email")} error={errors.email} />
             <TextField id="username" label="Nombre de usuario" value={form.username} onChange={field("username")} error={errors.username} />
+            <SelectField id="rol" label="Rol" value={form.rol} onChange={handleRol} options={ROL_OPTIONS} />
             <EmpleadoLiderSelect
               value={form.empleadoId}
               onChange={(id) => setForm((p) => ({ ...p, empleadoId: id }))}
-              options={lideres}
-              loading={lideresLoading}
-              error={lideresError}
-              onRetry={loadLideres}
+              options={empleados}
+              loading={empLoading}
+              error={empError}
+              onRetry={reload}
+              hint={hint}
             />
           </div>
           {serverError && <p className="mt-2 text-sm text-destructive" role="alert">{serverError}</p>}

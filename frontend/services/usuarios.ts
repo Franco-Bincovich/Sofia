@@ -16,13 +16,14 @@ export interface UsuarioListResponse {
   total: number
 }
 
-/** Payload de alta de un usuario mandos_medios. El rol lo fuerza el backend. */
+/** Payload de alta de un usuario. `rol` viaja pero el backend lo revalida (ROLES_VALIDOS). */
 export interface CrearUsuarioPayload {
   nombre: string
   apellido: string
   email: string
   username: string
-  empleado_id?: string // opcional: vincula el user a su registro de empleado (líder)
+  rol: string
+  empleado_id?: string // opcional: vincula el user a su registro de empleado
 }
 
 /** Respuesta del alta: la contraseña temporal se muestra UNA sola vez. */
@@ -32,7 +33,7 @@ export interface CrearUsuarioResult {
   password_temporal: string
 }
 
-/** Empleado líder para el selector de vinculación (subconjunto de Empleado). */
+/** Empleado en el shape liviano del selector de vinculación (líderes o todos). */
 export interface EmpleadoLider {
   id: string
   nombre: string
@@ -66,13 +67,18 @@ export async function cambiarPassword(passwordActual: string, passwordNueva: str
   })
 }
 
-/**
- * Empleados líderes activos para el selector de vinculación, de la empresa activa
- * (o todas si el selector global está en "todas"). Reusa GET /api/empleados con es_lider=true.
- */
-export async function fetchEmpleadosLideres(): Promise<EmpleadoLider[]> {
-  const res = await apiFetch<EmpleadoListResponse>(
-    "/api/empleados?es_lider=true&estado=activo&page_size=100",
-  )
+/** Trae empleados activos del selector (shape liviano). `query` define el filtro extra. */
+async function fetchEmpleadosSelector(query: string): Promise<EmpleadoLider[]> {
+  const res = await apiFetch<EmpleadoListResponse>(`/api/empleados?${query}`)
   return res.items.map((e) => ({ id: e.id, nombre: e.nombre, apellido: e.apellido, legajo: e.legajo }))
+}
+
+/** Empleados LÍDERES activos (es_lider=true) — para vincular a un mando medio. */
+export async function fetchEmpleadosLideres(): Promise<EmpleadoLider[]> {
+  return fetchEmpleadosSelector("es_lider=true&estado=activo&page_size=100")
+}
+
+/** TODOS los empleados activos (omite es_lider) — para vincular a admin/gerencia. */
+export async function fetchEmpleadosTodos(): Promise<EmpleadoLider[]> {
+  return fetchEmpleadosSelector("estado=activo&page_size=100")
 }
