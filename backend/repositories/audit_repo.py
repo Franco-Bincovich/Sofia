@@ -39,6 +39,11 @@ def _build(rows: List[dict]) -> List[AuditLogResponse]:
     return [
         AuditLogResponse.model_validate({
             **r,
+            # Filas legacy (trigger viejo fn_auditoria) traen entidad/evento en NULL:
+            # 'tabla' es el nombre viejo de 'entidad' (mapeo directo); 'accion' (NOT NULL)
+            # es el fallback honesto de 'evento', que no existía en el modelo viejo.
+            "entidad": r.get("entidad") or r.get("tabla"),
+            "evento": r.get("evento") or r.get("accion"),
             "usuario_nombre": user_map.get(r.get("usuario_id")),
             "empresa_nombre": emp_map.get(r.get("empresa_id")),
         })
