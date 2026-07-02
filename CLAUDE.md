@@ -124,11 +124,11 @@ Unificación de los campos `cargo` + `rol` (029) en un único campo **`roles TEX
 
 ---
 
-## ABM de usuarios del sistema (Pieza 1 — backend COMPLETO, falta UI de cambio de contraseña)
-Gestión de usuarios del sistema, **solo admin_rrhh** (`Seccion.USUARIOS + WRITE`). Los usuarios se crean con rol forzado `mandos_medios` (el rol NO se recibe del cliente).
+## ABM de usuarios del sistema (Pieza 1 — COMPLETO)
+Gestión de usuarios del sistema, **solo admin_rrhh** (`Seccion.USUARIOS + WRITE`). El **rol se elige en el alta** (selector), validado en el schema contra `ROLES_VALIDOS` (`admin_rrhh`|`gerencia_lectura`|`mandos_medios`) → 422 si es inválido; ya **no** se fuerza `mandos_medios`.
 
 **Endpoints (`routers/usuarios.py`):**
-- `POST /api/usuarios` — alta de un mando_medio. Genera una **contraseña temporal** (aleatoria, `secrets`) que se devuelve **una sola vez** en la respuesta (`must_change_password=true`). Acepta `empleado_id` opcional → vincula `empleados.user_id`. Identidad en Supabase Auth (`auth.users`) + perfil espejo en `public.users`.
+- `POST /api/usuarios` — alta de un usuario con el rol elegido. Genera una **contraseña temporal** (aleatoria, `secrets`) que se devuelve **una sola vez** en la respuesta (`must_change_password=true`). Acepta `empleado_id` opcional → vincula `empleados.user_id`. Identidad en Supabase Auth (`auth.users`) + perfil espejo en `public.users`.
 - `DELETE /api/usuarios/{user_id}` — baja. Borra `auth.users` (admin API); el `ON DELETE CASCADE` limpia `public.users` y el `ON DELETE SET NULL` desvincula `empleados.user_id`. **Auto-eliminación bloqueada** (un admin no puede borrarse a sí mismo → 400). El id sale del **path**, el ejecutor del **token**.
 - `POST /api/usuarios/cambiar-password` — self-service (SIN gate de rol: cualquier usuario cambia SU propia clave). Reautentica con la actual antes de cambiar; baja `must_change_password`. El id sale del token, nunca del body.
 - `GET /api/usuarios` — listado (para selectores). Devuelve `{items, total}` con `id, nombre, apellido, email, username, rol`.
@@ -137,7 +137,34 @@ Gestión de usuarios del sistema, **solo admin_rrhh** (`Seccion.USUARIOS + WRITE
 
 **Frontend:** ruta `/usuarios` (gateada admin_rrhh: nav item por `accion:"write"` + guard de página por `puede(rol,"usuarios","write")`). `components/features/usuarios/` (`UsuariosTable`, `CrearUsuarioModal`, `EmpleadoLiderSelect`, `PasswordRevealModal`, `_fields`) + `components/ui/ConfirmDialog.tsx` (destructivo, reutilizable). El **selector de empleado a vincular filtra por `es_lider=true`** (vía `GET /api/empleados?es_lider=true`). La password temporal se muestra en un modal con "Copiar" + aviso "no se vuelve a mostrar"; la lista recarga al cerrar ese modal.
 
-**PENDIENTE (dentro de Pieza 1):** UI de cambio de contraseña — (1) redirect forzado a la pantalla de cambio si `must_change_password=true`, (2) pantalla de cambio voluntario. Backend listo, **falta la UI**.
+**UI de cambio de contraseña ✅ COMPLETO:** (1) redirect forzado a la pantalla de cambio si `must_change_password=true`, (2) pantalla de cambio voluntario. Backend + UI hechos. Pieza 1 cerrada.
+
+---
+
+## Ownership de mandos_medios (Pieza 2 — COMPLETO, app-level)
+Un `mandos_medios` ve y gestiona **solo su gente**: los empleados que lo tienen como superior inmediato (`empleados.manager_id` = el `empleados.id` del mando) **más su propio registro**. Decisión de producto: "a cargo" = **`manager_id`** (superior inmediato), NO área ni `es_lider`.
+
+**Criterio centralizado en `services/ownership.py`** (reusar, no reimplementar):
+- `ids_empleados_visibles(user_id, rol, repo) -> None | [] | [ids]` — **contrato**: `None` = sin restricción (admin_rrhh/gerencia_lectura ven todo); `[]` = no ve nada (fail-closed); `[ids]` = ve exactamente esos (mando: su id + subordinados directos vía `manager_id`).
+- `puede_gestionar_empleado(user_id, rol, empleado_id, repo) -> bool` — guard de escritura por fila (reusa el anterior: `None`→True, en la lista→True, `[]`/rol desconocido→False).
+- Repo dedicado `repositories/empleado_ownership_repo.py` (`find_by_user_id`, `ids_subordinados`, `ids_empleados_por_area`), separado de `empleado_repo` (over-limit).
+
+**Aplicado en 3 frentes, solo en Vacaciones y Ausencias:**
+- **Listados**: `get_all` recibe `user_id`/`rol` y resuelve el filtro vía `services/_ownership_filter.resolver_filtro_empleados` (intersección ownership ∩ área) → `find_all(empresa_id, empleado_ids)`. `[]` → devuelve vacío **sin consultar** la tabla.
+- **Export**: mismo filtro; el export de vacaciones acota además por `empleado_id` (intersección con el alcance del mando).
+- **5 escrituras**: `create`/`cancel` (vacaciones) + `create`/`update`/`delete` (ausencias) validan con `puede_gestionar_empleado` **antes de mutar**. CREAR → `OWNERSHIP_DENIED` **403** (empleado_id del body, check primero). CANCELAR/EDITAR/BORRAR → **404 para ajeno** (mismo código que inexistente, para no confirmar la existencia de registros de otros empleados). El `rol` se cablea del router al service (el `user_id` ya llegaba como `created_by`/`usuario_id`).
+
+**Nota operativa:** empleado con `manager_id` NULL → ningún mando lo ve; solo RRHH (fail-closed natural).
+**Falta (Pieza 2 posterior):** **RLS a nivel DB** como defensa en profundidad — hoy el enforcement es app-level y el backend usa service_key (bypassa RLS). Tests: `test_ownership.py`, `test_listados_ownership.py`, `test_escrituras_ownership.py`, `test_vacaciones_export.py`.
+
+---
+
+## Export estandarizado (COMPLETO)
+Los **4 sub-módulos** proyectan **columnas legibles sin UUIDs crudos** (nombres resueltos en lugar de `*_id`, fechas dd/mm/aaaa, booleanos Sí/No), vía un helper externo `services/_<modulo>_export.py::construir_filas_export(items)` — mismo molde que vacaciones. El motor genérico (`services/export/`, `build_export`) **NO se toca**.
+- **Vacaciones** (`_vacaciones_export.py`) — además filtra por área/empleado con ownership.
+- **Inventario asignaciones** (`_inventario_export.py`) e **ítems** (`_inventario_items_export.py`). `inventario_items` **antes NO exportaba**; ahora sí (`GET /api/inventario/items/exportar` + botón en el tab de Ítems).
+- **Evaluaciones** (`_evaluaciones_export.py`) y **Objetivos** (`_objetivos_export.py`).
+- Estos 3 (inventario/evaluaciones/objetivos) **no llevan ownership** (sus secciones no las tocan mandos): molde simple, `find_all` directo, sin `user_id`/`rol`.
 
 ---
 
@@ -151,7 +178,9 @@ Gestión de usuarios del sistema, **solo admin_rrhh** (`Seccion.USUARIOS + WRITE
 - **T18** (audit log app-level) ✅ completa. Backend `92d5edf` + UI `8646a9b`. Sin pushear.
 - **T18.6** (importación CSV de empleados) ✅ completa. Sin pushear.
 - **Campo Roles multi-valor** (S1–S5 ✅, S6 limpieza pendiente tras pruebas). Reemplazó la parte cargo→rol del legajo ampliado. Sin pushear.
-- **ABM usuarios (Pieza 1)** ✅ backend completo (crear/listar/eliminar + cambio de contraseña + audit); falta la UI de cambio de contraseña. Sin pushear. Ver sección dedicada arriba.
+- **ABM usuarios (Pieza 1)** ✅ COMPLETO — crear/listar/eliminar + **selector de rol** + cambio de contraseña (backend + UI, forzado y voluntario) + audit. Ver sección dedicada arriba.
+- **Ownership de mandos_medios (Pieza 2)** ✅ COMPLETO app-level (listados + export + 5 escrituras). Falta RLS. Ver sección dedicada.
+- **Export estandarizado** ✅ COMPLETO — 4 sub-módulos con columnas legibles sin UUIDs; `inventario_items` ahora exporta. Ver sección dedicada.
 - **T19–T25 / tandas pendientes** (ver mapa real abajo).
 
 ### Mapa real de pendientes (relevado contra código, ordenado por dependencia)
@@ -167,7 +196,7 @@ El mapa "T19–T25" era una simplificación; el plan real tiene 16 ítems. Pendi
 - **A1 — Columnas del legajo ✅ (resuelto a nivel schema)**: `sexo`, `domicilio`, `horas_contrato` ya existen (migración **060**, verificado). Las 2 decisiones de producto quedaron **cerradas**: (1) liderazgo es un **flag `es_lider`**, columna REAL `BOOLEAN DEFAULT FALSE` en 060 (NO un valor dentro de `roles[]`); (2) `horas_contrato` es **INTEGER** (horas diarias, ej. 8 — según el comentario de 060). `es_lider` está cableado end-to-end (checkbox del form → payload → columna). Resta solo el spot-check funcional del hito de cierre.
 
 **Tanda B — reuso de moldes:**
-- Export en Inventario/Objetivos/Evaluaciones (ítem 10) + estandarizar (ítem 11): replica `reporte_export_service`.
+- ✅ **Export en Inventario/Objetivos/Evaluaciones + ítems (ítems 10–11) — HECHO** vía el motor **`build_export`** (NO `reporte_export_service`, que quedó legacy): columnas legibles sin UUIDs, helpers `_<modulo>_export.py`. Ver "Export estandarizado" arriba.
 - Import vacaciones por área (ítem 7): reusa molde T18.6 + parser XLSX nuevo (extraer el modal de import a genérico). "Por equipo" bloqueado (no existe tabla `equipos`).
 - Adjuntos genéricos (ítem 4): sobre infra Supabase Storage existente.
 - Bloqueos por módulo con fecha (ítem 1): tabla nueva + check en services de escritura + panel. Reusa enum `Seccion`.
@@ -183,13 +212,13 @@ El mapa "T19–T25" era una simplificación; el plan real tiene 16 ítems. Pendi
 - **T21 (tracking de cambios)** puede solaparse conceptualmente con T18 (audit log). Revisar alcance antes de construir para no duplicar.
 - **T22 (import/export)** puede solaparse con T18.6 (CSV de empleados ya hecho). Revisar qué cubre T22 que no esté ya resuelto.
 
-**Pieza 2 — Ownership de mandos_medios (NO empezado):**
-- **mandos_medios ve solo SU gente**, resuelto por **`manager_id`** (superior inmediato) — NO por área ni por `es_lider`. `es_lider` filtra el **dropdown del ABM** (a quién se le crea usuario); `manager_id` define el **alcance** (a quiénes ve/gestiona ese usuario).
-- Requiere: vincular `empleados.user_id` (**ya se puebla desde el ABM**, Pieza 1) + **filtrado por fila** en Vacaciones/Ausencias + **RLS**.
-- **Va DESPUÉS de la prueba funcional.**
+**Pieza 2 — Ownership de mandos_medios ✅ COMPLETO (app-level):** ve/gestiona solo su gente (`manager_id`) en Vacaciones/Ausencias — listados, export y las 5 escrituras. Ver sección dedicada "Ownership de mandos_medios (Pieza 2 — COMPLETO)" arriba. `es_lider` filtra el dropdown del ABM; `manager_id` define el alcance. **Falta**: RLS a nivel DB (defensa en profundidad).
 
-**Hito de cierre de Entrega 2 (pendiente):**
-- **Prueba funcional exhaustiva end-to-end** de todo el sistema antes de dar Entrega 2 por terminada. Incluye S6 (limpieza del campo Roles) y el spot-check de los flujos tocados. Se difirieron los spot-checks puntuales a esta verificación completa final.
+**Resumen de cierre de Entrega 2:**
+- **Cerrados:** roles funcionales (T16) · ABM usuarios (Pieza 1, con selector de rol + cambio de contraseña) · audit app-level (T18) · legajo ampliado (A1) · adjuntos (B4) · tracking de cambios (A2) · **ownership Pieza 2** (app-level) · **export estandarizado** (4 módulos).
+- **Pendientes desbloqueados (se pueden atacar ya):** **selector de empleado en la UI** de listados de vacaciones/ausencias (el backend ya soporta el filtro por empleado) · **proyectos: asignar por área** (bulk insert).
+- **Bloqueados por insumo externo:** import vacaciones (falta el **Excel real** de ejemplo) · import objetivos (**rediseño del modelo**: cuelgan de `user`, no de empleado) · import + **módulo de evaluaciones de desempeño** (módulo nuevo).
+- **Pendiente de verificación:** **prueba funcional exhaustiva end-to-end** (la **ficha del empleado + adjuntos nunca se probaron** en vivo; bloqueos por período tampoco) · **S6** (limpieza del campo Roles: DROP `cargo`/`rol` + quitar fallbacks) · **decisión trigger DB vs captura app-level** de auditoría (hoy app-level).
 
 ---
 
@@ -197,12 +226,13 @@ El mapa "T19–T25" era una simplificación; el plan real tiene 16 ítems. Pendi
 
 ### Líneas (archivos over-limit)
 **Backend:** `reporte_export_service` 332, `reporte_generators` 249, `integracion_service` 201, `empleado_repo` **174** (era "~155"; medido con `.Count` — el filtro `es_lider` del ABM sumó, pero ya venía over-limit), `csv_service` 171, `reporte_anual` 154, `ev_instancias_repo` 146, `costo_repo` 135, `assessment_repo` 130, `ev_plantillas_repo` 129, `nomina_repo` 107, `proyectos_repo` 104, `ausencias_repo` 101. (`_audit_payloads_rrhh` en **175/200** — helper "otros", aún bajo límite pero creciendo con cada evento nuevo.)
-**Frontend (límite 150):** `sucesion/page.tsx` 861, `costos/page.tsx` 608, `vacantes/[id]/page.tsx` 573, `reportes/page.tsx` 531, `onboarding/page.tsx` 405, `onboarding/templates/[id]/page.tsx` 393, `configuracion/page.tsx` 374, `empleados/page.tsx` 299, `empleados/[id]/page.tsx` 289, `vacaciones/page.tsx` 286, `ausencias/page.tsx` 285, `offboarding/page.tsx` 268, `areas/page.tsx` 253, `empresas/[id]/page.tsx` 224, `vacantes/page.tsx` 213, `empresas/page.tsx` 194, `objetivos/page.tsx` 167.
+**Frontend (límite 150):** `sucesion/page.tsx` 861, `costos/page.tsx` 608, `vacantes/[id]/page.tsx` 573, `reportes/page.tsx` 531, `onboarding/page.tsx` 405, `onboarding/templates/[id]/page.tsx` 393, `configuracion/page.tsx` 374, `empleados/page.tsx` 299, `empleados/[id]/page.tsx` 289, `vacaciones/page.tsx` 286, `ausencias/page.tsx` 285, `offboarding/page.tsx` 268, `areas/page.tsx` 253, `empresas/[id]/page.tsx` 224, `vacantes/page.tsx` 213, `empresas/page.tsx` 194, `objetivos/page.tsx` 167, `components/features/inventario/ItemsTab.tsx` **152** (deuda **pre-existente**; el botón de export se agregó neto-cero, no la empeoró — candidato a refactor propio).
+- **Services cerca del límite 150 (margen ≤4, verificado `.Count`):** `ausencias_service.py` **148** (+ownership escrituras), `ev_instancias_service.py` **146**. `vacaciones_service.py` bajó a **139** al extraer `get_saldo` a `services/_vacaciones_saldo.py` (división forzada por sumar ownership). El próximo cambio a ausencias/ev_instancias exige dividir primero.
 - División = tarea de refactor propia (diagnóstico → implementación archivo por archivo, peores primero). NO mezclar con features. El `Pagination.tsx` de T18 sirve para refactorizar los listados over-limit.
 - ✅ **`Sidebar.tsx` resuelto**: se dividió en acordeón (secciones colapsables) → `Sidebar.tsx` (135), `NavGroup.tsx` (56), `NavItem.tsx` (35), `ThemeToggle.tsx` (24), `EmpresaSelector.tsx` (68) + `nav-config.ts` (66, define `NAV_GROUPS`). Todos bajo 150 (medido con `.Count`).
 
-### Routers en el límite exacto (margen cero — el próximo cambio los rompe)
-- `routers/ausencias.py` (80), `routers/empresa.py` (80). `routers/empleados.py` en 78. Compactar/dividir cuando una tarea futura los toque.
+### Routers cerca del límite (RE-MEDIDO con `.Count`)
+- `routers/ausencias.py` (79) y `routers/inventario_items.py` (79) — margen 1. `routers/empleados.py` (74), `routers/vacaciones.py` (73), `routers/empresa.py` (64) — con margen. **La antigua nota de "vacaciones/ausencias/empresa en 80/80 margen cero" quedó DESACTUALIZADA** (re-medido: ninguno está en 80).
 
 ### Audit log (T18)
 - `auditoria.tabla` es columna legacy (= `entidad` internamente). Drop column o drop NOT NULL = deuda futura.
@@ -219,13 +249,14 @@ El mapa "T19–T25" era una simplificación; el plan real tiene 16 ítems. Pendi
 
 ### Campo Roles (S1–S5)
 - `EmpleadoModal.tsx` en **402 líneas** (ya estaba en 385 antes, +17 por S3). Muy over-limit (2.7x). Candidato a dividir: extraer los `<select>`, EMPTY/TEXT_FIELDS y `validate` a subcomponentes. Refactor propio, no mezclar con feature.
-- ⚠️ **PRIORIDAD ALTA — compactación de routers**: `vacaciones.py` (80/80, margen CERO), `ausencias.py` (80), `empresa.py` (80), `empleados.py` (79). **El próximo cambio que toque cualquiera rompe el límite.** Dejó de ser "conviene pronto" — es lo siguiente a hacer ANTES de tocar un router de nuevo. Tarea propia (refactor de varios archivos).
+- ⚠️ **Compactación de routers — RE-MEDIDO, ya NO urgente**: los conteos viejos (vacaciones/ausencias/empresa en 80/80) estaban desactualizados. Medido con `.Count`: `ausencias.py` 79, `inventario_items.py` 79, `empleados.py` 74, `vacaciones.py` 73, `empresa.py` 64. Ninguno en el límite. Ver "Routers cerca del límite" abajo.
 - ⚠️ **Conteos de líneas históricos posiblemente subestimados**: hasta A4, Claude Code midió con `Measure-Object -Line` (descarta líneas en blanco); el límite cuenta líneas reales (`.Count`). Caso detectado: `page.tsx` reportada en 142/146 estaba realmente en 164 (over-limit) — corregida a 127 real en A4. **Al hacer la compactación de routers, re-medir TODO con `.Count`** y no fiarse de los números viejos. Los componentes nuevos (reportados 34–96) probablemente sigan OK; los que estaban al filo (routers, `EmpleadoModal` 402) podrían estar peor.
 - `roles-conocidos` aplana en Python (PostgREST no expone `unnest` sin RPC). OK por volumen; migrar a RPC/vista materializada si crece.
 - Fallbacks `roles[0] ?? cargo` activos en lecturas (S2) — se quitan en S6.
 
 ### Tests
 - Bloque `_TEST_ENV` (setup de env vars) duplicado en varios archivos de test. Candidato a `conftest.py` central. Cosmético.
+- `tests/test_escrituras_ownership.py` en **257** (sobre el "otros" 200). **Aceptable por precedente** (`test_usuarios.py` 314); los archivos de test no se sujetan estrictamente al límite en este repo. Recortar si molesta.
 
 ### Otras (heredadas)
 - Rate-limiter de BCRA no implementado (otro proyecto — no aplica a Sofia).
@@ -236,5 +267,5 @@ El mapa "T19–T25" era una simplificación; el plan real tiene 16 ítems. Pendi
 
 ## Git
 - Operar siempre desde `RRHH/Sofia/`.
-- Estado actual: **16 commits ahead** de origin sin pushear. Los 3 más recientes (hoy): `f26ef11` fix auditoría legacy (coalesce entidad/evento NULL → tabla/accion), `b60d1ef` sidebar a acordeón + división de archivos, `22d05ed` ABM usuarios mandos_medios (crear/listar/eliminar + cambio password + audit). Push cuando Franco decida. **Nota despliegue:** la migración 059 (campo Roles) + S3 + S5 van juntas a producción; la 063 (`must_change_password`) ya está aplicada en prod (versionada retroactivamente).
+- Estado actual: **26 commits ahead** de origin sin pushear. Los más recientes: `7820508` export inventario_items (columnas legibles + botón), `14b8a7f` ownership escrituras vacaciones/ausencias (**cierra Pieza 2**), `db8008d` export vacaciones (columnas + filtro área/empleado), `e977a5d` ownership listados + export, `1757472` base ownership (`find_by_user_id` + `ids_empleados_visibles`). Antes: cambio de contraseña UI (`510e9ae`), ABM usuarios selector de rol (`9db3ded`/`5fd6355`), organigrama cards (`8be1c8b`). Push cuando Franco decida. **Nota despliegue:** la migración 059 (campo Roles) + S3 + S5 van juntas a producción; la 063 (`must_change_password`) ya está aplicada en prod (versionada retroactivamente).
 - Formato de commits: convencional (`feat:`, `fix:`, `refactor:`, `chore:`, `docs:`, `test:`).
