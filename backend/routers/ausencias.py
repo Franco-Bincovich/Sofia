@@ -44,12 +44,12 @@ async def list_ausencias(
     page_size: int = Query(default=20, ge=1, le=100),
     service: AusenciasService = Depends(_svc),
 ) -> AusenciaListResponse:
-    return service.get_all(get_empresa_id(request), area_id, tipo_id, page, page_size)
+    return service.get_all(request.state.user.get("id"), request.state.user.get("rol"), get_empresa_id(request), area_id, tipo_id, page, page_size)
 
 
 @router.get("/exportar", dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def exportar_ausencias(request: Request, formato: Literal["pdf", "excel", "csv", "word"] = Query("excel"), service: AusenciasService = Depends(_svc)) -> Response:
-    d = service.exportar(get_empresa_id(request), formato)
+    d = service.exportar(request.state.user.get("id"), request.state.user.get("rol"), get_empresa_id(request), formato)
     return Response(content=d.content, media_type=d.media_type, headers={"Content-Disposition": f'attachment; filename="{d.filename}"'})
 
 

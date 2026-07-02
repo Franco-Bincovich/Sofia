@@ -1,10 +1,12 @@
 """
 Repositorio de ownership de empleados. Queries dirigidas que resuelven la
-relación usuario→empleado y la jerarquía de subordinados directos.
+relación usuario→empleado, la jerarquía de subordinados directos y la
+pertenencia a un área — los tres lookups de empleado_id que usa el filtrado de
+listados (ownership + área).
 
 Vive separado de empleado_repo (que ya está sobre el límite de 100 líneas) y
-concentra el acceso a DB que consume la función central de ownership
-(services/ownership.py). Solo lecturas dirigidas — nunca full-table.
+concentra el acceso a DB que consumen la función central de ownership y el
+helper _ownership_filter. Solo lecturas dirigidas — nunca full-table.
 """
 from typing import List, Optional
 
@@ -59,3 +61,23 @@ class EmpleadoOwnershipRepo:
             or []
         )
         return [r["id"] for r in rows]
+
+    def ids_empleados_por_area(self, empresa_id, area_id) -> List[str]:
+        """
+        Devuelve los ids de empleados de un área, acotado por empresa si se provee.
+
+        Query dirigida (empleados.area_id [+ empresa_id]); trae solo la columna id.
+        Es el filtro por área de los listados, resuelto en el repo para que el
+        service arme una única lista de empleado_ids (ownership ∩ área).
+
+        Args:
+            empresa_id: empresa activa (None = todas) para acotar el área.
+            area_id: UUID del área a filtrar.
+
+        Returns:
+            Lista de ids (str) de empleados del área; [] si no hay.
+        """
+        q = supabase_admin.table(_TABLE).select("id").eq("area_id", str(area_id))
+        if empresa_id:
+            q = q.eq("empresa_id", str(empresa_id))
+        return [r["id"] for r in (q.execute().data or [])]

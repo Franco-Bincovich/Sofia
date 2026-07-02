@@ -32,12 +32,14 @@ async def list_vacaciones(
     page_size: int = Query(default=20, ge=1, le=100),
     service: VacacionesService = Depends(_svc),
 ) -> SolicitudVacacionesListResponse:
-    return service.get_all(get_empresa_id(request), area_id, page, page_size)
+    u = request.state.user
+    return service.get_all(u.get("id"), u.get("rol"), get_empresa_id(request), area_id, page, page_size)
 
 
 @router.get("/exportar", dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def exportar_vacaciones(request: Request, formato: Literal["pdf", "excel", "csv", "word"] = Query("excel"), service: VacacionesService = Depends(_svc)) -> Response:
-    d = service.exportar(get_empresa_id(request), formato)
+    u = request.state.user
+    d = service.exportar(u.get("id"), u.get("rol"), get_empresa_id(request), formato)
     return Response(content=d.content, media_type=d.media_type, headers={"Content-Disposition": f'attachment; filename="{d.filename}"'})
 
 

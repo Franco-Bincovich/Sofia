@@ -14,6 +14,7 @@ from datetime import date
 from typing import Optional
 from uuid import UUID
 
+from repositories.empleado_ownership_repo import EmpleadoOwnershipRepo
 from repositories.periodo_repo import PeriodoRepo
 from repositories.vacaciones_repo import VacacionesRepo
 from schemas.vacaciones import (
@@ -21,6 +22,7 @@ from schemas.vacaciones import (
     SolicitudVacacionesListResponse, SolicitudVacacionesResponse,
 )
 from services._audit_payloads import payload_cancelacion_vacacion
+from services._ownership_filter import resolver_filtro_empleados
 from services._periodo_utils import verificar_periodo_abierto
 from services._vacaciones_utils import derive_estado
 from services.audit_service import AuditService
@@ -30,21 +32,21 @@ from utils.logger import logger
 
 
 class VacacionesService:
-    def __init__(self, repo: Optional[VacacionesRepo] = None, audit: Optional[AuditService] = None, periodo_repo: Optional[PeriodoRepo] = None) -> None:
+    def __init__(self, repo: Optional[VacacionesRepo] = None, audit: Optional[AuditService] = None, periodo_repo: Optional[PeriodoRepo] = None, ownership_repo: Optional[EmpleadoOwnershipRepo] = None) -> None:
         self._repo = repo or VacacionesRepo()
         self._audit = audit or AuditService()
         self._periodos = periodo_repo or PeriodoRepo()
+        self._ownership = ownership_repo or EmpleadoOwnershipRepo()
 
-    def get_all(self, empresa_id: Optional[UUID] = None, area_id: Optional[UUID] = None, page: int = 1, page_size: int = 20) -> SolicitudVacacionesListResponse:
-        """Retorna una página de solicitudes con estado derivado, filtradas por empresa/área. total = count real del filtro."""
-        today = date.today()
-        rows, total = self._repo.find_all(empresa_id, area_id, page, page_size)
-        items = [derive_estado(r, today) for r in rows]
-        return SolicitudVacacionesListResponse(items=items, total=total)
+    def get_all(self, user_id: str, rol: str, empresa_id: Optional[UUID] = None, area_id: Optional[UUID] = None, page: int = 1, page_size: int = 20) -> SolicitudVacacionesListResponse:
+        """Página de solicitudes (estado derivado) filtrada por empresa/área y por ownership. vacio → devuelve vacío sin consultar."""
+        empleado_ids, vacio = resolver_filtro_empleados(user_id, rol, empresa_id, area_id, self._ownership)
+        rows, total = ([], 0) if vacio else self._repo.find_all(empresa_id, empleado_ids, page, page_size)
+        return SolicitudVacacionesListResponse(items=[derive_estado(r, date.today()) for r in rows], total=total)
 
-    def exportar(self, empresa_id: Optional[UUID] = None, formato: str = "excel", area_id: Optional[UUID] = None) -> Descarga:
-        """Exporta la lista completa de vacaciones (con estado derivado) al formato pedido vía el motor."""
-        items = [i.model_dump(mode="json") for i in self.get_all(empresa_id, area_id, 1, 100000).items]
+    def exportar(self, user_id: str, rol: str, empresa_id: Optional[UUID] = None, formato: str = "excel", area_id: Optional[UUID] = None) -> Descarga:
+        """Exporta la lista de vacaciones (con estado derivado) respetando ownership, al formato pedido."""
+        items = [i.model_dump(mode="json") for i in self.get_all(user_id, rol, empresa_id, area_id, 1, 100000).items]
         return build_export(nombre="Vacaciones", datos={"Vacaciones": items}, filename_base="vacaciones", formato=formato)
 
     def get_by_empleado(self, empleado_id: UUID) -> SolicitudVacacionesListResponse:

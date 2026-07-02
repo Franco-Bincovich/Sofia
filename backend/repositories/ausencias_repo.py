@@ -41,22 +41,14 @@ def _build(rows: List[dict]) -> List[AusenciaResponse]:
 
 
 class AusenciasRepo:
-    def find_all(self, empresa_id: Optional[UUID] = None, area_id: Optional[UUID] = None, tipo_id: Optional[UUID] = None, page: int = 1, page_size: int = 20) -> Tuple[List[AusenciaResponse], int]:
-        """Retorna (página de ausencias filtradas por empresa/área/tipo, total real del filtro)."""
-        emp_ids: Optional[List[str]] = None
-        if area_id:
-            q = supabase_admin.table("empleados").select("id").eq("area_id", str(area_id))
-            if empresa_id:
-                q = q.eq("empresa_id", str(empresa_id))
-            data = q.execute().data or []
-            if not data:
-                return [], 0
-            emp_ids = [e["id"] for e in data]
+    def find_all(self, empresa_id: Optional[UUID] = None, empleado_ids: Optional[List[str]] = None, tipo_id: Optional[UUID] = None, page: int = 1, page_size: int = 20) -> Tuple[List[AusenciaResponse], int]:
+        """Retorna (página filtrada por empresa/empleado_ids/tipo, total real del filtro).
+        empleado_ids=None → sin filtro por empleado; la intersección ownership∩área la arma el service."""
         q = supabase_admin.table(_T).select("*", count="exact").order("fecha_desde", desc=True)
         if empresa_id:
             q = q.eq("empresa_id", str(empresa_id))
-        if emp_ids:
-            q = q.in_("empleado_id", emp_ids)
+        if empleado_ids is not None:
+            q = q.in_("empleado_id", empleado_ids)
         if tipo_id:
             q = q.eq("tipo_id", str(tipo_id))
         res = q.range((page - 1) * page_size, page * page_size - 1).execute()

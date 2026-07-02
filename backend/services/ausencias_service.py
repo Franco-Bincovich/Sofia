@@ -12,6 +12,7 @@ from typing import Optional
 from uuid import UUID
 
 from repositories.ausencias_repo import AusenciasRepo
+from repositories.empleado_ownership_repo import EmpleadoOwnershipRepo
 from repositories.periodo_repo import PeriodoRepo
 from schemas.ausencias import (
     AusenciaCreate, AusenciaListResponse, AusenciaResponse, AusenciaUpdate,
@@ -19,6 +20,7 @@ from schemas.ausencias import (
 from services._audit_payloads import (
     payload_alta_ausencia, payload_baja_ausencia, payload_update_ausencia,
 )
+from services._ownership_filter import resolver_filtro_empleados
 from services._periodo_utils import verificar_periodo_abierto
 from services.audit_service import AuditService
 from services.export import Descarga, build_export
@@ -27,24 +29,21 @@ from utils.logger import logger
 
 
 class AusenciasService:
-    def __init__(self, repo: Optional[AusenciasRepo] = None, audit: Optional[AuditService] = None, periodo_repo: Optional[PeriodoRepo] = None) -> None:
+    def __init__(self, repo: Optional[AusenciasRepo] = None, audit: Optional[AuditService] = None, periodo_repo: Optional[PeriodoRepo] = None, ownership_repo: Optional[EmpleadoOwnershipRepo] = None) -> None:
         self._repo = repo or AusenciasRepo()
         self._audit = audit or AuditService()
         self._periodos = periodo_repo or PeriodoRepo()
+        self._ownership = ownership_repo or EmpleadoOwnershipRepo()
 
-    def get_all(self, empresa_id: Optional[UUID] = None, area_id: Optional[UUID] = None, tipo_id: Optional[UUID] = None, page: int = 1, page_size: int = 20) -> AusenciaListResponse:
-        """
-        Retorna una página de ausencias filtradas opcionalmente por empresa, área y/o tipo.
-
-        Args:
-            empresa_id: None = vista consolidada (todas las empresas).
-        """
-        rows, total = self._repo.find_all(empresa_id, area_id, tipo_id, page, page_size)
+    def get_all(self, user_id: str, rol: str, empresa_id: Optional[UUID] = None, area_id: Optional[UUID] = None, tipo_id: Optional[UUID] = None, page: int = 1, page_size: int = 20) -> AusenciaListResponse:
+        """Página de ausencias filtrada por empresa/área/tipo y por ownership. vacio → devuelve vacío sin consultar."""
+        empleado_ids, vacio = resolver_filtro_empleados(user_id, rol, empresa_id, area_id, self._ownership)
+        rows, total = ([], 0) if vacio else self._repo.find_all(empresa_id, empleado_ids, tipo_id, page, page_size)
         return AusenciaListResponse(items=rows, total=total)
 
-    def exportar(self, empresa_id: Optional[UUID] = None, formato: str = "excel") -> Descarga:
-        """Exporta la lista completa de ausencias al formato pedido vía el motor genérico."""
-        items = [i.model_dump(mode="json") for i in self.get_all(empresa_id, None, None, 1, 100000).items]
+    def exportar(self, user_id: str, rol: str, empresa_id: Optional[UUID] = None, formato: str = "excel") -> Descarga:
+        """Exporta la lista de ausencias respetando ownership, al formato pedido vía el motor genérico."""
+        items = [i.model_dump(mode="json") for i in self.get_all(user_id, rol, empresa_id, None, None, 1, 100000).items]
         return build_export(nombre="Ausencias", datos={"Ausencias": items}, filename_base="ausencias", formato=formato)
 
     def get_by_id(self, id: UUID, empresa_id: Optional[UUID] = None) -> AusenciaResponse:
