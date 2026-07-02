@@ -17,6 +17,11 @@ export function exportarInventarioAsignaciones(formato: FormatoExport, empresaId
   return descargarArchivo(`${ASIG}/exportar`, formato, "inventario_asignaciones", headers)
 }
 
+export function exportarInventarioItems(formato: FormatoExport, empresaIdOverride?: string): Promise<void> {
+  const headers = empresaIdOverride ? { "X-Empresa-Id": empresaIdOverride } : undefined
+  return descargarArchivo(`${ITEMS}/exportar`, formato, "inventario_items", headers)
+}
+
 export async function fetchItems(empresaIdOverride?: string, estado?: string): Promise<ItemListResponse> {
   const params = new URLSearchParams()
   if (estado) params.set("estado", estado)

@@ -11,7 +11,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ItemModal } from "@/components/features/inventario/ItemModal"
 import { HistorialModal } from "@/components/features/inventario/HistorialModal"
-import { fetchItems, deleteItem } from "@/services/inventario"
+import { ExportMenu } from "@/components/features/export/ExportMenu"
+import { fetchItems, deleteItem, exportarInventarioItems } from "@/services/inventario"
 import { fetchEmpresas } from "@/services/empresas"
 import { getEmpresaActivaId } from "@/services/empresaStore"
 import type { InventarioItem } from "@/types/inventario"
@@ -89,11 +90,10 @@ export function ItemsTab({ canWrite }: { canWrite: boolean }) {
             <option value="baja">Baja</option>
           </select>
         </div>
-        {canWrite && (
-          <Button className="min-h-11" onClick={() => { setEditing(null); setModalOpen(true) }}>
-            <Plus className="size-4" /> Nuevo ítem
-          </Button>
-        )}
+        <div className="flex gap-2">
+          <ExportMenu onExport={(f) => exportarInventarioItems(f, !empresaActivaId && empresaFiltro ? empresaFiltro : undefined)} />
+          {canWrite && <Button className="min-h-11" onClick={() => { setEditing(null); setModalOpen(true) }}><Plus className="size-4" /> Nuevo ítem</Button>}
+        </div>
       </div>
 
       {loading && <Skeleton5 />}

@@ -3,10 +3,11 @@ Router de ítems de inventario. Montado en /api/inventario/items.
 Sección: "inventario" (identificador estable para la futura capa de permisos).
 empresa_id para lecturas: X-Empresa-Id. Para crear: explícito en el body.
 """
-from typing import Optional
+from typing import Literal, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import Response
 
 from schemas.inventario import ItemCreate, ItemListResponse, ItemResponse, ItemUpdate
 from services.inventario_items_service import InventarioItemsService
@@ -28,6 +29,12 @@ async def list_items(
     service: InventarioItemsService = Depends(_svc),
 ) -> ItemListResponse:
     return service.get_all(get_empresa_id(request), estado)
+
+
+@router.get("/exportar", dependencies=[Depends(require_permission(SECCION, Accion.READ))])
+async def exportar_items(request: Request, formato: Literal["pdf", "excel", "csv", "word"] = Query("excel"), service: InventarioItemsService = Depends(_svc)) -> Response:
+    d = service.exportar(get_empresa_id(request), formato)
+    return Response(content=d.content, media_type=d.media_type, headers={"Content-Disposition": f'attachment; filename="{d.filename}"'})
 
 
 @router.get("/{id}", response_model=ItemResponse, dependencies=[Depends(require_permission(SECCION, Accion.READ))])

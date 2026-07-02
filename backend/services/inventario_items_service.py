@@ -13,6 +13,8 @@ from uuid import UUID
 
 from repositories.inventario_items_repo import InventarioItemsRepo
 from schemas.inventario import ItemCreate, ItemListResponse, ItemResponse, ItemUpdate
+from services._inventario_items_export import construir_filas_export
+from services.export import Descarga, build_export
 from utils.errors import AppError
 from utils.logger import logger
 
@@ -25,6 +27,12 @@ class InventarioItemsService:
         """Retorna ítems filtrados por empresa y/o estado. None = todos."""
         items = self._repo.find_all(empresa_id, estado)
         return ItemListResponse(items=items, total=len(items))
+
+    def exportar(self, empresa_id: Optional[UUID] = None, formato: str = "excel") -> Descarga:
+        """Exporta el catálogo de ítems (columnas legibles, sin UUIDs) al formato pedido.
+        None = consolidado (todas las empresas). El motor genérico no se toca."""
+        datos = {"Ítems": construir_filas_export(self._repo.find_all(empresa_id))}
+        return build_export(nombre="Inventario de ítems", datos=datos, filename_base="inventario_items", formato=formato)
 
     def get_by_id(self, id: UUID, empresa_id: Optional[UUID] = None) -> ItemResponse:
         """Raises ITEM_NOT_FOUND (404) si no existe o no pertenece a la empresa."""
