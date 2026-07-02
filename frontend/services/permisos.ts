@@ -62,6 +62,7 @@ const RUTA_SECCION: Readonly<Record<string, Seccion>> = {
   proyectos: "proyectos",
   auditoria: "auditoria",
   periodos: "periodos",
+  usuarios: "usuarios",
 }
 
 /** Seccion correspondiente a un pathname, o null si la ruta no se gatea por permiso. */

@@ -27,10 +27,11 @@ async def list_empleados(
     area_id: Optional[str] = Query(None),
     estado: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
+    es_lider: Optional[bool] = Query(None),
     service: EmpleadoService = Depends(_service),
 ) -> EmpleadoListResponse:
     empresa_id = get_empresa_id(request)
-    return service.get_empleados(page, page_size, empresa_id, area_id, estado, search)
+    return service.get_empleados(page, page_size, empresa_id, area_id, estado, search, es_lider)
 
 
 @router.get("/{id}", response_model=EmpleadoResponse, dependencies=[Depends(require_permission(SECCION, Accion.READ))])

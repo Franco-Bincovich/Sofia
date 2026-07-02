@@ -15,10 +15,13 @@ from utils.logger import logger
 _TABLE = "empleados"
 
 # Select con joins resueltos en una sola query (sin N+1): nombre de área, empresa y
-# del manager (self-join vía la FK empleados_manager_id_fkey, columna manager_id).
+# del manager. El manager es un self-join to-one: se embebe por la COLUMNA FK
+# (manager:manager_id) en vez del nombre de la constraint — el hint por columna sigue la
+# FK hacia empleados.id (dirección many-to-one correcta) y es inmune al nombre autogenerado
+# de la constraint, que difiere entre entornos (era el origen del PGRST200 en /api/empleados).
 _SELECT = (
     "*, areas!empleados_area_id_fkey(nombre), empresas(nombre), "
-    "manager:empleados!empleados_manager_id_fkey(nombre, apellido)"
+    "manager:manager_id(nombre, apellido)"
 )
 
 
@@ -55,6 +58,7 @@ class EmpleadoRepo:
         area_id: Optional[str] = None,
         estado: Optional[str] = None,
         search: Optional[str] = None,
+        es_lider: Optional[bool] = None,
     ) -> Tuple[List[EmpleadoResponse], int]:
         """Retorna la página de empleados con area_nombre resuelto y el total sin paginar."""
         start = (page - 1) * page_size
@@ -67,6 +71,8 @@ class EmpleadoRepo:
             query = query.eq("area_id", area_id)
         if estado:
             query = query.eq("estado", estado)
+        if es_lider is not None:
+            query = query.eq("es_lider", es_lider)
         if search:
             query = query.or_(
                 f"nombre.ilike.%{search}%,apellido.ilike.%{search}%"

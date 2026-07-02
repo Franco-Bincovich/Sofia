@@ -96,6 +96,7 @@ class EmpleadoService:
         area_id: Optional[str] = None,
         estado: Optional[str] = None,
         search: Optional[str] = None,
+        es_lider: Optional[bool] = None,
     ) -> EmpleadoListResponse:
         """
         Retorna la lista paginada de empleados con filtros opcionales.
@@ -107,11 +108,12 @@ class EmpleadoService:
             area_id: Filtro por ID de área (UUID como string).
             estado: Filtro por estado (activo | baja | licencia).
             search: Búsqueda por nombre o apellido (case-insensitive).
+            es_lider: Si se provee, filtra por el flag de liderazgo (selector de usuarios).
 
         Returns:
             EmpleadoListResponse con items, total y metadatos de paginación.
         """
-        items, total = self._repo.find_all(page, page_size, empresa_id, area_id, estado, search)
+        items, total = self._repo.find_all(page, page_size, empresa_id, area_id, estado, search, es_lider)
         total_pages = math.ceil(total / page_size) if page_size > 0 else 0
         return EmpleadoListResponse(items=items, total=total, page=page, page_size=page_size, total_pages=total_pages)
 
