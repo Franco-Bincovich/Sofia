@@ -1,14 +1,16 @@
 """
 Schemas del ABM de usuarios del sistema.
 
-Alta de usuarios con rol mandos_medios: el rol NO se recibe del cliente, lo fuerza el
-service (este endpoint solo crea mandos medios). La contraseña temporal se devuelve UNA
-sola vez en la respuesta y no se persiste en claro en ningún lado.
+Alta de usuarios: el rol viaja en el request pero se valida contra ROLES_VALIDOS
+(fuente de verdad en utils/permisos.py) — un rol fuera de la lista es 422, nunca crea.
+La contraseña temporal se devuelve UNA sola vez en la respuesta y no se persiste en claro.
 """
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field, model_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+
+from utils.permisos import ROLES_VALIDOS
 
 
 class CrearUsuarioRequest(BaseModel):
@@ -16,7 +18,15 @@ class CrearUsuarioRequest(BaseModel):
     apellido: str = Field(..., min_length=1, max_length=100)
     email: EmailStr
     username: str = Field(..., min_length=3, max_length=50)
+    rol: str  # validado contra ROLES_VALIDOS (fuente de verdad); rol inválido → 422
     empleado_id: Optional[UUID] = None  # opcional: vincula el user a su registro de empleado
+
+    @field_validator("rol")
+    @classmethod
+    def _rol_valido(cls, v: str) -> str:
+        if v not in ROLES_VALIDOS:
+            raise ValueError(f"Rol inválido. Debe ser uno de: {', '.join(sorted(ROLES_VALIDOS))}")
+        return v
 
 
 class CrearUsuarioResponse(BaseModel):

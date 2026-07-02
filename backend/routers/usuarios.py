@@ -1,5 +1,5 @@
 """
-Router de usuarios del sistema. Listado (para selectores) + alta de mandos_medios.
+Router de usuarios del sistema. Listado (para selectores) + alta con rol asignable.
 La autenticación vive en routers/auth.py; acá el alta va gateada con USUARIOS + WRITE.
 """
 from uuid import UUID
@@ -44,7 +44,7 @@ async def crear_usuario(
     body: CrearUsuarioRequest,
     service: UsuarioService = Depends(_svc),
 ) -> CrearUsuarioResponse:
-    """Crea un usuario mandos_medios con contraseña temporal. Solo admin_rrhh."""
+    """Crea un usuario con el rol indicado (validado en el schema) y contraseña temporal. Solo admin_rrhh."""
     creado_por = request.state.user.get("id", "system")
     return service.crear_usuario(body, creado_por)
 

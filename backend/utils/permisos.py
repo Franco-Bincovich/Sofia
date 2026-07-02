@@ -67,6 +67,11 @@ class Seccion(str, Enum):
 # mandos_medios solo opera (R+W) sobre estas secciones; en el resto no puede nada.
 MANDOS_MEDIOS_SECCIONES = frozenset({Seccion.VACACIONES, Seccion.AUSENCIAS})
 
+# Fuente de verdad de los roles asignables del sistema. Alineada con el CHECK de
+# public.users.rol (migración 057) y con las ramas de puede(). Reusar para validar
+# cualquier rol entrante — NO hardcodear listas nuevas en otros módulos.
+ROLES_VALIDOS = frozenset({"admin_rrhh", "gerencia_lectura", "mandos_medios"})
+
 
 def puede(
     rol: Optional[str],

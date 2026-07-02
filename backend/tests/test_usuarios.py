@@ -23,6 +23,7 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
+from pydantic import ValidationError
 
 import services.usuario_service as usuario_service
 from schemas.usuario import CrearUsuarioRequest
@@ -86,20 +87,42 @@ def auth(monkeypatch):
 
 
 def _req(**over) -> CrearUsuarioRequest:
-    base = dict(nombre="Ana", apellido="Lopez", email="Ana.Lopez@x.com", username="alopez")
+    base = dict(nombre="Ana", apellido="Lopez", email="Ana.Lopez@x.com", username="alopez",
+                rol="mandos_medios")
     base.update(over)
     return CrearUsuarioRequest(**base)
 
 
-def test_crea_fuerza_rol_y_flag(auth):
+def test_crea_usa_rol_del_request_y_flag(auth):
     repo, aud = _FakeRepo(), _FakeAudit()
     out = UsuarioService(repo=repo, audit=aud).crear_usuario(_req(), "admin1")
-    assert repo.perfil["rol"] == "mandos_medios"
+    assert repo.perfil["rol"] == "mandos_medios"  # el rol del request, no una constante
     assert repo.perfil["must_change_password"] is True
     assert repo.perfil["email"] == "ana.lopez@x.com"  # normalizado a minúsculas
     assert out.id == _UID and out.username == "alopez"
     assert len(out.password_temporal) >= 16
     assert auth.creado["email_confirm"] is True and auth.creado["password"] == out.password_temporal
+
+
+@pytest.mark.parametrize("rol", ["admin_rrhh", "gerencia_lectura", "mandos_medios"])
+def test_crea_con_cada_rol_valido(auth, rol):
+    repo, aud = _FakeRepo(), _FakeAudit()
+    UsuarioService(repo=repo, audit=aud).crear_usuario(_req(rol=rol), "admin1")
+    assert repo.perfil["rol"] == rol                 # se persiste el rol elegido
+    assert aud.calls[0]["datos_nuevos"]["rol"] == rol  # y se audita el mismo rol
+
+
+@pytest.mark.parametrize("rol", ["superadmin", "management", "empleado", "", "ADMIN_RRHH"])
+def test_rol_invalido_es_422(rol):
+    # La validación vive en el schema (field_validator) → ValidationError, que FastAPI
+    # traduce a 422. Un rol fuera de ROLES_VALIDOS nunca llega al service.
+    with pytest.raises(ValidationError):
+        _req(rol=rol)
+
+
+def test_rol_ausente_es_422():
+    with pytest.raises(ValidationError):
+        CrearUsuarioRequest(nombre="Ana", apellido="Lopez", email="a@x.com", username="alopez")
 
 
 def test_password_no_se_audita(auth):

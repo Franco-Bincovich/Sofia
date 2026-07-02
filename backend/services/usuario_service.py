@@ -1,5 +1,5 @@
 """
-Servicio de alta de usuarios del sistema (rol mandos_medios).
+Servicio de alta de usuarios del sistema (rol asignable: los 3 roles válidos).
 Flujo: router → service → repository. La identidad va a Supabase Auth (auth.users);
 el perfil, a public.users. Ambos pasos van juntos o se revierten (rollback del auth user).
 """
@@ -16,7 +16,6 @@ from services.audit_service import AuditService
 from utils.errors import AppError
 from utils.logger import logger
 
-_ROL = "mandos_medios"  # este endpoint solo crea mandos medios
 # Alfabeto sin caracteres ambiguos (sin O/0/I/l/1/o) + símbolos, para la password temporal.
 _ALFABETO = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789@#$%&*"
 
@@ -40,15 +39,16 @@ class UsuarioService:
 
     def crear_usuario(self, data: CrearUsuarioRequest, creado_por: Optional[str]) -> CrearUsuarioResponse:
         """
-        Crea un usuario mandos_medios: identidad en Supabase Auth + perfil en public.users
-        (+ vínculo al empleado si se pasa empleado_id). Genera y devuelve una contraseña
-        temporal (una sola vez), con must_change_password=true para forzar el cambio.
+        Crea un usuario con el rol recibido (ya validado contra ROLES_VALIDOS en el schema):
+        identidad en Supabase Auth + perfil en public.users (+ vínculo al empleado si se pasa
+        empleado_id). Genera y devuelve una contraseña temporal (una sola vez), con
+        must_change_password=true para forzar el cambio.
 
         Atómico por rollback: si falla el perfil o el vínculo, borra el auth user creado
         antes de propagar. Verifica unicidad de email/username antes de tocar Auth.
 
         Args:
-            data: nombre, apellido, email, username y empleado_id (opcional).
+            data: nombre, apellido, email, username, rol y empleado_id (opcional).
             creado_por: id del admin que ejecuta (para auditoría).
 
         Returns:
@@ -82,7 +82,7 @@ class UsuarioService:
             self._repo.insert_perfil({
                 "id": uid, "email": email, "nombre": data.nombre.strip(),
                 "apellido": data.apellido.strip(), "username": username,
-                "rol": _ROL, "must_change_password": True,
+                "rol": data.rol, "must_change_password": True,
             })
             if data.empleado_id is not None and not self._repo.vincular_empleado(str(data.empleado_id), uid):
                 raise AppError("El empleado indicado no existe", "EMPLEADO_NOT_FOUND", 404)
@@ -92,7 +92,7 @@ class UsuarioService:
                 raise
             raise AppError("No se pudo crear el usuario", "USUARIO_CREATE_ERROR", 500) from exc
 
-        self._audit.registrar(**payload_alta_usuario(uid, username, _ROL, creado_por))
+        self._audit.registrar(**payload_alta_usuario(uid, username, data.rol, creado_por))
         logger.info("Usuario creado", extra={"user_id": uid, "username": username, "creado_por": creado_por})
         return CrearUsuarioResponse(id=uid, username=username, password_temporal=password)
 
