@@ -18,6 +18,7 @@ class UserInfo(BaseModel):
     rol: str
     nombre: str
     apellido: str
+    must_change_password: bool = False  # true = contraseña temporal pendiente de cambio
 
 
 class LoginResponse(BaseModel):

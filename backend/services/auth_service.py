@@ -33,7 +33,7 @@ class AuthService:
         try:
             profile_result = (
                 supabase_admin.table("users")
-                .select("id, email, username, nombre, apellido, rol")
+                .select("id, email, username, nombre, apellido, rol, must_change_password")
                 .ilike("username", username)
                 .single()
                 .execute()
@@ -66,6 +66,7 @@ class AuthService:
                 rol=profile["rol"],
                 nombre=profile["nombre"],
                 apellido=profile["apellido"],
+                must_change_password=profile.get("must_change_password", False),
             ),
         )
 

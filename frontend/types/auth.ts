@@ -14,6 +14,7 @@ export interface UserInfo {
   rol: UserRol
   nombre: string
   apellido: string
+  must_change_password: boolean
 }
 
 export interface Session {

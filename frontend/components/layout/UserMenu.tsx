@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { LogOut, Settings } from "lucide-react"
+import { KeyRound, LogOut, Settings } from "lucide-react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
@@ -54,6 +54,10 @@ export function UserMenu() {
         <DropdownMenuItem onClick={() => router.push("/configuracion")}>
           <Settings className="size-4" />
           Configuración
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => router.push("/cambiar-password")}>
+          <KeyRound className="size-4" />
+          Cambiar contraseña
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onClick={handleLogout}>
