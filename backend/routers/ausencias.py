@@ -60,7 +60,7 @@ async def get_ausencia(id: UUID, request: Request, service: AusenciasService = D
 
 @router.post("", response_model=AusenciaResponse, status_code=201, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def create_ausencia(request: Request, body: AusenciaCreate, service: AusenciasService = Depends(_svc)) -> AusenciaResponse:
-    return service.create(body, request.state.user.get("id", "system"))
+    return service.create(body, request.state.user.get("id", "system"), request.state.user.get("rol"))
 
 
 @router.put("/{id}", response_model=AusenciaResponse, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
@@ -70,10 +70,10 @@ async def update_ausencia(
     body: AusenciaUpdate,
     service: AusenciasService = Depends(_svc),
 ) -> AusenciaResponse:
-    return service.update(id, body, get_empresa_id(request), request.state.user.get("id", "system"))
+    return service.update(id, body, get_empresa_id(request), request.state.user.get("id", "system"), request.state.user.get("rol"))
 
 
 @router.delete("/{id}", status_code=200, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def delete_ausencia(id: UUID, request: Request, service: AusenciasService = Depends(_svc)) -> dict:
-    service.delete(id, get_empresa_id(request), request.state.user.get("id", "system"))
+    service.delete(id, get_empresa_id(request), request.state.user.get("id", "system"), request.state.user.get("rol"))
     return {"ok": True}

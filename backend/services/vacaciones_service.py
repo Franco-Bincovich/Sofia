@@ -24,9 +24,11 @@ from schemas.vacaciones import (
 from services._audit_payloads import payload_cancelacion_vacacion
 from services._periodo_utils import verificar_periodo_abierto
 from services._vacaciones_export import construir_filas_export, resolver_empleado_ids
+from services._vacaciones_saldo import calcular_saldo
 from services._vacaciones_utils import derive_estado
 from services.audit_service import AuditService
 from services.export import Descarga, build_export
+from services.ownership import puede_gestionar_empleado
 from utils.errors import AppError
 from utils.logger import logger
 
@@ -62,19 +64,26 @@ class VacacionesService:
             raise AppError("Solicitud de vacaciones no encontrada", "VACACION_NOT_FOUND", 404)
         return derive_estado(row, date.today())
 
-    def create(self, data: SolicitudVacacionesCreate, created_by: str) -> SolicitudVacacionesResponse:
+    def create(self, data: SolicitudVacacionesCreate, created_by: str, rol: Optional[str] = None) -> SolicitudVacacionesResponse:
         """
         Registra un período de vacaciones para un empleado.
         empresa_id se resuelve del empleado — no lo provee el usuario.
 
+        Ownership: se valida ANTES de resolver la empresa (403 uniforme para un mando que
+        intenta crear a nombre de un empleado que no es su subordinado — exista o no).
+
         Args:
             data: Campos del formulario (empleado_id, fecha_desde, fecha_hasta, tipo, comentario).
-            created_by: ID del operador que registra (trazabilidad).
+            created_by: ID del operador que registra (trazabilidad y sujeto del ownership).
+            rol: Rol del operador (para el chequeo de ownership).
 
         Raises:
+            AppError: OWNERSHIP_DENIED (403) si el rol no puede gestionar a ese empleado.
             AppError: EMPLEADO_NOT_FOUND (404) si el empleado no existe.
             AppError: VACACIONES_SOLAPAMIENTO (422) si hay fechas solapadas del mismo tipo para el mismo empleado.
         """
+        if not puede_gestionar_empleado(created_by, rol, data.empleado_id, self._ownership):
+            raise AppError("No autorizado para gestionar este empleado", "OWNERSHIP_DENIED", 403)
         empresa_id = self._repo.find_empresa_for_empleado(str(data.empleado_id))
         if not empresa_id:
             raise AppError("Empleado no encontrado", "EMPLEADO_NOT_FOUND", 404)
@@ -102,17 +111,20 @@ class VacacionesService:
         )
         return derive_estado(row, date.today())
 
-    def cancel(self, id: UUID, empresa_id: Optional[UUID] = None, usuario_id: Optional[str] = None) -> SolicitudVacacionesResponse:
+    def cancel(self, id: UUID, empresa_id: Optional[UUID] = None, usuario_id: Optional[str] = None, rol: Optional[str] = None) -> SolicitudVacacionesResponse:
         """
         Cancela una solicitud seteando cancelada=True (no borra la fila — preserva historial).
         Registra el evento de auditoría tras la cancelación exitosa (usuario_id = operador).
 
+        Ownership: un registro ajeno a un mando responde 404 (igual que inexistente), para no
+        confirmar la existencia de solicitudes de empleados que no gestiona.
+
         Raises:
-            AppError: VACACION_NOT_FOUND (404) si el ID no existe.
+            AppError: VACACION_NOT_FOUND (404) si el ID no existe o no es gestionable por el rol.
             AppError: YA_CANCELADA (422) si ya estaba cancelada.
         """
         row = self._repo.find_by_id(str(id), empresa_id)
-        if not row:
+        if not row or not puede_gestionar_empleado(usuario_id, rol, row.empleado_id, self._ownership):
             raise AppError("Solicitud de vacaciones no encontrada", "VACACION_NOT_FOUND", 404)
         verificar_periodo_abierto(row.empresa_id, "vacaciones", desde=row.fecha_desde, hasta=row.fecha_hasta, repo=self._periodos)
         if row.cancelada:
@@ -123,27 +135,5 @@ class VacacionesService:
         return derive_estado(updated, date.today())  # type: ignore[arg-type]
 
     def get_saldo(self, empleado_id: UUID) -> SaldoVacacionesResponse:
-        """Saldo anual de vacaciones pagas. Solo tipo='vacaciones' no cancelado descuenta:
-        gozados (estado 'tomada') + pedidos (estado 'planificada'); disponibles = asignados − ambos.
-        Raises EMPLEADO_NOT_FOUND (404) si el empleado no existe."""
-        asignados = self._repo.find_dias_asignados(str(empleado_id))
-        if asignados is None:
-            raise AppError("Empleado no encontrado", "EMPLEADO_NOT_FOUND", 404)
-
-        today = date.today()
-        gozados = 0
-        pedidos = 0
-        for s in self._repo.find_vacaciones_empleado(str(empleado_id)):
-            s = derive_estado(s, today)
-            if s.estado == "tomada":
-                gozados += s.dias
-            elif s.estado == "planificada":
-                pedidos += s.dias
-
-        return SaldoVacacionesResponse(
-            empleado_id=str(empleado_id),
-            asignados=asignados,
-            gozados=gozados,
-            pedidos=pedidos,
-            disponibles=asignados - gozados - pedidos,
-        )
+        """Saldo anual de vacaciones pagas. Delegado a calcular_saldo (helper). Raises EMPLEADO_NOT_FOUND (404)."""
+        return calcular_saldo(self._repo, empleado_id)

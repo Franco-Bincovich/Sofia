@@ -65,9 +65,9 @@ async def create_vacacion(
     body: SolicitudVacacionesCreate,
     service: VacacionesService = Depends(_svc),
 ) -> SolicitudVacacionesResponse:
-    return service.create(body, request.state.user.get("id", "system"))
+    return service.create(body, request.state.user.get("id", "system"), request.state.user.get("rol"))
 
 
 @router.put("/{id}/cancelar", response_model=SolicitudVacacionesResponse, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def cancel_vacacion(id: UUID, request: Request, service: VacacionesService = Depends(_svc)) -> SolicitudVacacionesResponse:
-    return service.cancel(id, get_empresa_id(request), request.state.user.get("id", "system"))
+    return service.cancel(id, get_empresa_id(request), request.state.user.get("id", "system"), request.state.user.get("rol"))

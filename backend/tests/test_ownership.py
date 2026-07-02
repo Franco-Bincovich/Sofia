@@ -21,7 +21,7 @@ for _k, _v in _TEST_ENV.items():
 import pytest
 
 from services._ownership_filter import resolver_filtro_empleados
-from services.ownership import ids_empleados_visibles
+from services.ownership import ids_empleados_visibles, puede_gestionar_empleado
 
 _USER = "u-1"
 _SELF = "e-self"
@@ -146,3 +146,44 @@ def test_filtro_area_sin_miembros_vacio():
     repo = _FakeRepo(empleado={"id": _SELF}, subordinados=[_SUB1], area=[])
     ids, vacio = resolver_filtro_empleados(_USER, "mandos_medios", None, _AREA, repo)
     assert (ids, vacio) == (None, True)  # área existe pero sin empleados
+
+
+# --- puede_gestionar_empleado: guard de escritura por fila ------------------
+# Contrato: None (admin/gerencia) → True siempre · [ids] → True si está · [] → False.
+
+
+@pytest.mark.parametrize("rol", ["admin_rrhh", "gerencia_lectura"])
+def test_gestionar_admin_gerencia_gestiona_cualquiera(rol):
+    # None → True para cualquier empleado, sin consultar el vínculo
+    repo = _FakeRepo()
+    assert puede_gestionar_empleado(_USER, rol, "cualquier-id", repo) is True
+    assert repo.find_calls == []
+
+
+def test_gestionar_mando_su_subordinado_true():
+    repo = _FakeRepo(empleado={"id": _SELF}, subordinados=[_SUB1, _SUB2])
+    assert puede_gestionar_empleado(_USER, "mandos_medios", _SUB1, repo) is True
+    assert puede_gestionar_empleado(_USER, "mandos_medios", _SELF, repo) is True  # a sí mismo
+
+
+def test_gestionar_mando_ajeno_false():
+    repo = _FakeRepo(empleado={"id": _SELF}, subordinados=[_SUB1])
+    assert puede_gestionar_empleado(_USER, "mandos_medios", _SUB2, repo) is False
+
+
+def test_gestionar_mando_sin_empleado_false():
+    assert puede_gestionar_empleado(_USER, "mandos_medios", _SUB1, _FakeRepo(empleado=None)) is False
+
+
+@pytest.mark.parametrize("rol", ["superadmin", "", None])
+def test_gestionar_rol_desconocido_false(rol):
+    repo = _FakeRepo(empleado={"id": _SELF}, subordinados=[_SUB1])
+    assert puede_gestionar_empleado(_USER, rol, _SUB1, repo) is False  # fail-closed
+
+
+def test_gestionar_acepta_uuid_o_str():
+    # empleado_id puede llegar como UUID (del body) o str (de la fila) — se compara por str
+    from uuid import UUID
+    uid = UUID("00000000-0000-0000-0000-000000000abc")
+    repo = _FakeRepo(empleado={"id": _SELF}, subordinados=[str(uid)])
+    assert puede_gestionar_empleado(_USER, "mandos_medios", uid, repo) is True

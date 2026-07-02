@@ -52,3 +52,29 @@ def ids_empleados_visibles(user_id: str, rol: str, repo) -> Optional[List[str]]:
 
     emp_id = empleado["id"]
     return [emp_id, *repo.ids_subordinados(emp_id)]
+
+
+def puede_gestionar_empleado(user_id: str, rol: str, empleado_id, repo) -> bool:
+    """
+    Decide si un usuario puede ESCRIBIR sobre un empleado (crear/editar/borrar su registro).
+
+    Reusa ids_empleados_visibles (mismo criterio de ownership que los listados; NO lo
+    reimplementa). Contrato:
+        None (admin/gerencia) → True: gestionan a cualquiera.
+        [ids]                 → True si str(empleado_id) está en la lista; False si no.
+        []                    → False: mando sin subordinados no gestiona a nadie.
+    Fail-closed: rol desconocido / usuario sin empleado vinculado → False.
+
+    Args:
+        user_id: UUID (str) del usuario logueado.
+        rol: Rol canónico (ver ROLES_VALIDOS en utils.permisos).
+        empleado_id: empleado objetivo (UUID o str) sobre el que se quiere escribir.
+        repo: EmpleadoOwnershipRepo (o doble) — el mismo que consume ids_empleados_visibles.
+
+    Returns:
+        True si el rol puede gestionar a ese empleado; False en cualquier otro caso.
+    """
+    visibles = ids_empleados_visibles(user_id, rol, repo)
+    if visibles is None:
+        return True
+    return str(empleado_id) in visibles
