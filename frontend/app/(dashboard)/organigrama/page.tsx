@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { FileDown } from "lucide-react"
 
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -14,11 +14,14 @@ import type { OrgProyectosResponse } from "@/types/organigrama"
 
 type Vista = "empresa" | "proyecto-arbol" | "proyecto-cards"
 
-const TABS: { id: Vista; label: string }[] = [
-  { id: "empresa", label: "Por empresa" },
-  { id: "proyecto-arbol", label: "Por proyecto · árbol" },
-  { id: "proyecto-cards", label: "Por proyecto · cards" },
+// Solo se muestran las vistas con `visible: true`. Para reactivar una vista oculta,
+// poné su `visible` en true (una sola línea) — el código de cada vista queda intacto.
+const TABS: { id: Vista; label: string; visible: boolean }[] = [
+  { id: "empresa", label: "Por empresa", visible: false },
+  { id: "proyecto-arbol", label: "Por proyecto · árbol", visible: false },
+  { id: "proyecto-cards", label: "Por proyecto · cards", visible: true },
 ]
+const TABS_VISIBLES = TABS.filter((t) => t.visible)
 
 function OrgSkeleton() {
   return (
@@ -32,21 +35,26 @@ function OrgSkeleton() {
 }
 
 export default function OrganigramaPage() {
-  const [vista, setVista]         = useState<Vista>("empresa")
+  const [vista, setVista]         = useState<Vista>("proyecto-cards")
   const [orgData, setOrgData]     = useState<OrgProyectosResponse | null>(null)
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState<string | null>(null)
   const arbolRef                  = useRef<ArbolProyectoRef>(null)
 
-  async function handleTabChange(v: Vista) {
-    setVista(v)
-    if ((v === "proyecto-arbol" || v === "proyecto-cards") && !orgData) {
-      setLoading(true); setError(null)
-      try { setOrgData(await fetchOrgProyectos()) }
-      catch { setError("No se pudieron cargar los proyectos.") }
-      finally { setLoading(false) }
-    }
-  }
+  // Carga idempotente de los proyectos (compartida por árbol y cards): fetch una sola vez.
+  const cargarProyectos = useCallback(async () => {
+    if (orgData) return
+    setLoading(true); setError(null)
+    try { setOrgData(await fetchOrgProyectos()) }
+    catch { setError("No se pudieron cargar los proyectos.") }
+    finally { setLoading(false) }
+  }, [orgData])
+
+  // Dispara el fetch al estar en una vista de proyecto — incluye el montaje inicial
+  // (default = cards) y el cambio de tab si se reactivan las otras vistas.
+  useEffect(() => {
+    if (vista === "proyecto-arbol" || vista === "proyecto-cards") void cargarProyectos()
+  }, [vista, cargarProyectos])
 
   function handleExportarPDF() {
     if (vista === "proyecto-arbol" && arbolRef.current) {
@@ -76,25 +84,27 @@ export default function OrganigramaPage() {
         </Button>
       </div>
 
-      {/* Tabs */}
-      <div className="inline-flex rounded-xl bg-muted p-1 print:hidden">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => handleTabChange(tab.id)}
-            className={cn(
-              "rounded-lg px-4 py-2 text-sm font-medium transition-colors",
-              vista === tab.id
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      {/* Tabs — se ocultan si hay una sola vista visible (evita un botón solitario). */}
+      {TABS_VISIBLES.length > 1 && (
+        <div className="inline-flex rounded-xl bg-muted p-1 print:hidden">
+          {TABS_VISIBLES.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setVista(tab.id)}
+              className={cn(
+                "rounded-lg px-4 py-2 text-sm font-medium transition-colors",
+                vista === tab.id
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
 
-      {/* Tab content */}
+      {/* Tab content — las 3 vistas quedan en el código; hoy solo renderiza cards. */}
       {vista === "empresa" && <ArbolEmpresa />}
 
       {mostrarProyectos && (
