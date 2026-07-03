@@ -96,14 +96,14 @@ class _FakeAusRepo:
 def test_ausencia_crear_en_periodo_cerrado_409():
     svc = AusenciasService(repo=_FakeAusRepo(), audit=_FakeAudit(), periodo_repo=_FakePeriodos([_periodo()]))
     with pytest.raises(AppError) as e:
-        svc.create(AusenciaCreate(empleado_id=_EMP, tipo_id=_TIPO, fecha_desde=_DENTRO, fecha_hasta=_DENTRO), "u1")
+        svc.create(AusenciaCreate(empleado_id=_EMP, tipo_id=_TIPO, fecha_desde=_DENTRO, fecha_hasta=_DENTRO), "u1", rol="admin_rrhh")
     assert e.value.code == "PERIODO_CERRADO" and e.value.status_code == 409
 
 
 def test_ausencia_crear_fuera_ok():
     repo = _FakeAusRepo()
     svc = AusenciasService(repo=repo, audit=_FakeAudit(), periodo_repo=_FakePeriodos([_periodo()]))
-    svc.create(AusenciaCreate(empleado_id=_EMP, tipo_id=_TIPO, fecha_desde=_FUERA, fecha_hasta=_FUERA), "u1")
+    svc.create(AusenciaCreate(empleado_id=_EMP, tipo_id=_TIPO, fecha_desde=_FUERA, fecha_hasta=_FUERA), "u1", rol="admin_rrhh")
     assert repo.saved is True
 
 
@@ -111,7 +111,7 @@ def test_ausencia_editar_en_periodo_cerrado_409():
     repo = _FakeAusRepo(existing=_ausencia(_DENTRO, _DENTRO))
     svc = AusenciasService(repo=repo, audit=_FakeAudit(), periodo_repo=_FakePeriodos([_periodo()]))
     with pytest.raises(AppError) as e:
-        svc.update(uuid4(), AusenciaUpdate(motivo="x"))
+        svc.update(uuid4(), AusenciaUpdate(motivo="x"), rol="admin_rrhh")
     assert e.value.code == "PERIODO_CERRADO"
 
 
@@ -119,7 +119,7 @@ def test_ausencia_borrar_en_periodo_cerrado_409():
     repo = _FakeAusRepo(existing=_ausencia(_DENTRO, _DENTRO))
     svc = AusenciasService(repo=repo, audit=_FakeAudit(), periodo_repo=_FakePeriodos([_periodo()]))
     with pytest.raises(AppError) as e:
-        svc.delete(uuid4())
+        svc.delete(uuid4(), rol="admin_rrhh")
     assert e.value.code == "PERIODO_CERRADO" and repo.deleted is False
 
 
@@ -142,13 +142,13 @@ class _FakeVacRepo:
 def test_vacacion_crear_en_periodo_cerrado_409():
     svc = VacacionesService(repo=_FakeVacRepo(), audit=_FakeAudit(), periodo_repo=_FakePeriodos([_periodo()]))
     with pytest.raises(AppError) as e:
-        svc.create(SolicitudVacacionesCreate(empleado_id=_EMP, fecha_desde=_DENTRO, fecha_hasta=_DENTRO), "u1")
+        svc.create(SolicitudVacacionesCreate(empleado_id=_EMP, fecha_desde=_DENTRO, fecha_hasta=_DENTRO), "u1", rol="admin_rrhh")
     assert e.value.code == "PERIODO_CERRADO"
 
 
 def test_vacacion_crear_fuera_ok():
     svc = VacacionesService(repo=_FakeVacRepo(), audit=_FakeAudit(), periodo_repo=_FakePeriodos([_periodo()]))
-    out = svc.create(SolicitudVacacionesCreate(empleado_id=_EMP, fecha_desde=_FUERA, fecha_hasta=_FUERA), "u1")
+    out = svc.create(SolicitudVacacionesCreate(empleado_id=_EMP, fecha_desde=_FUERA, fecha_hasta=_FUERA), "u1", rol="admin_rrhh")
     assert out.id == "v1"
 
 

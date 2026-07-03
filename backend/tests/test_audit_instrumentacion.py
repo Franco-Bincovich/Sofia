@@ -100,7 +100,7 @@ class TestVacacionesAudit:
     def test_cancel_registra_evento(self) -> None:
         audit = _FakeAudit()
         svc = VacacionesService(repo=_FakeVacRepo(), audit=audit, periodo_repo=_SinPeriodos())
-        svc.cancel(uuid4(), empresa_id=None, usuario_id="u1")
+        svc.cancel(uuid4(), empresa_id=None, usuario_id="u1", rol="admin_rrhh")
         assert len(audit.calls) == 1
         c = audit.calls[0]
         assert c["evento"] == "cancelacion_vacacion"
@@ -120,7 +120,7 @@ class TestAusenciasAudit:
         svc.create(
             AusenciaCreate(empleado_id=uuid4(), tipo_id=uuid4(),
                            fecha_desde=date(2026, 7, 1), fecha_hasta=date(2026, 7, 2)),
-            created_by="u1",
+            created_by="u1", rol="admin_rrhh",
         )
         assert len(audit.calls) == 1
         c = audit.calls[0]
@@ -132,7 +132,7 @@ class TestAusenciasAudit:
     def test_delete_lee_prior_y_registra_baja(self) -> None:
         audit = _FakeAudit()
         svc = AusenciasService(repo=_FakeAusRepo(), audit=audit, periodo_repo=_SinPeriodos())
-        svc.delete(uuid4(), empresa_id=None, usuario_id="u1")
+        svc.delete(uuid4(), empresa_id=None, usuario_id="u1", rol="admin_rrhh")
         assert len(audit.calls) == 1
         c = audit.calls[0]
         assert c["evento"] == "baja_ausencia"
