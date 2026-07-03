@@ -16,6 +16,7 @@ from schemas.objetivo import (
     CambiarEstadoRequest, ESTADOS, ObjetivoCreate, ObjetivoListResponse,
     ObjetivoResponse, ObjetivoUpdate, PRIORIDADES,
 )
+from services._objetivos_export import construir_filas_export
 from services.export import Descarga, build_export
 from utils.errors import AppError
 from utils.logger import logger
@@ -37,21 +38,9 @@ class ObjetivoService:
         return ObjetivoListResponse(items=items, total=len(items))
 
     def exportar(self, empresa_id: Optional[UUID] = None, formato: str = "excel") -> Descarga:
-        """
-        Exporta los objetivos al formato pedido vía el motor genérico de export.
-
-        Replica el dataset del listado (mismos joins: empresa_nombre, responsable_nombre).
-        model_dump(mode="json") coacciona UUID/date a string (el motor asume primitivos).
-
-        Args:
-            empresa_id: empresa activa (None = consolidado, todas las empresas).
-            formato: "pdf" | "excel" | "csv" | "word".
-
-        Returns:
-            Descarga lista para que el router arme la respuesta HTTP.
-        """
-        items = self._repo.find_all(empresa_id)
-        datos = {"Objetivos": [i.model_dump(mode="json") for i in items]}
+        """Exporta los objetivos (columnas legibles, sin UUIDs) al formato pedido.
+        None = consolidado (todas las empresas). El motor genérico no se toca."""
+        datos = {"Objetivos": construir_filas_export(self._repo.find_all(empresa_id))}
         return build_export(nombre="Objetivos", datos=datos, filename_base="objetivos", formato=formato)
 
     def get_by_id(self, id: UUID, empresa_id: Optional[UUID] = None) -> ObjetivoResponse:
