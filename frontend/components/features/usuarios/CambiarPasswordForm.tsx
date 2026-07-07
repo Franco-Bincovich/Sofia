@@ -93,11 +93,6 @@ export function CambiarPasswordForm({ forced }: { forced: boolean }) {
       )}
 
       <div className="flex gap-3">
-        {!forced && (
-          <Button type="button" variant="outline" className="min-h-[2.75rem]" onClick={() => router.push("/dashboard")} disabled={submitting}>
-            Volver
-          </Button>
-        )}
         <Button type="submit" className="min-h-[2.75rem] flex-1" disabled={submitting}>
           {submitting ? (
             <><Loader2 className="mr-2 size-4 animate-spin" aria-hidden />Cambiando…</>
