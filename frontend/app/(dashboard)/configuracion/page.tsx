@@ -2,10 +2,11 @@
 
 import { Suspense, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { CheckCircle2, KeyRound, LogOut, Unlink, UserCircle } from "lucide-react"
+import { CheckCircle2, KeyRound, Lock, LogOut, Unlink, UserCircle } from "lucide-react"
 import { toast } from "sonner"
 
 import { PageHeader } from "@/components/layout/PageHeader"
+import { CambiarPasswordForm } from "@/components/features/usuarios/CambiarPasswordForm"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -321,6 +322,20 @@ export default function ConfiguracionPage() {
                 </Button>
               </div>
             </div>
+          </div>
+
+          {/* ── Cambiar contraseña ────────────────────────────────────────── */}
+          <div className="rounded-xl border bg-card p-5">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 ring-1 ring-border">
+                <Lock className="size-5 text-primary" />
+              </div>
+              <h2 className="font-semibold">Cambiar contraseña</h2>
+            </div>
+
+            <Separator className="my-4" />
+
+            <CambiarPasswordForm forced={false} />
           </div>
 
           {/* ── Perfil de usuario ─────────────────────────────────────────── */}
