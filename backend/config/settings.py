@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     supabase_url: str
     supabase_anon_key: str
     supabase_service_key: str
+    supabase_timeout: int = 30  # timeout httpx (s) de postgrest/storage/functions
 
     # Auth
     jwt_secret: str
