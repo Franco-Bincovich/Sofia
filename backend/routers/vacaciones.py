@@ -33,7 +33,7 @@ async def list_vacaciones(
     service: VacacionesService = Depends(_svc),
 ) -> SolicitudVacacionesListResponse:
     u = request.state.user
-    return service.get_all(u.get("id"), u.get("rol"), get_empresa_id(request), area_id, page, page_size)
+    return service.get_all(u.get("id"), u.get("rol"), get_empresa_id(request), area_id, page=page, page_size=page_size)
 
 
 @router.get("/exportar", dependencies=[Depends(require_permission(SECCION, Accion.READ))])
