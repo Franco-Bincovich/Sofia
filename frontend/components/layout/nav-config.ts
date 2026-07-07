@@ -7,15 +7,19 @@ import {
 } from "lucide-react"
 
 import type { Accion, Seccion } from "@/services/permisos"
+import type { UserRol } from "@/types/auth"
 
 // seccion: null = ítem siempre visible; resto = se filtra por puede(rol, seccion, accion).
 // accion: permiso requerido para ver el ítem (default "read"); "write" = solo quien escribe.
+// soloRol: si está definido, el ítem se muestra solo si el rol está en la lista (Y ADEMÁS
+//   pasa el gating de sección). undefined = sin restricción por rol (comportamiento de siempre).
 export interface NavLink {
   label: string
   href: string
   icon: ElementType
   seccion: Seccion | null
   accion?: Accion
+  soloRol?: UserRol[]
 }
 
 export interface NavGroupDef {
@@ -33,9 +37,9 @@ export const NAV_GROUPS: ReadonlyArray<NavGroupDef> = [
   { label: "Personas", items: [
     { label: "Empleados", href: "/empleados", icon: Users, seccion: "empleados" },
     { label: "Organigrama", href: "/organigrama", icon: GitBranch, seccion: "organigrama" },
-    // "Mi equipo" (roster de ownership): gateado por "vacaciones" para que mandos_medios lo vea
-    // (única forma sin sección nueva). admin_rrhh también lo ve — redundante con Empleados, no rompe nada.
-    { label: "Mi equipo", href: "/equipo", icon: UsersRound, seccion: "vacaciones" },
+    // "Mi equipo" (roster de ownership): seccion "vacaciones" para pasar el gating de sección,
+    // + soloRol ["mandos_medios"] para que NO lo vean admin/gerencia (redundante con Empleados).
+    { label: "Mi equipo", href: "/equipo", icon: UsersRound, seccion: "vacaciones", soloRol: ["mandos_medios"] },
     { label: "Vacaciones", href: "/vacaciones", icon: Umbrella, seccion: "vacaciones" },
     { label: "Ausencias", href: "/ausencias", icon: CalendarX2, seccion: "ausencias" },
   ] },

@@ -12,7 +12,7 @@ import { EmpresaSelector } from "@/components/layout/EmpresaSelector"
 import { ThemeToggle } from "@/components/layout/ThemeToggle"
 import { NavItem } from "@/components/layout/NavItem"
 import { NavGroup } from "@/components/layout/NavGroup"
-import { DASHBOARD_ITEM, NAV_GROUPS } from "@/components/layout/nav-config"
+import { DASHBOARD_ITEM, NAV_GROUPS, type NavLink } from "@/components/layout/nav-config"
 import { getRol, puede } from "@/services/permisos"
 import type { UserRol } from "@/types/auth"
 
@@ -22,6 +22,15 @@ function grupoDeRuta(pathname: string): string | null {
     grp.items.some((i) => pathname === i.href || pathname.startsWith(`${i.href}/`)),
   )
   return g?.label ?? null
+}
+
+/** ¿El rol puede ver este item? Gating de sección (existente) + gating opcional por rol (soloRol).
+ *  Sin soloRol → solo cuenta la sección (retrocompat). rol=null (pre-mount) → un item con soloRol
+ *  no se muestra (null no está en ninguna lista), evitando flash hasta conocer el rol. */
+function itemVisible(item: NavLink, rol: UserRol | null): boolean {
+  const seccionOk = item.seccion === null || (rol !== null && puede(rol, item.seccion, item.accion ?? "read"))
+  const rolOk = !item.soloRol || (rol !== null && item.soloRol.includes(rol))
+  return seccionOk && rolOk
 }
 
 export function Sidebar() {
@@ -39,7 +48,7 @@ export function Sidebar() {
   // Grupos con sus items filtrados por permiso; se descartan los que quedan vacíos.
   const visibleGroups = NAV_GROUPS.map((g) => ({
     label: g.label,
-    items: g.items.filter((i) => i.seccion === null || (rol !== null && puede(rol, i.seccion, i.accion ?? "read"))),
+    items: g.items.filter((i) => itemVisible(i, rol)),
   })).filter((g) => g.items.length > 0)
 
   const closeMobile = () => setMobileOpen(false)
