@@ -32,6 +32,8 @@ from routers.sucesion import router as sucesion_router
 from routers.candidatos import router as candidatos_router
 from routers.ausencias import router as ausencias_router
 from routers.vacaciones import router as vacaciones_router
+from routers.equipo import router as equipo_router
+from routers.dashboard_equipo import router as dashboard_equipo_router
 from routers.vacantes import router as vacantes_router
 from routers.capacitaciones import router as capacitaciones_router
 from routers.asignaciones_capacitacion import router as asignaciones_cap_router
@@ -87,6 +89,8 @@ app.include_router(empleados_catalogos_router, prefix="/api/empleados", tags=["e
 app.include_router(empleados_router, prefix="/api/empleados", tags=["empleados"])
 app.include_router(ausencias_router, prefix="/api/ausencias", tags=["ausencias"])
 app.include_router(vacaciones_router, prefix="/api/vacaciones", tags=["vacaciones"])
+app.include_router(equipo_router, prefix="/api/equipo", tags=["equipo"])
+app.include_router(dashboard_equipo_router, prefix="/api/dashboard-equipo", tags=["dashboard"])
 app.include_router(vacantes_router, prefix="/api/vacantes", tags=["vacantes"])
 app.include_router(candidatos_router, prefix="/api/candidatos", tags=["candidatos"])
 app.include_router(onboarding_templates_router, prefix="/api/onboarding/templates", tags=["onboarding"])
