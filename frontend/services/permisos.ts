@@ -45,6 +45,7 @@ const RUTA_SECCION: Readonly<Record<string, Seccion>> = {
   areas: "areas",
   ausencias: "ausencias",
   vacaciones: "vacaciones",
+  equipo: "vacaciones",  // "Mi equipo": mismo gate que vacaciones (mandos_medios lo tiene)
   vacantes: "vacantes",
   onboarding: "onboarding",
   offboarding: "offboarding",

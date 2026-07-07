@@ -1,6 +1,6 @@
 import type { ElementType } from "react"
 import {
-  Activity, FolderKanban, LayoutDashboard, Users, GitBranch, Briefcase,
+  Activity, FolderKanban, LayoutDashboard, Users, UsersRound, GitBranch, Briefcase,
   UserPlus, UserMinus, Umbrella, CalendarX2, DollarSign, TrendingUp,
   BarChart3, GraduationCap, ClipboardCheck, Package, Target, ScrollText,
   CalendarClock, Settings, Building2, UserCog,
@@ -33,6 +33,9 @@ export const NAV_GROUPS: ReadonlyArray<NavGroupDef> = [
   { label: "Personas", items: [
     { label: "Empleados", href: "/empleados", icon: Users, seccion: "empleados" },
     { label: "Organigrama", href: "/organigrama", icon: GitBranch, seccion: "organigrama" },
+    // "Mi equipo" (roster de ownership): gateado por "vacaciones" para que mandos_medios lo vea
+    // (única forma sin sección nueva). admin_rrhh también lo ve — redundante con Empleados, no rompe nada.
+    { label: "Mi equipo", href: "/equipo", icon: UsersRound, seccion: "vacaciones" },
     { label: "Vacaciones", href: "/vacaciones", icon: Umbrella, seccion: "vacaciones" },
     { label: "Ausencias", href: "/ausencias", icon: CalendarX2, seccion: "ausencias" },
   ] },

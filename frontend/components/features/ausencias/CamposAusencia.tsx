@@ -1,0 +1,81 @@
+"use client"
+
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import type { TipoAusencia } from "@/types/ausencias"
+import {
+  NUEVO_TIPO, SELECT_CLASS, type AusenciaFormData, type AusenciaFormErrors,
+} from "./ausenciasForm"
+
+type FieldHandler = (
+  e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
+) => void
+
+interface CamposAusenciaProps {
+  form: AusenciaFormData
+  errors: AusenciaFormErrors
+  field: (key: keyof AusenciaFormData) => FieldHandler
+  onJustificada: (checked: boolean) => void
+  tipos: TipoAusencia[]
+  nuevoTipo: string
+  onNuevoTipo: (v: string) => void
+  creandoTipo: boolean
+  onCrearTipo: () => void
+}
+
+/** Campos propios de la ausencia: tipo (+ crear tipo inline) + fechas + justificada + motivo. */
+export function CamposAusencia({
+  form, errors, field, onJustificada, tipos, nuevoTipo, onNuevoTipo, creandoTipo, onCrearTipo,
+}: CamposAusenciaProps) {
+  return (
+    <>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="tipo_id">Tipo de ausencia <span className="text-destructive" aria-hidden>*</span></Label>
+        <select id="tipo_id" className={SELECT_CLASS} value={form.tipo_id} onChange={field("tipo_id")} aria-required aria-invalid={Boolean(errors.tipo_id)}>
+          <option value="">Seleccionar tipo</option>
+          {tipos.map((t) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+          <option value={NUEVO_TIPO}>+ Crear tipo nuevo...</option>
+        </select>
+        {errors.tipo_id && <p className="text-xs text-destructive" role="alert">{errors.tipo_id}</p>}
+      </div>
+
+      {form.tipo_id === NUEVO_TIPO && (
+        <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-muted/30 p-3">
+          <Label htmlFor="nuevo_tipo" className="text-xs text-muted-foreground">Nombre del nuevo tipo</Label>
+          <div className="flex gap-2">
+            <Input id="nuevo_tipo" value={nuevoTipo} onChange={(e) => onNuevoTipo(e.target.value)} placeholder="ej. Licencia por maternidad" className="h-8 text-sm" />
+            <Button type="button" size="sm" className="h-8 shrink-0" disabled={!nuevoTipo.trim() || creandoTipo} onClick={onCrearTipo}>
+              {creandoTipo ? "..." : "Crear"}
+            </Button>
+          </div>
+          {errors.nuevo_tipo && <p className="text-xs text-destructive" role="alert">{errors.nuevo_tipo}</p>}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="fecha_desde">Desde <span className="text-destructive" aria-hidden>*</span></Label>
+          <Input id="fecha_desde" type="date" value={form.fecha_desde} onChange={field("fecha_desde")} aria-required aria-invalid={Boolean(errors.fecha_desde)} />
+          {errors.fecha_desde && <p className="text-xs text-destructive" role="alert">{errors.fecha_desde}</p>}
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="fecha_hasta">Hasta <span className="text-destructive" aria-hidden>*</span></Label>
+          <Input id="fecha_hasta" type="date" value={form.fecha_hasta} min={form.fecha_desde} onChange={field("fecha_hasta")} aria-required aria-invalid={Boolean(errors.fecha_hasta)} />
+          {errors.fecha_hasta && <p className="text-xs text-destructive" role="alert">{errors.fecha_hasta}</p>}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <input type="checkbox" id="justificada" checked={form.justificada} onChange={(e) => onJustificada(e.target.checked)} className="h-4 w-4 cursor-pointer rounded border border-input accent-primary" />
+        <Label htmlFor="justificada" className="cursor-pointer font-normal">Ausencia justificada</Label>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="motivo">Motivo <span className="text-muted-foreground text-xs font-normal">(opcional)</span></Label>
+        <Textarea id="motivo" value={form.motivo} onChange={field("motivo")} rows={2} className="resize-none" placeholder="Descripción breve" />
+      </div>
+    </>
+  )
+}
