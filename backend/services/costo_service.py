@@ -3,8 +3,6 @@ Servicio de Costos de Personal. Lógica de negocio del módulo de Costos.
 Flujo: router → service → repository → DB
 CRÍTICO: todo cálculo de totales y agregaciones filtra por empresa_id cuando se provee.
 """
-from calendar import monthrange
-from datetime import date
 from typing import List, Optional
 from uuid import UUID
 
@@ -99,8 +97,8 @@ class CostoService:
         Raises:
             AppError: NOMINA_SAVE_ERROR (500) si la DB falla; PERIODO_CERRADO (409) si el mes está cerrado.
         """
-        ult = monthrange(data.anio, data.mes)[1]
-        verificar_periodo_abierto(empresa_id, "costos", desde=date(data.anio, data.mes, 1), hasta=date(data.anio, data.mes, ult), repo=self._periodos)
+        # Costos lo opera admin_rrhh (nunca mandos_medios), por lo que el bloqueo por período no aplica.
+        verificar_periodo_abierto(empresa_id, "costos", None, repo=self._periodos)
         try:
             nomina = self._nomina.save_nomina(data)
         except AppError:

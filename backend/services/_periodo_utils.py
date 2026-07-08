@@ -1,13 +1,13 @@
 """
-Check centralizado de bloqueo por período (capa service).
+Check centralizado de bloqueo por período (capa service), SOLO para mandos_medios.
 
-`verificar_periodo_abierto` es el único punto donde vive la regla de solapamiento; los
-services de escritura (ausencias/vacaciones/costos, B3.2) la llaman en 1 línea antes de
-crear/editar/borrar. Congelamiento total: si el registro cae en un período cerrado, lanza
-AppError PERIODO_CERRADO (409) y la operación no procede.
+`verificar_periodo_abierto` es el único punto donde vive la regla. Los services de escritura
+(vacaciones/ausencias/costos) la llaman en 1 línea antes de crear/editar/borrar, pasando el rol
+del usuario. Semántica: un mandos_medios no puede operar mientras HOY caiga dentro de un período
+cerrado de la empresa+módulo del registro; admin_rrhh y gerencia_lectura NUNCA se bloquean.
+La comparación es contra la fecha de carga (hoy), no contra las fechas del registro.
 
 Precedente de helper fino con repo inyectable: _empleados_utils.py / _vacaciones_utils.py.
-Aún NO se llama desde ningún módulo (eso es B3.2); acá solo se define y se testea.
 """
 from datetime import date
 from typing import Optional
@@ -17,38 +17,39 @@ from repositories.periodo_repo import PeriodoRepo
 from utils.errors import AppError
 
 
-def _solapa(desde: date, hasta: date, p_desde: date, p_hasta: date) -> bool:
-    """True si el rango [desde, hasta] se solapa con el período [p_desde, p_hasta]."""
-    return desde <= p_hasta and hasta >= p_desde
+def _fmt(d: date) -> str:
+    """Formatea una fecha como DD/MM/YYYY para el mensaje al usuario."""
+    return d.strftime("%d/%m/%Y")
 
 
 def verificar_periodo_abierto(
     empresa_id: Optional[UUID],
     modulo: Optional[str],
+    rol: Optional[str],
     *,
-    fecha: Optional[date] = None,
-    desde: Optional[date] = None,
-    hasta: Optional[date] = None,
     repo: Optional[PeriodoRepo] = None,
 ) -> None:
     """
-    Verifica que el registro no caiga en un período cerrado de su empresa.
+    Bloquea la operación si el usuario es mandos_medios y HOY cae en un período cerrado.
 
-    Se pasa una fecha simple (`fecha`) o un rango (`desde`/`hasta`). Una fecha simple se
-    trata como el rango [fecha, fecha]. Si el rango se solapa con algún período cerrado
-    (del módulo o global), lanza PERIODO_CERRADO (409). Sin empresa concreta o sin fecha,
-    no evalúa (no hay nada que congelar).
+    Solo aplica a `mandos_medios`: para cualquier otro rol (admin_rrhh, gerencia_lectura,
+    None/desconocido) retorna sin validar. Para un mando, compara la fecha de HOY contra los
+    períodos cerrados de `empresa_id` en `modulo` (más los globales); si hoy cae dentro de
+    alguno, lanza PERIODO_CERRADO (409). Sin empresa concreta, no evalúa.
 
     Raises:
-        AppError: PERIODO_CERRADO (409) si el registro cae en un período cerrado.
+        AppError: PERIODO_CERRADO (409) si hoy cae en un período cerrado.
     """
+    if rol != "mandos_medios":
+        return
     if empresa_id is None:
         return
-    if fecha is not None:
-        desde = hasta = fecha
-    if desde is None or hasta is None:
-        return
+    hoy = date.today()
     repo = repo or PeriodoRepo()
     for p in repo.find_cerrados(empresa_id, modulo):
-        if _solapa(desde, hasta, p.desde, p.hasta):
-            raise AppError("No se puede modificar: el período está cerrado", "PERIODO_CERRADO", 409)
+        if p.desde <= hoy <= p.hasta:
+            raise AppError(
+                f"Del {_fmt(p.desde)} al {_fmt(p.hasta)} no está habilitada la carga de novedades",
+                "PERIODO_CERRADO",
+                409,
+            )
