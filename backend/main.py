@@ -12,6 +12,7 @@ from config.settings import settings
 from middleware.auth import AuthMiddleware
 from middleware.error_handler import global_error_handler
 from middleware.security_headers import SecurityHeadersMiddleware
+from utils.errors import AppError
 from routers.areas import router as areas_router
 from routers.auth import limiter, router as auth_router
 from routers.costos import router as costos_router
@@ -75,6 +76,10 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-Empresa-Id"],
 )  # se ejecuta PRIMERO (más externo)
+# AppError registrado por TIPO específico → lo atiende el ExceptionMiddleware interno (dentro
+# de CORS), así la respuesta de error reatraviesa el CORSMiddleware y sale con headers CORS.
+app.add_exception_handler(AppError, global_error_handler)
+# Catch-all de 500 inesperados: queda sobre Exception (ServerErrorMiddleware, fuera de CORS).
 app.add_exception_handler(Exception, global_error_handler)
 
 # ── Health check (ruta pública) ────────────────────────────────────────────────
