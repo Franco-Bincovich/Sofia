@@ -90,7 +90,7 @@ class EmpleadoRepo:
             empresa_id,
         )
         result = query.maybe_single().execute()
-        if not result.data:
+        if not result or not result.data:
             return None
         return _row(result.data)
 
@@ -139,12 +139,12 @@ class EmpleadoRepo:
                .select(_SELECT)
                .eq("legajo", legajo).eq("empresa_id", str(empresa_id))
                .maybe_single().execute())
-        return _row(res.data) if res.data else None
+        return _row(res.data) if res and res.data else None
 
     def find_by_dni(self, dni: str, empresa_id: UUID) -> Optional[EmpleadoResponse]:
         """Busca un empleado por DNI en la empresa indicada. Devuelve None si no existe."""
         res = supabase_admin.table(_TABLE).select(_SELECT).eq("dni", dni).eq("empresa_id", str(empresa_id)).maybe_single().execute()
-        return _row(res.data) if res.data else None
+        return _row(res.data) if res and res.data else None
 
     def soft_delete(self, id: str, empresa_id: Optional[UUID] = None) -> bool:
         """Marca el empleado como baja sin eliminar el registro. Si empresa_id se provee, restringe el WHERE."""

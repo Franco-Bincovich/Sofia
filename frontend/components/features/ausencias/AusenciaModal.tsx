@@ -1,16 +1,18 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { toast } from "sonner"
 
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { createAusencia, updateAusencia } from "@/services/ausencias"
+import { crearAusenciaConAdjuntos, updateAusencia } from "@/services/ausencias"
 import { getEmpresaActivaId } from "@/services/empresaStore"
 import { getRol } from "@/services/permisos"
 import { SeleccionEmpleado } from "@/components/features/shared/SeleccionEmpleado"
 import { CamposAusencia } from "./CamposAusencia"
+import { AusenciaAdjuntos } from "./AusenciaAdjuntos"
 import { useTiposAusencia } from "./useTiposAusencia"
 import {
   EMPTY_AUSENCIA, toAusenciaCreate, toAusenciaUpdate, validateAusencia,
@@ -31,6 +33,7 @@ export function AusenciaModal({ open, onClose, onSuccess, editing }: AusenciaMod
   const [errors, setErrors] = useState<AusenciaFormErrors>({})
   const [submitting, setSubmitting] = useState(false)
   const [serverError, setServerError] = useState("")
+  const [pendientes, setPendientes] = useState<File[]>([])
   const { tipos, nuevoTipo, setNuevoTipo, creandoTipo, crearTipo } = useTiposAusencia(open)
 
   const isEditing = Boolean(editing)
@@ -39,6 +42,7 @@ export function AusenciaModal({ open, onClose, onSuccess, editing }: AusenciaMod
     if (!open) return
     setErrors({})
     setServerError("")
+    setPendientes([])
     if (editing) {
       setForm({
         empresa_id: editing.empresa_id, empleado_id: editing.empleado_id, tipo_id: editing.tipo_id,
@@ -85,7 +89,7 @@ export function AusenciaModal({ open, onClose, onSuccess, editing }: AusenciaMod
     setServerError("")
     try {
       if (isEditing) await updateAusencia(editing!.id, toAusenciaUpdate(form))
-      else await createAusencia(toAusenciaCreate(form))
+      else { const { fallidos } = await crearAusenciaConAdjuntos(toAusenciaCreate(form), pendientes); if (fallidos > 0) toast.warning(`La ausencia se registró, pero ${fallidos} documento(s) no se pudo adjuntar. Reintentá desde "Documentos" en el listado.`) }
       onSuccess()
     } catch (err: unknown) {
       setServerError(err instanceof Error ? err.message : "Ocurrió un error al guardar")
@@ -126,6 +130,8 @@ export function AusenciaModal({ open, onClose, onSuccess, editing }: AusenciaMod
               creandoTipo={creandoTipo}
               onCrearTipo={handleCrearTipo}
             />
+            <AusenciaAdjuntos isEditing={isEditing} ausenciaId={editing?.id}
+              pendientes={pendientes} onPendientesChange={setPendientes} disabled={submitting} />
           </div>
 
           {serverError && <p className="mt-2 text-sm text-destructive" role="alert">{serverError}</p>}

@@ -30,7 +30,7 @@ class DashboardService:
         try:
             kpis = self._calcular_kpis(hoy, empresa_id)
             headcount = self._calcular_headcount(empresa_id)
-            alertas = self._generar_alertas(kpis)
+            alertas = self._generar_alertas(kpis, empresa_id)
         except AppError:
             raise
         except Exception as exc:
@@ -122,19 +122,28 @@ class DashboardService:
             reverse=True,
         )
 
-    def _generar_alertas(self, kpis: KPIResponse) -> List[AlertaResponse]:
-        """Genera alertas automáticas a partir del estado de los KPIs."""
+    def _generar_alertas(self, kpis: KPIResponse, empresa_id: Optional[UUID] = None) -> List[AlertaResponse]:
+        """Alertas a partir de KPIs + una alerta por empleado activo sin email."""
         alertas: List[AlertaResponse] = []
         if kpis.vacantes_activas > 0:
-            alertas.append(AlertaResponse(
-                tipo="vacantes",
-                mensaje=f"Hay {kpis.vacantes_activas} vacante(s) activa(s) en proceso de selección",
-                nivel="info",
-            ))
+            alertas.append(AlertaResponse(tipo="vacantes", nivel="info",
+                mensaje=f"Hay {kpis.vacantes_activas} vacante(s) activa(s) en proceso de selección"))
         if kpis.onboardings_activos > 0:
-            alertas.append(AlertaResponse(
-                tipo="onboarding",
-                mensaje=f"Hay {kpis.onboardings_activos} proceso(s) de onboarding en curso",
-                nivel="info",
-            ))
+            alertas.append(AlertaResponse(tipo="onboarding", nivel="info",
+                mensaje=f"Hay {kpis.onboardings_activos} proceso(s) de onboarding en curso"))
+        alertas.extend(self._alertas_sin_email(empresa_id))
         return alertas
+
+    def _alertas_sin_email(self, empresa_id: Optional[UUID] = None) -> List[AlertaResponse]:
+        """Una alerta (warning) por empleado no-baja con email null; se auto-resuelve al cargarlo."""
+        q = (supabase_admin.table("empleados").select("id, nombre, apellido")
+             .is_("email_corporativo", "null").neq("estado", "baja"))
+        if empresa_id:
+            q = q.eq("empresa_id", str(empresa_id))
+        return [
+            AlertaResponse(
+                tipo="empleado_sin_email", nivel="warning", entidad_id=e["id"],
+                mensaje=f"{e['nombre']} {e['apellido']} no tiene email cargado",
+            )
+            for e in (q.execute().data or [])
+        ]

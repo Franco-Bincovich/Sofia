@@ -35,8 +35,8 @@ class EmpleadoBase(BaseModel):
     email_corporativo: str
     area_id: UUID
     roles: List[str]        # multi-valor; roles[0] es el principal (unifica cargo + rol)
-    modalidad_trabajo: str  # presencial | remoto | hibrido
-    tipo_contrato: str      # efectivo | plazo_fijo | contratado | pasantia
+    modalidad_trabajo: str  # presencial | remoto | hibrido (enum)
+    tipo_contrato: str      # texto libre (migración 065; el CSV de nómina trae valores abiertos)
     fecha_ingreso: date
     cargo: Optional[str] = None  # DEPRECADO (se dropea en S6); lo migran S2/S5
     rol: Optional[str] = None    # DEPRECADO (se dropea en S6); lo migran S2/S5
@@ -68,6 +68,9 @@ class EmpleadoBase(BaseModel):
 
 class EmpleadoCreate(EmpleadoBase):
     empresa_id: UUID  # la empresa de pertenencia viaja en el body, no en el header
+    # Default SOLO para altas que no traen modalidad (import de nómina: el CSV no la trae).
+    # El alta manual siempre la envía desde el dropdown, así que este default no la afecta.
+    modalidad_trabajo: str = "presencial"
     telefono: Optional[str] = None
     fecha_nacimiento: Optional[date] = None
     dni: Optional[str] = None
@@ -139,7 +142,7 @@ class EmpleadoResponse(BaseModel):
     id: str
     nombre: str
     apellido: str
-    email_corporativo: str
+    email_corporativo: Optional[str] = None  # nullable: import de nómina permite crear sin email
     empresa_id: Optional[str] = None
     empresa_nombre: Optional[str] = None
     area_id: str

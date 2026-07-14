@@ -20,7 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { EmpleadoModal } from "@/components/features/empleados/EmpleadoModal"
-import { ImportarCSVModal } from "@/components/features/empleados/ImportarCSVModal"
+import { ImportarNominaModal } from "@/components/features/empleados/ImportarNominaModal"
 import { fetchEmpleados } from "@/services/empleados"
 import { fetchEmpresas } from "@/services/empresas"
 import { getEmpresaActivaId } from "@/services/empresaStore"
@@ -149,7 +149,7 @@ export default function EmpleadosPage() {
                 onClick={() => setImportOpen(true)}
               >
                 <Upload className="size-4" />
-                Importar CSV
+                Importar nómina
               </Button>
               <Button className="min-h-11" onClick={() => setNewOpen(true)}>
                 <Plus />
@@ -286,7 +286,7 @@ export default function EmpleadosPage() {
         }}
       />
 
-      <ImportarCSVModal
+      <ImportarNominaModal
         open={importOpen}
         onClose={() => setImportOpen(false)}
         onSuccess={() => {

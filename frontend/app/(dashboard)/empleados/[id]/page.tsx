@@ -15,6 +15,7 @@ import { AdjuntosSection } from "@/components/features/adjuntos/AdjuntosSection"
 import { InventarioSection } from "@/components/features/empleados/ficha/InventarioSection"
 import { HistorialCambiosSection } from "@/components/features/empleados/ficha/HistorialCambiosSection"
 import { VacacionesSection } from "@/components/features/empleados/ficha/VacacionesSection"
+import { CesionesSection } from "@/components/features/empleados/ficha/CesionesSection"
 import { fetchEmpleado } from "@/services/empleados"
 import { useCanWrite } from "@/hooks/useCanWrite"
 import type { Empleado } from "@/types/empleado"
@@ -100,6 +101,7 @@ export default function EmpleadoDetailPage() {
         <InventarioSection empleadoId={id} />
         <HistorialCambiosSection empleadoId={id} />
         <VacacionesSection empleadoId={id} />
+        <CesionesSection empleadoId={id} />
       </div>
 
       {canWrite && (

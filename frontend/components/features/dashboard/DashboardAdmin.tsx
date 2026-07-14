@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { AlertTriangle } from "lucide-react"
 
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -28,12 +29,16 @@ function KpiCard({ kpi }: { kpi: KpiCardData }) {
 function HeadcountBar({ area, total, max }: HeadcountArea & { max: number }) {
   const pct = max > 0 ? Math.round((total / max) * 100) : 0
   return (
-    <div className="flex items-center gap-3">
-      <span className="w-24 shrink-0 text-right text-sm text-muted-foreground">{area}</span>
-      <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-muted">
+    // Layout apilado: el nombre ocupa todo el ancho (trunca con tooltip si es muy largo),
+    // el número queda arriba a la derecha y la barra va full-width debajo, siempre alineados.
+    <div className="space-y-1.5">
+      <div className="flex items-baseline gap-3">
+        <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground" title={area}>{area}</span>
+        <span className="shrink-0 text-sm font-medium text-foreground">{total}</span>
+      </div>
+      <div className="h-2.5 overflow-hidden rounded-full bg-muted">
         <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
       </div>
-      <span className="w-6 shrink-0 text-right text-sm font-medium text-foreground">{total}</span>
     </div>
   )
 }
@@ -103,7 +108,16 @@ export function DashboardAdmin() {
                 {data.alertas.map((alerta, i) => (
                   <li key={i} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
                     <AlertTriangle className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                    <p className="min-w-0 flex-1 text-sm text-foreground">{alerta.mensaje}</p>
+                    {alerta.entidad_id ? (
+                      <Link
+                        href={`/empleados/${alerta.entidad_id}`}
+                        className="min-w-0 flex-1 text-sm text-foreground hover:underline"
+                      >
+                        {alerta.mensaje}
+                      </Link>
+                    ) : (
+                      <p className="min-w-0 flex-1 text-sm text-foreground">{alerta.mensaje}</p>
+                    )}
                     <Badge variant={NIVEL_VARIANT[alerta.nivel]} className="shrink-0">{NIVEL_LABEL[alerta.nivel]}</Badge>
                   </li>
                 ))}

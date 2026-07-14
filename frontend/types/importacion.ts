@@ -1,19 +1,4 @@
-export interface FilaPreview {
-  fila: number
-  nombre: string
-  apellido: string
-  email_corporativo: string
-  roles: string[]
-  area_id: string
-  area_nombre: string
-  tipo_contrato: string
-  modalidad_trabajo: string
-  fecha_ingreso: string
-  dni: string
-  cuil: string | null
-  legajo: string | null
-  es_actualizacion: boolean
-}
+// ─── Comunes ────────────────────────────────────────────────────────────────
 
 export interface FilaError {
   fila: number
@@ -21,23 +6,35 @@ export interface FilaError {
   error: string
 }
 
-export interface ImportacionPreview {
-  filas_validas: FilaPreview[]
-  errores: FilaError[]
-}
-
 export interface ConfirmarError {
   fila: number
   error: string
 }
 
-export interface ImportacionResult {
-  importados: number
-  actualizados: number
-  errores: ConfirmarError[]
+// ─── Nómina de empleados (roster, 27 columnas) ──────────────────────────────
+
+export interface FilaConFaltantes {
+  fila: number
+  empleado: string
+  faltan: string[]
 }
 
-// ─── Nómina ───────────────────────────────────────────────────────────────────
+export interface FilaNoCargada {
+  fila: number
+  empleado: string
+  motivo: string
+}
+
+export interface ImportacionNominaEmpleadosResult {
+  total: number
+  creados: number       // altas nuevas (DNI no existía)
+  actualizados: number  // updates (DNI ya existía) — dedup
+  cargados_ok: number   // cargados sin faltantes
+  con_faltantes: FilaConFaltantes[]
+  no_cargados: FilaNoCargada[]
+}
+
+// ─── Nómina de sueldos (costos_nomina) ──────────────────────────────────────
 
 export interface FilaNominaPreview {
   fila: number

@@ -1,4 +1,5 @@
 import { apiFetch, descargarArchivo, type FormatoExport } from "@/services/api"
+import { subirAdjunto } from "@/services/adjuntos"
 import type {
   Ausencia,
   AusenciaCreate,
@@ -39,6 +40,27 @@ export async function createAusencia(data: AusenciaCreate): Promise<Ausencia> {
     method: "POST",
     body: JSON.stringify(data),
   })
+}
+
+/**
+ * Alta de ausencia con adjuntos diferidos. Crea primero la ausencia y, con el id nuevo,
+ * sube los archivos pendientes uno por uno reusando `subirAdjunto` (mismo endpoint que
+ * el alta directa). No revierte: si la ausencia se creó, existe. Devuelve la ausencia y
+ * cuántos adjuntos fallaron (0 = todo ok) para que la UI avise sin bloquear.
+ */
+export async function crearAusenciaConAdjuntos(
+  data: AusenciaCreate, files: File[],
+): Promise<{ ausencia: Ausencia; fallidos: number }> {
+  const ausencia = await createAusencia(data)
+  let fallidos = 0
+  for (const file of files) {
+    try {
+      await subirAdjunto("ausencia", ausencia.id, file)
+    } catch {
+      fallidos++
+    }
+  }
+  return { ausencia, fallidos }
 }
 
 export async function updateAusencia(id: string, data: AusenciaUpdate): Promise<Ausencia> {

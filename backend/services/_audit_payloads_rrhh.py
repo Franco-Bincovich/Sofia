@@ -15,7 +15,7 @@ from typing import Optional
 
 from services.audit_service import AuditService, _jsonable
 
-_CAMPOS_EMPLEADO = ("nombre", "apellido", "legajo", "roles", "area_id", "estado")
+_CAMPOS_EMPLEADO = ("nombre", "apellido", "legajo", "roles", "area_id", "estado", "seniority")
 _CAMPOS_NOMINA = ("empleado_id", "mes", "anio", "monto_bruto", "monto_neto")
 _CAMPOS_PRESUPUESTO = ("area_id", "mes", "anio", "presupuesto")
 _CAMPOS_EMPRESA = ("nombre", "cuit", "activa")
@@ -55,13 +55,19 @@ def payload_baja_empleado(prior, usuario_id: Optional[str], empresa_id: Optional
     }
 
 
-def payload_carga_nomina(nomina, usuario_id: Optional[str], empresa_id: Optional[str]) -> dict:
-    """Evento UPDATE de carga/actualización de nómina (upsert, sin diff)."""
-    return {
+def payload_carga_nomina(nomina, usuario_id: Optional[str], empresa_id: Optional[str], prior=None) -> dict:
+    """Evento de carga de nómina (upsert). Con `prior` (la nómina previa del mismo
+    empleado/mes/anio) arma el diff antes/después → accion UPDATE. Sin `prior` es la
+    primera carga → accion INSERT sin diff. Mismo patrón que payload_update_empleado."""
+    base = {
         "usuario_id": usuario_id, "entidad": "nomina", "registro_id": nomina.id,
-        "accion": "UPDATE", "evento": "carga_nomina", "empresa_id": empresa_id,
-        "datos_anteriores": None, "datos_nuevos": _subset(nomina, _CAMPOS_NOMINA),
+        "evento": "carga_nomina", "empresa_id": empresa_id,
     }
+    if prior is None:
+        return {**base, "accion": "INSERT",
+                "datos_anteriores": None, "datos_nuevos": _subset(nomina, _CAMPOS_NOMINA)}
+    antes, despues = AuditService._diff(_subset(prior, _CAMPOS_NOMINA), _subset(nomina, _CAMPOS_NOMINA))
+    return {**base, "accion": "UPDATE", "datos_anteriores": antes, "datos_nuevos": despues}
 
 
 def payload_set_presupuesto(presupuesto, usuario_id: Optional[str], empresa_id: Optional[str]) -> dict:
@@ -162,14 +168,19 @@ def payload_reapertura_periodo(p, usuario_id: Optional[str]) -> dict:
     }
 
 
-def payload_importacion_empleados(
-    empresa_id: Optional[str], importados: int, actualizados: int, errores: int,
+def payload_importacion_nomina(
+    archivo: str, creados: int, actualizados: int, con_faltantes: int, no_cargados: int,
     usuario_id: Optional[str],
 ) -> dict:
-    """Evento de auditoría de un lote de importación CSV (UN evento por lote, no por fila)."""
+    """Evento de auditoría de un lote de import de nómina de empleados (UN evento por lote).
+    Refleja el resumen: nuevos, actualizados (dedup DNI), con faltantes y no cargados.
+    empresa_id None: el lote puede crear empleados en varias empresas (columna Organismo)."""
     return {
-        "usuario_id": usuario_id, "entidad": "empleado", "registro_id": empresa_id or "lote",
-        "accion": "INSERT", "evento": "importacion_empleados", "empresa_id": empresa_id,
+        "usuario_id": usuario_id, "entidad": "empleado", "registro_id": "lote_nomina",
+        "accion": "INSERT", "evento": "importacion_nomina", "empresa_id": None,
         "datos_anteriores": None,
-        "datos_nuevos": {"importados": importados, "actualizados": actualizados, "errores": errores},
+        "datos_nuevos": {
+            "archivo": archivo, "creados": creados, "actualizados": actualizados,
+            "con_faltantes": con_faltantes, "no_cargados": no_cargados,
+        },
     }

@@ -1,7 +1,7 @@
 """
 Schemas de respuesta para el módulo de Dashboard Ejecutivo.
 """
-from typing import List, Literal
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel
 
@@ -19,6 +19,7 @@ class AlertaResponse(BaseModel):
     tipo: str
     mensaje: str
     nivel: Literal["info", "warning", "error"]
+    entidad_id: Optional[str] = None  # id del registro para linkear (ej. empleado → ficha)
 
 
 class HeadcountAreaResponse(BaseModel):

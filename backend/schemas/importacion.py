@@ -1,30 +1,13 @@
 """
-Schemas Pydantic para el módulo de importación masiva via CSV.
-Cubre empleados (FilaPreview) y nómina (FilaNominaPreview).
+Schemas Pydantic para el módulo de importación masiva de NÓMINA de sueldos (costos_nomina).
+El import de empleados (roster) vive en schemas/importacion_nomina_empleados.py.
 """
-from typing import List, Optional
+from typing import List
 
 from pydantic import BaseModel
 
 
-# ─── Empleados ───────────────────────────────────────────────────────────────
-
-class FilaPreview(BaseModel):
-    fila: int
-    nombre: str
-    apellido: str
-    email_corporativo: str
-    roles: List[str]
-    area_id: str
-    area_nombre: str
-    tipo_contrato: str
-    modalidad_trabajo: str
-    fecha_ingreso: str
-    dni: str
-    cuil: Optional[str] = None
-    legajo: Optional[str] = None
-    es_actualizacion: bool = False
-
+# ─── Comunes ─────────────────────────────────────────────────────────────────
 
 class FilaError(BaseModel):
     fila: int
@@ -32,28 +15,12 @@ class FilaError(BaseModel):
     error: str
 
 
-class ImportacionPreviewResponse(BaseModel):
-    filas_validas: List[FilaPreview]
-    errores: List[FilaError]
-
-
-class ImportacionConfirmarRequest(BaseModel):
-    empresa_id: str  # empresa elegida en el modal; determina UPSERT y filtrado de áreas
-    filas: List[FilaPreview]
-
-
 class ConfirmarError(BaseModel):
     fila: int
     error: str
 
 
-class ImportacionConfirmarResponse(BaseModel):
-    importados: int
-    actualizados: int
-    errores: List[ConfirmarError]
-
-
-# ─── Nómina ───────────────────────────────────────────────────────────────────
+# ─── Nómina (sueldos → costos_nomina) ────────────────────────────────────────
 
 class FilaNominaPreview(BaseModel):
     fila: int

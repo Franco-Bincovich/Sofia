@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback, useEffect } from "react"
-import { AlertCircle, Pencil, Plus, Trash2 } from "lucide-react"
+import { AlertCircle, Pencil, Plus, Trash2, Paperclip } from "lucide-react"
 import { toast } from "sonner"
 
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -14,6 +14,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
 import { AusenciaModal } from "@/components/features/ausencias/AusenciaModal"
+import { AdjuntosDialog } from "@/components/features/adjuntos/AdjuntosDialog"
 import { fetchAusencias, deleteAusencia, exportarAusencias } from "@/services/ausencias"
 import { fetchTiposAusencia } from "@/services/ausencias"
 import { ExportMenu } from "@/components/features/export/ExportMenu"
@@ -61,6 +62,7 @@ export default function AusenciasPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editingAusencia, setEditingAusencia] = useState<Ausencia | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [docsFor, setDocsFor] = useState<Ausencia | null>(null)
 
   // ── Inicialización ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -242,6 +244,14 @@ export default function AusenciasPage() {
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDocsFor(a)}
+                      aria-label="Documentos"
+                    >
+                      <Paperclip className="size-3.5" />
+                    </Button>
                     {canWrite && (
                       <>
                         <Button
@@ -277,6 +287,14 @@ export default function AusenciasPage() {
         onClose={handleModalClose}
         onSuccess={handleModalSuccess}
         editing={editingAusencia}
+      />
+
+      <AdjuntosDialog
+        open={!!docsFor}
+        onClose={() => setDocsFor(null)}
+        entidad="ausencia"
+        entidadId={docsFor?.id ?? ""}
+        titulo={`Ausencia · ${docsFor?.empleado_nombre ?? ""}`}
       />
     </div>
   )

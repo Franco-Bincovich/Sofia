@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback, useEffect } from "react"
-import { Umbrella, Plus } from "lucide-react"
+import { Umbrella, Plus, Paperclip } from "lucide-react"
 import { toast } from "sonner"
 
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -14,6 +14,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
 import { VacacionesModal } from "@/components/features/vacaciones/VacacionesModal"
+import { AdjuntosDialog } from "@/components/features/adjuntos/AdjuntosDialog"
 import { MapaVacaciones } from "@/components/features/vacaciones/MapaVacaciones"
 import { fetchVacaciones, cancelarVacacion, exportarVacaciones } from "@/services/vacaciones"
 import { ExportMenu } from "@/components/features/export/ExportMenu"
@@ -67,6 +68,7 @@ export default function VacacionesPage() {
   const [vista, setVista] = useState<Vista>("lista")
   const [modalOpen, setModalOpen] = useState(false)
   const [cancelingId, setCancelingId] = useState<string | null>(null)
+  const [docsFor, setDocsFor] = useState<SolicitudVacaciones | null>(null)
 
   // filtro de empresa en columna (solo cuando topbar = "Todas")
   const [empresaFiltro, setEmpresaFiltro] = useState("")
@@ -252,17 +254,27 @@ export default function VacacionesPage() {
                   <Badge variant={ESTADO_VARIANTS[s.estado]}>{ESTADO_LABELS[s.estado]}</Badge>
                 </TableCell>
                 <TableCell>
-                  {canWrite && s.estado !== "cancelada" && (
+                  <div className="flex items-center justify-end gap-1">
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="text-destructive hover:text-destructive"
-                      disabled={cancelingId === s.id}
-                      onClick={() => handleCancel(s.id)}
+                      onClick={() => setDocsFor(s)}
+                      aria-label="Documentos"
                     >
-                      {cancelingId === s.id ? "Cancelando..." : "Cancelar"}
+                      <Paperclip className="size-3.5" />
                     </Button>
-                  )}
+                    {canWrite && s.estado !== "cancelada" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        disabled={cancelingId === s.id}
+                        onClick={() => handleCancel(s.id)}
+                      >
+                        {cancelingId === s.id ? "Cancelando..." : "Cancelar"}
+                      </Button>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -278,6 +290,14 @@ export default function VacacionesPage() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onSuccess={() => { setModalOpen(false); load() }}
+      />
+
+      <AdjuntosDialog
+        open={!!docsFor}
+        onClose={() => setDocsFor(null)}
+        entidad="vacacion"
+        entidadId={docsFor?.id ?? ""}
+        titulo={`Vacación · ${docsFor?.empleado_nombre ?? ""}`}
       />
     </div>
   )

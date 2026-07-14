@@ -13,6 +13,7 @@ export interface AlertaDashboard {
   tipo: string
   mensaje: string
   nivel: "info" | "warning" | "error"
+  entidad_id?: string | null // id del registro (ej. empleado) para linkear a su ficha
 }
 
 export interface HeadcountArea {

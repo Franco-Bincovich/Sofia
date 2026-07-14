@@ -10,7 +10,7 @@ export interface Empleado {
   roles: string[]
   cargo?: string | null // DEPRECADO (se quita en S6); usar roles
   modalidad_trabajo: "presencial" | "remoto" | "hibrido"
-  tipo_contrato: "indefinido" | "plazo_fijo" | "honorarios"
+  tipo_contrato: string // texto libre (migración 065); el CSV de nómina trae valores abiertos
   fecha_ingreso: string
   telefono: string | null
   fecha_nacimiento: string | null

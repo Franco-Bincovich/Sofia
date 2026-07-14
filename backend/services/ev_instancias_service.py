@@ -17,7 +17,12 @@ from schemas.evaluaciones import (
     InstanciaCreate, InstanciaDetalleResponse, InstanciaListResponse,
     InstanciaResponse, ResultadoUpdate,
 )
+from services._audit_payloads_ev import (
+    payload_carga_resultado_evaluacion, payload_finalizar_evaluacion,
+)
 from services._evaluaciones_export import construir_filas_export
+from services._ev_instancias_utils import calcular_puntaje_global
+from services.audit_service import AuditService
 from services.export import Descarga, build_export
 from utils.errors import AppError
 from utils.logger import logger
@@ -29,10 +34,12 @@ class EvInstanciasService:
         repo: Optional[EvInstanciasRepo] = None,
         ciclos_repo: Optional[EvCiclosRepo] = None,
         plantillas_repo: Optional[EvPlantillasRepo] = None,
+        audit: Optional[AuditService] = None,
     ) -> None:
         self._repo = repo or EvInstanciasRepo()
         self._ciclos_repo = ciclos_repo or EvCiclosRepo()
         self._plantillas_repo = plantillas_repo or EvPlantillasRepo()
+        self._audit = audit or AuditService()
 
     def get_all(self, empresa_id: Optional[UUID] = None,
                 ciclo_id: Optional[UUID] = None, estado: Optional[str] = None) -> InstanciaListResponse:
@@ -98,10 +105,11 @@ class EvInstanciasService:
         })
         return instancia
 
-    def update_resultado(self, instancia_id: UUID, criterio_id: UUID,
-                         data: ResultadoUpdate, empresa_id: Optional[UUID] = None) -> InstanciaDetalleResponse:
+    def update_resultado(self, instancia_id: UUID, criterio_id: UUID, data: ResultadoUpdate,
+                         empresa_id: Optional[UUID] = None, usuario_id: Optional[str] = None) -> InstanciaDetalleResponse:
         """
         Carga o actualiza el puntaje/valor de un criterio en una instancia.
+        Audita el scoring (diff viejo→nuevo) tras la escritura; `instancia` = snapshot previo.
 
         Raises:
             AppError: INSTANCIA_NOT_FOUND (404), INSTANCIA_FINALIZADA (422).
@@ -113,13 +121,14 @@ class EvInstanciasService:
             raise AppError("La instancia ya está finalizada", "INSTANCIA_FINALIZADA", 422)
         payload = {k: v for k, v in data.model_dump(exclude_none=True).items()}
         self._repo.update_resultado(str(instancia_id), str(criterio_id), payload)
-        return self._repo.find_by_id(str(instancia_id), empresa_id)  # type: ignore[return-value]
+        actualizada = self._repo.find_by_id(str(instancia_id), empresa_id)
+        self._audit.registrar(**payload_carga_resultado_evaluacion(instancia, actualizada, criterio_id, usuario_id))
+        return actualizada  # type: ignore[return-value]
 
-    def finalizar(self, id: UUID, empresa_id: Optional[UUID] = None) -> InstanciaDetalleResponse:
+    def finalizar(self, id: UUID, empresa_id: Optional[UUID] = None, usuario_id: Optional[str] = None) -> InstanciaDetalleResponse:
         """
-        Finaliza una instancia calculando puntaje_global.
-        Numérica: promedio ponderado Σ(puntaje×peso)/Σ(peso) — requiere todos los puntajes cargados.
-        Cualitativa: puntaje_global = null (los valores cualitativos se leen directamente).
+        Finaliza una instancia calculando puntaje_global (ver calcular_puntaje_global).
+        Audita la finalización (estado + puntaje_global) tras la escritura exitosa.
 
         Raises:
             AppError: INSTANCIA_NOT_FOUND (404), INSTANCIA_FINALIZADA (409),
@@ -130,17 +139,8 @@ class EvInstanciasService:
             raise AppError("Instancia no encontrada", "INSTANCIA_NOT_FOUND", 404)
         if instancia.estado == "finalizada":
             raise AppError("La instancia ya está finalizada", "INSTANCIA_FINALIZADA", 409)
-        puntaje_global = None
-        if instancia.plantilla_tipo_escala == "numerica":
-            vacios = [r for r in instancia.resultados if r.puntaje is None]
-            if vacios:
-                faltantes = ", ".join(r.criterio_nombre for r in vacios)
-                raise AppError(
-                    f"Faltan puntajes en: {faltantes}", "RESULTADOS_INCOMPLETOS", 422,
-                )
-            suma_pond = sum(r.puntaje * r.criterio_peso for r in instancia.resultados)  # type: ignore[operator]
-            suma_pesos = sum(r.criterio_peso for r in instancia.resultados)
-            puntaje_global = round(suma_pond / suma_pesos, 2) if suma_pesos else None
+        puntaje_global = calcular_puntaje_global(instancia)
         self._repo.finalizar(str(id), empresa_id, puntaje_global, date.today())
+        self._audit.registrar(**payload_finalizar_evaluacion(id, instancia, puntaje_global, str(instancia.empresa_id), usuario_id))
         logger.info("Instancia finalizada", extra={"instancia_id": str(id), "puntaje_global": puntaje_global})
         return self._repo.find_by_id(str(id), empresa_id)  # type: ignore[return-value]

@@ -68,7 +68,7 @@ export const EMPTY: FormData = {
   area_id: "",
   roles: [],
   modalidad_trabajo: "presencial",
-  tipo_contrato: "efectivo",
+  tipo_contrato: "Relación de dependencia",
   fecha_ingreso: "",
   telefono: "",
   fecha_nacimiento: "",

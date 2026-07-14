@@ -1,12 +1,14 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { UserMinus } from "lucide-react"
+import { UserMinus, Paperclip } from "lucide-react"
 import { toast } from "sonner"
 
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/ui/EmptyState"
+import { AdjuntosDialog } from "@/components/features/adjuntos/AdjuntosDialog"
 import { cn } from "@/lib/utils"
 import { fetchOffboardings, marcarActivoDevuelto } from "@/services/offboarding"
 import { getEmpresaActivaId } from "@/services/empresaStore"
@@ -55,6 +57,7 @@ export default function OffboardingPage() {
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState<string | null>(null)
   const [empresaActivaId] = useState<string | null>(() => getEmpresaActivaId())
+  const [docsFor, setDocsFor] = useState<OffboardingInstancia | null>(null)
 
   useEffect(() => {
     fetchOffboardings()
@@ -190,6 +193,14 @@ export default function OffboardingPage() {
                     >
                       {MOTIVO_LABEL[motivo] ?? motivo}
                     </Badge>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="min-h-11 gap-1.5"
+                      onClick={() => setDocsFor(inst)}
+                    >
+                      <Paperclip className="size-4" /> Documentos
+                    </Button>
                   </div>
                 </div>
 
@@ -268,6 +279,14 @@ export default function OffboardingPage() {
           })}
         </ul>
       )}
+
+      <AdjuntosDialog
+        open={!!docsFor}
+        onClose={() => setDocsFor(null)}
+        entidad="offboarding"
+        entidadId={docsFor?.id ?? ""}
+        titulo={`Offboarding · ${docsFor?.empleado_nombre ?? ""}`}
+      />
     </div>
   )
 }

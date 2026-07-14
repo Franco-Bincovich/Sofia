@@ -86,17 +86,22 @@ export function DatosLaboralesFields({
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="tipo_contrato">Tipo de contrato</Label>
-        <select
+        {/* Texto libre editable (migración 065): sugerencias comunes vía datalist,
+            pero acepta cualquier valor (la nómina trae variantes abiertas). */}
+        <input
           id="tipo_contrato"
+          list="tipo_contrato_opciones"
           className={SELECT_CLASS}
           value={form.tipo_contrato}
           onChange={field("tipo_contrato")}
-        >
-          <option value="efectivo">Relación de dependencia</option>
-          <option value="plazo_fijo">Plazo fijo</option>
-          <option value="contratado">Contratado</option>
-          <option value="pasantia">Pasantía</option>
-        </select>
+          placeholder="Ej: Relación de dependencia"
+        />
+        <datalist id="tipo_contrato_opciones">
+          <option value="Relación de dependencia" />
+          <option value="Plazo fijo" />
+          <option value="Contratado" />
+          <option value="Pasantía" />
+        </datalist>
       </div>
 
       <TextFields fields={LABORAL_TEXT_FIELDS} form={form} errors={errors} field={field} />

@@ -61,7 +61,7 @@ async def update_resultado(
     id: UUID, criterio_id: UUID, body: ResultadoUpdate, request: Request,
     service: EvInstanciasService = Depends(_svc),
 ) -> InstanciaDetalleResponse:
-    return service.update_resultado(id, criterio_id, body, get_empresa_id(request))
+    return service.update_resultado(id, criterio_id, body, get_empresa_id(request), request.state.user.get("id"))
 
 
 @router.post("/{id}/finalizar", response_model=InstanciaDetalleResponse, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
@@ -69,4 +69,4 @@ async def finalizar_instancia(
     id: UUID, request: Request,
     service: EvInstanciasService = Depends(_svc),
 ) -> InstanciaDetalleResponse:
-    return service.finalizar(id, get_empresa_id(request))
+    return service.finalizar(id, get_empresa_id(request), request.state.user.get("id"))

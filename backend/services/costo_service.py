@@ -99,13 +99,21 @@ class CostoService:
         """
         # Costos lo opera admin_rrhh (nunca mandos_medios), por lo que el bloqueo por período no aplica.
         verificar_periodo_abierto(empresa_id, "costos", None, repo=self._periodos)
+        # Best-effort para el diff de auditoría: leé la nómina previa (mismo empleado/mes/anio)
+        # ANTES del upsert. Sin previo → primera carga (alta). Falla de lectura → prior=None
+        # (el audit es un extra, no debe romper la carga). No toca el repo ni el upsert.
+        try:
+            prev = self._nomina.get_nomina_mes(data.mes, data.anio, None)
+            prior = next((n for n in prev if str(n.empleado_id) == str(data.empleado_id)), None)
+        except Exception:
+            prior = None
         try:
             nomina = self._nomina.save_nomina(data)
         except AppError:
             raise
         except Exception as exc:
             raise AppError("Error al guardar la nómina", "NOMINA_SAVE_ERROR", 500) from exc
-        self._audit.registrar(**payload_carga_nomina(nomina, usuario_id, nomina.empresa_id))
+        self._audit.registrar(**payload_carga_nomina(nomina, usuario_id, nomina.empresa_id, prior))
         logger.info(
             "Nómina cargada",
             extra={"empleado_id": data.empleado_id, "mes": data.mes, "anio": data.anio},

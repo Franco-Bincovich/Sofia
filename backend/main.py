@@ -15,6 +15,7 @@ from middleware.security_headers import SecurityHeadersMiddleware
 from utils.errors import AppError
 from routers.areas import router as areas_router
 from routers.auth import limiter, router as auth_router
+from routers.cesiones import router as cesiones_router
 from routers.costos import router as costos_router
 from routers.empleados import router as empleados_router
 from routers.empleados_catalogos import router as empleados_catalogos_router
@@ -25,7 +26,7 @@ from routers.onboarding_templates import router as onboarding_templates_router
 from routers.assessment import router as assessment_router
 from routers.dashboard import router as dashboard_router
 from routers.organigrama import router as organigrama_router
-from routers.importacion import router as importacion_router
+from routers.importacion_nomina_empleados import router as importacion_nomina_empleados_router
 from routers.importacion_nomina import router as importacion_nomina_router
 from routers.integraciones import router as integraciones_router
 from routers.reportes import router as reportes_router
@@ -92,6 +93,7 @@ app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(areas_router, prefix="/api/areas", tags=["areas"])
 app.include_router(empleados_catalogos_router, prefix="/api/empleados", tags=["empleados"])  # ANTES de empleados (rutas estáticas vs /{id})
 app.include_router(empleados_router, prefix="/api/empleados", tags=["empleados"])
+app.include_router(cesiones_router, prefix="/api", tags=["cesiones"])
 app.include_router(ausencias_router, prefix="/api/ausencias", tags=["ausencias"])
 app.include_router(vacaciones_router, prefix="/api/vacaciones", tags=["vacaciones"])
 app.include_router(equipo_router, prefix="/api/equipo", tags=["equipo"])
@@ -108,7 +110,7 @@ app.include_router(organigrama_router, prefix="/api/organigrama", tags=["organig
 app.include_router(dashboard_router, prefix="/api/dashboard", tags=["dashboard"])
 app.include_router(empresa_router, prefix="/api/empresas", tags=["empresa"])
 app.include_router(reportes_router, prefix="/api/reportes", tags=["reportes"])
-app.include_router(importacion_router, prefix="/api/importacion", tags=["importacion"])
+app.include_router(importacion_nomina_empleados_router, prefix="/api/importacion", tags=["importacion"])
 app.include_router(importacion_nomina_router, prefix="/api/importacion", tags=["importacion"])
 app.include_router(integraciones_router, prefix="/api/integraciones", tags=["integraciones"])
 app.include_router(capacitaciones_router, prefix="/api/capacitaciones", tags=["capacitaciones"])
