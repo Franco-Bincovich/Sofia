@@ -1,0 +1,146 @@
+"use client"
+
+import { useEffect, useState } from "react"
+import { toast } from "sonner"
+import { FileText, X } from "lucide-react"
+
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { EliminarCandidatoButton } from "@/components/features/candidatos/EliminarCandidatoButton"
+import { getCandidatoCvUrl } from "@/services/candidatos"
+import type { EtapaPipeline } from "@/types/vacantes"
+import type { CandidatoConGrupo } from "@/types/candidato"
+
+const ETAPA_LABELS: Record<EtapaPipeline, string> = {
+  postulado: "Postulado",
+  assessment: "Assessment",
+  entrevista_rrhh: "Entrevista RRHH",
+  entrevista_tecnica: "Entrevista Técnica",
+  oferta: "Oferta",
+}
+
+/** Sección del panel: título + contenido. Base para ampliar a edición/notas a futuro. */
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="space-y-2">
+      <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</h3>
+      {children}
+    </section>
+  )
+}
+
+/** Campo label + valor; no renderiza nada si el valor está vacío. */
+function Campo({ label, value }: { label: string; value: string | null }) {
+  if (!value) return null
+  return (
+    <div className="flex justify-between gap-4 text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="min-w-0 truncate text-right text-foreground">{value}</span>
+    </div>
+  )
+}
+
+interface Props {
+  candidato: CandidatoConGrupo | null
+  open: boolean
+  onClose: () => void
+  onDeleted?: () => void
+}
+
+/** Panel lateral (drawer) de solo lectura con el detalle del candidato, en secciones. */
+export function CandidatoDetailPanel({ candidato, open, onClose, onDeleted }: Props) {
+  const [loadingCv, setLoadingCv] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [open, onClose])
+
+  if (!open || !candidato) return null
+  const c = candidato
+
+  async function abrirCv() {
+    setLoadingCv(true)
+    try {
+      window.open(await getCandidatoCvUrl(c.id), "_blank", "noopener,noreferrer")
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "No se pudo abrir el CV.")
+    } finally {
+      setLoadingCv(false)
+    }
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} aria-hidden />
+      <aside
+        role="dialog"
+        aria-label="Detalle del candidato"
+        className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col overflow-y-auto border-l bg-background shadow-xl"
+      >
+        <header className="flex items-start justify-between gap-2 border-b p-4">
+          <div className="min-w-0">
+            <h2 className="truncate text-lg font-semibold text-foreground">{c.nombre} {c.apellido}</h2>
+            <p className="truncate text-sm text-muted-foreground">{c.email}</p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Cerrar" className="shrink-0 text-muted-foreground hover:text-foreground">
+            <X className="size-5" />
+          </button>
+        </header>
+
+        <div className="flex-1 space-y-6 p-4">
+          <Section title="Datos personales">
+            <Campo label="Nombre" value={c.nombre} />
+            <Campo label="Apellido" value={c.apellido} />
+            <Campo label="Email" value={c.email} />
+            <Campo label="Teléfono" value={c.telefono} />
+          </Section>
+
+          <Section title="Experiencia">
+            <Campo label="Cargo anterior" value={c.cargo_anterior} />
+            <Campo label="Empresa anterior" value={c.empresa_anterior} />
+            {!c.cargo_anterior && !c.empresa_anterior && (
+              <p className="text-sm text-muted-foreground">Sin datos de experiencia.</p>
+            )}
+          </Section>
+
+          <Section title="Búsqueda">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm text-foreground">{c.grupo_nombre ?? "Sin búsqueda"}</span>
+              {c.busqueda_activa ? (
+                <Badge variant="outline">Activa</Badge>
+              ) : (
+                <Badge variant="secondary">Búsqueda cerrada</Badge>
+              )}
+            </div>
+          </Section>
+
+          <Section title="Etapa">
+            <Badge variant="secondary">{ETAPA_LABELS[c.etapa_pipeline] ?? c.etapa_pipeline}</Badge>
+          </Section>
+
+          <Section title="CV">
+            {c.cv_storage_path ? (
+              <Button variant="outline" className="gap-2" onClick={abrirCv} disabled={loadingCv}>
+                <FileText className="size-4" /> {loadingCv ? "Abriendo…" : "Abrir CV"}
+              </Button>
+            ) : (
+              <p className="text-sm text-muted-foreground">Sin CV cargado</p>
+            )}
+          </Section>
+
+          {!c.busqueda_activa && (
+            <Section title="Acciones">
+              <EliminarCandidatoButton
+                candidato={c}
+                onDeleted={() => { onClose(); onDeleted?.() }}
+              />
+            </Section>
+          )}
+        </div>
+      </aside>
+    </>
+  )
+}

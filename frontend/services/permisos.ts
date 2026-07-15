@@ -47,6 +47,7 @@ const RUTA_SECCION: Readonly<Record<string, Seccion>> = {
   vacaciones: "vacaciones",
   equipo: "vacaciones",  // "Mi equipo": mismo gate que vacaciones (mandos_medios lo tiene)
   vacantes: "vacantes",
+  candidatos: "candidatos",
   onboarding: "onboarding",
   offboarding: "offboarding",
   costos: "costos",
@@ -86,6 +87,7 @@ const RUTAS_ORDENADAS: ReadonlyArray<{ ruta: string; seccion: Seccion }> = [
   { ruta: "/empleados", seccion: "empleados" },
   { ruta: "/organigrama", seccion: "organigrama" },
   { ruta: "/vacantes", seccion: "vacantes" },
+  { ruta: "/candidatos", seccion: "candidatos" },
   { ruta: "/vacaciones", seccion: "vacaciones" },
   { ruta: "/ausencias", seccion: "ausencias" },
   { ruta: "/onboarding", seccion: "onboarding" },

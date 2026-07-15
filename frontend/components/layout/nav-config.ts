@@ -3,7 +3,7 @@ import {
   Activity, FolderKanban, LayoutDashboard, Users, UsersRound, GitBranch, Briefcase,
   UserPlus, UserMinus, Umbrella, CalendarX2, DollarSign, TrendingUp,
   BarChart3, GraduationCap, ClipboardCheck, Package, Target, ScrollText,
-  CalendarClock, Settings, Building2, UserCog,
+  CalendarClock, Settings, Building2, UserCog, UserSearch,
 } from "lucide-react"
 
 import type { Accion, Seccion } from "@/services/permisos"
@@ -45,6 +45,7 @@ export const NAV_GROUPS: ReadonlyArray<NavGroupDef> = [
   ] },
   { label: "Incorporación", items: [
     { label: "Vacantes", href: "/vacantes", icon: Briefcase, seccion: "vacantes" },
+    { label: "Candidatos", href: "/candidatos", icon: UserSearch, seccion: "candidatos" },
     { label: "Onboarding", href: "/onboarding", icon: UserPlus, seccion: "onboarding" },
     { label: "Offboarding", href: "/offboarding", icon: UserMinus, seccion: "offboarding" },
     { label: "Sucesión", href: "/sucesion", icon: TrendingUp, seccion: "sucesion" },
