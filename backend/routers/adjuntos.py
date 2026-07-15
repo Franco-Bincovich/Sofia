@@ -7,7 +7,7 @@ que recibe el rol y resuelve el permiso por sección. empresa_id sale de la empr
 from typing import Optional, Tuple
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
+from fastapi import APIRouter, Body, Depends, File, Form, Query, Request, UploadFile
 
 from schemas.adjunto import AdjuntoListResponse, AdjuntoResponse
 from services.adjunto_service import AdjuntoService
@@ -61,6 +61,16 @@ async def listar_adjuntos(
 async def url_adjunto(id: UUID, request: Request, service: AdjuntoService = Depends(_svc)) -> dict:
     rol, _ = _actor(request)
     return {"url": service.url_descarga(str(id), get_empresa_id(request), rol)}
+
+
+@router.put("/{id}/principal", response_model=AdjuntoResponse)
+async def marcar_principal(
+    id: UUID, request: Request,
+    principal: bool = Body(True, embed=True),
+    service: AdjuntoService = Depends(_svc),
+) -> AdjuntoResponse:
+    rol, _ = _actor(request)
+    return service.marcar_principal(str(id), principal, get_empresa_id(request), rol)
 
 
 @router.delete("/{id}", status_code=200)

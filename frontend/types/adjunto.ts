@@ -7,6 +7,7 @@ export interface Adjunto {
   tamano_bytes: number | null
   categoria: string | null
   descripcion: string | null
+  es_principal: boolean | null
   subido_por: string | null
   created_at: string
 }

@@ -32,3 +32,11 @@ export async function getAdjuntoUrl(id: string): Promise<string> {
 export async function eliminarAdjunto(id: string): Promise<void> {
   await apiFetch<{ ok: boolean }>(`${BASE}/${id}`, { method: "DELETE" })
 }
+
+/** Marca (o desmarca) un adjunto como principal de su entidad. Desmarca los hermanos. */
+export function marcarAdjuntoPrincipal(id: string, principal = true): Promise<Adjunto> {
+  return apiFetch<Adjunto>(`${BASE}/${id}/principal`, {
+    method: "PUT",
+    body: JSON.stringify({ principal }),
+  })
+}

@@ -43,7 +43,7 @@ class AdjuntoRepo:
         )
         if empresa_id:
             query = query.eq("empresa_id", str(empresa_id))
-        result = query.order("created_at", desc=True).execute()
+        result = query.order("es_principal", desc=True).order("created_at", desc=True).execute()
         return [_row(r) for r in result.data]
 
     def find_by_id(self, id: str) -> Optional[Adjunto]:
@@ -54,3 +54,13 @@ class AdjuntoRepo:
     def marcar_eliminado(self, id: str) -> None:
         """Soft delete: estado='eliminado'. El objeto queda intacto en Storage."""
         supabase_admin.table(_TABLE).update({"estado": "eliminado"}).eq("id", id).execute()
+
+    def set_principal(self, id: str, valor: bool) -> None:
+        """Setea es_principal en un adjunto puntual."""
+        supabase_admin.table(_TABLE).update({"es_principal": valor}).eq("id", id).execute()
+
+    def desmarcar_principales(self, entidad: str, entidad_id: str) -> None:
+        """Pone es_principal=False en TODOS los adjuntos activos de la entidad (una sola principal)."""
+        supabase_admin.table(_TABLE).update({"es_principal": False}).eq("entidad", entidad).eq(
+            "entidad_id", entidad_id
+        ).eq("estado", "activo").execute()

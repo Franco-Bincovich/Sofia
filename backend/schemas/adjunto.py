@@ -27,6 +27,7 @@ class Adjunto(BaseModel):
     categoria: Optional[str] = None
     descripcion: Optional[str] = None
     estado: str
+    es_principal: Optional[bool] = False
     subido_por: Optional[str] = None
     created_at: datetime
 
@@ -44,6 +45,7 @@ class AdjuntoResponse(BaseModel):
     tamano_bytes: Optional[int] = None
     categoria: Optional[str] = None
     descripcion: Optional[str] = None
+    es_principal: Optional[bool] = False
     subido_por: Optional[str] = None
     created_at: datetime
 
