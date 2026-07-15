@@ -4,7 +4,8 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
 
-from schemas.vacante import CandidatoCreate, CandidatoResponse, CandidatoDesdeEmailRequest, EmailCandidatoResponse, PublicarLinkedinRequest, PublicarLinkedinResponse, VacanteCreate, VacanteResponse, VacanteUpdate
+from schemas.vacante import CandidatoResponse, CandidatoDesdeEmailRequest, EmailCandidatoResponse, PublicarLinkedinRequest, PublicarLinkedinResponse, VacanteCreate, VacanteResponse, VacanteUpdate
+from routers._candidato_form import candidato_form
 from services.gmail_service import GmailService
 from services.vacante_service import VacanteService
 from services.zernio_service import ZernioService
@@ -45,6 +46,12 @@ async def update_vacante(
     return service.update_vacante(id, body, get_empresa_id(request))
 
 
+@router.delete("/{id}", status_code=204, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
+async def delete_vacante(id: UUID, request: Request, service: VacanteService = Depends(_svc)) -> None:
+    u = request.state.user
+    service.delete_vacante(id, get_empresa_id(request), u.get("rol"), u.get("id", "system"))
+
+
 @router.get("/{id}/candidatos", response_model=List[CandidatoResponse], dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def list_candidatos(id: UUID, request: Request, service: VacanteService = Depends(_svc)) -> List[CandidatoResponse]:
     return service.get_candidatos(id, get_empresa_id(request))
@@ -52,9 +59,10 @@ async def list_candidatos(id: UUID, request: Request, service: VacanteService = 
 
 @router.post("/{id}/candidatos", response_model=CandidatoResponse, status_code=201, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
 async def add_candidato(
-    id: UUID, body: CandidatoCreate, request: Request, service: VacanteService = Depends(_svc)
+    id: UUID, request: Request, form: tuple = Depends(candidato_form), service: VacanteService = Depends(_svc)
 ) -> CandidatoResponse:
-    return service.add_candidato(id, body, get_empresa_id(request))
+    data, contenido, filename, content_type = form
+    return service.add_candidato(id, data, get_empresa_id(request), contenido, filename, content_type)
 
 
 @router.post("/{id}/publicar-linkedin", response_model=PublicarLinkedinResponse, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
