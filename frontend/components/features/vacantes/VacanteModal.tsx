@@ -12,7 +12,6 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { createVacante } from "@/services/vacantes"
 import { fetchAreas } from "@/services/areas"
 import { fetchEmpresas } from "@/services/empresas"
@@ -31,9 +30,7 @@ type FormData = {
   empresa_id: string
   titulo: string
   area_id: string
-  descripcion: string
   tipo_contrato: string
-  requisitos: string
 }
 
 type FormErrors = Partial<Record<keyof FormData, string>>
@@ -42,9 +39,7 @@ const EMPTY: FormData = {
   empresa_id: "",
   titulo: "",
   area_id: "",
-  descripcion: "",
   tipo_contrato: "efectivo",
-  requisitos: "",
 }
 
 const SELECT_CLASS =
@@ -57,10 +52,6 @@ function validate(form: FormData): FormErrors {
   if (!form.area_id) errors.area_id = "El área es requerida"
   if (!form.tipo_contrato) errors.tipo_contrato = "El tipo de contrato es requerido"
   return errors
-}
-
-function parseRequisitos(raw: string): string[] {
-  return raw.split("\n").map((r) => r.trim()).filter(Boolean)
 }
 
 export function VacanteModal({ open, onClose, onSuccess }: VacanteModalProps) {
@@ -131,8 +122,6 @@ export function VacanteModal({ open, onClose, onSuccess }: VacanteModalProps) {
         empresa_id: form.empresa_id,
         titulo: form.titulo.trim(),
         area_id: form.area_id,
-        descripcion: form.descripcion.trim() || undefined,
-        requisitos: parseRequisitos(form.requisitos),
         tipo_contrato: form.tipo_contrato,
       }
       await createVacante(payload)
@@ -240,34 +229,6 @@ export function VacanteModal({ open, onClose, onSuccess }: VacanteModalProps) {
                 <option value="contratado">Contratado</option>
                 <option value="pasantia">Pasantía</option>
               </select>
-            </div>
-
-            {/* Descripción */}
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="descripcion">Descripción</Label>
-              <Textarea
-                id="descripcion"
-                value={form.descripcion}
-                onChange={field("descripcion")}
-                rows={3}
-                className="resize-none"
-              />
-            </div>
-
-            {/* Requisitos */}
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="requisitos">
-                Requisitos
-                <span className="ml-1 text-xs font-normal text-muted-foreground">(uno por línea)</span>
-              </Label>
-              <Textarea
-                id="requisitos"
-                value={form.requisitos}
-                onChange={field("requisitos")}
-                rows={4}
-                className="resize-none"
-                placeholder={"5+ años de experiencia\nReact y TypeScript\n..."}
-              />
             </div>
           </div>
 

@@ -7,6 +7,8 @@ export type EtapaPipeline =
   | "entrevista_tecnica"
   | "oferta"
 
+export type ModalidadVacante = "presencial" | "remoto" | "hibrido"
+
 export interface Vacante {
   id: string
   empresa_id: string | null
@@ -15,7 +17,7 @@ export interface Vacante {
   area_id: string
   area_nombre: string | null
   descripcion: string | null
-  requisitos: string[]
+  requisitos: string | null
   tipo_contrato: string | null
   estado: EstadoVacante
   fecha_apertura: string | null
@@ -23,6 +25,15 @@ export interface Vacante {
   linkedin_post_id: string | null
   linkedin_url: string | null
   email_contacto: string | null
+  copy_publicacion: string | null
+  hashtags: string | null
+  ubicacion: string | null
+  modalidad: string | null
+  jornada: string | null
+  funciones: string | null
+  formacion: string | null
+  experiencia: string | null
+  conocimientos_tecnicos: string | null
 }
 
 export interface LinkedinPublicarRequest {
@@ -47,8 +58,6 @@ export interface VacanteCreate {
   empresa_id: string
   titulo: string
   area_id: string
-  descripcion?: string
-  requisitos: string[]
   tipo_contrato: string
 }
 
@@ -56,9 +65,19 @@ export interface VacanteUpdate {
   titulo?: string
   area_id?: string
   descripcion?: string
-  requisitos?: string[]
+  requisitos?: string | null
   tipo_contrato?: string
   estado?: EstadoVacante
+  copy_publicacion?: string | null
+  hashtags?: string | null
+  email_contacto?: string | null
+  ubicacion?: string | null
+  modalidad?: string | null
+  jornada?: string | null
+  funciones?: string | null
+  formacion?: string | null
+  experiencia?: string | null
+  conocimientos_tecnicos?: string | null
 }
 
 export interface Candidato {

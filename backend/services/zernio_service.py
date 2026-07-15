@@ -20,8 +20,9 @@ def _build_post_content(vacante_dict: dict, email_contacto: str) -> str:
     titulo = vacante_dict.get("titulo", "")
     area = vacante_dict.get("area_nombre") or ""
     descripcion = vacante_dict.get("descripcion") or ""
-    requisitos = vacante_dict.get("requisitos") or []
-    req_lista = "\n".join(f"• {r}" for r in requisitos) if requisitos else "• A definir"
+    requisitos = vacante_dict.get("requisitos") or ""
+    lineas = [ln.strip() for ln in requisitos.splitlines() if ln.strip()]
+    req_lista = "\n".join(f"• {ln}" for ln in lineas) if lineas else "• A definir"
     hashtag_area = area.replace(" ", "")
     return (
         f"🚀 {titulo} | {area}\n\n"
