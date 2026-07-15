@@ -88,6 +88,14 @@ export async function subirArchivo<T>(
   const form = new FormData()
   form.append("file", file)
   if (campos) for (const [k, v] of Object.entries(campos)) form.append(k, v)
+  return postMultipart<T>(path, form)
+}
+
+/**
+ * POST multipart/form-data genérico a partir de un FormData ya armado (archivo opcional +
+ * campos). Omite Content-Type a propósito: el browser fija el boundary automáticamente.
+ */
+export async function postMultipart<T>(path: string, form: FormData): Promise<T> {
   const headers = authHeaders()
   delete headers["Content-Type"] // el browser fija el boundary multipart
   const res = await fetch(`${API_BASE}${path}`, { method: "POST", headers, body: form })

@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { CvField } from "@/components/features/vacantes/CvField"
 import { createCandidato } from "@/services/vacantes"
 import type { CandidatoCreate } from "@/types/vacantes"
 
@@ -63,6 +64,8 @@ const TEXT_FIELDS: Array<{ field: keyof FormData; label: string; required?: bool
 export function CandidatoModal({ open, vacanteId, onClose, onSuccess }: CandidatoModalProps) {
   const [form, setForm] = useState<FormData>(EMPTY)
   const [errors, setErrors] = useState<FormErrors>({})
+  const [cvFile, setCvFile] = useState<File | null>(null)
+  const [cvError, setCvError] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [serverError, setServerError] = useState("")
 
@@ -70,6 +73,8 @@ export function CandidatoModal({ open, vacanteId, onClose, onSuccess }: Candidat
     if (!open) return
     setForm(EMPTY)
     setErrors({})
+    setCvFile(null)
+    setCvError("")
     setServerError("")
   }, [open])
 
@@ -88,6 +93,7 @@ export function CandidatoModal({ open, vacanteId, onClose, onSuccess }: Candidat
       setErrors(errs)
       return
     }
+    if (cvError) return
     setSubmitting(true)
     setServerError("")
     try {
@@ -98,7 +104,7 @@ export function CandidatoModal({ open, vacanteId, onClose, onSuccess }: Candidat
         cargo_anterior: form.cargo_anterior.trim() || undefined,
         empresa_anterior: form.empresa_anterior.trim() || undefined,
       }
-      await createCandidato(vacanteId, payload)
+      await createCandidato(vacanteId, payload, cvFile)
       onSuccess()
     } catch {
       setServerError("Ocurrió un error al guardar. Intentá de nuevo.")
@@ -137,6 +143,12 @@ export function CandidatoModal({ open, vacanteId, onClose, onSuccess }: Candidat
                 )}
               </div>
             ))}
+
+            <CvField
+              file={cvFile}
+              error={cvError}
+              onChange={(f, e) => { setCvFile(f); setCvError(e) }}
+            />
           </div>
 
           {serverError && (
