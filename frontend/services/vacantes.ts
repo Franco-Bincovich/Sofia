@@ -1,5 +1,5 @@
 import type { Candidato, CandidatoCreate, EmailCandidato, EtapaPipeline, LinkedinPublicarRequest, LinkedinPublicarResponse, Vacante, VacanteCreate, VacanteUpdate } from "@/types/vacantes"
-import { apiFetch } from "@/services/api"
+import { apiFetch, API_BASE, ApiError, authHeaders, postMultipart } from "@/services/api"
 
 export async function fetchVacantes(estado?: string, empresaIdOverride?: string): Promise<Vacante[]> {
   const params = new URLSearchParams()
@@ -29,15 +29,33 @@ export async function updateVacante(id: string, data: VacanteUpdate): Promise<Va
   })
 }
 
+/** Elimina la vacante y sus imágenes; sus candidatos sobreviven. El endpoint devuelve 204. */
+export async function deleteVacante(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/vacantes/${id}`, { method: "DELETE", headers: authHeaders() })
+  if (!res.ok) {
+    let msg = "No se pudo eliminar la vacante."
+    try { msg = ((await res.json()) as { message?: string }).message ?? msg } catch { /* sin body */ }
+    throw new ApiError(msg, "UNKNOWN", res.status)
+  }
+}
+
 export async function fetchCandidatos(vacanteId: string): Promise<Candidato[]> {
   return apiFetch<Candidato[]>(`/api/vacantes/${vacanteId}/candidatos`)
 }
 
-export async function createCandidato(vacanteId: string, data: CandidatoCreate): Promise<Candidato> {
-  return apiFetch<Candidato>(`/api/vacantes/${vacanteId}/candidatos`, {
-    method: "POST",
-    body: JSON.stringify(data),
-  })
+export async function createCandidato(
+  vacanteId: string,
+  data: CandidatoCreate,
+  cv?: File | null,
+): Promise<Candidato> {
+  const form = new FormData()
+  form.append("nombre", data.nombre)
+  form.append("apellido", data.apellido)
+  form.append("email", data.email)
+  if (data.cargo_anterior) form.append("cargo_anterior", data.cargo_anterior)
+  if (data.empresa_anterior) form.append("empresa_anterior", data.empresa_anterior)
+  if (cv) form.append("cv", cv)
+  return postMultipart<Candidato>(`/api/vacantes/${vacanteId}/candidatos`, form)
 }
 
 export async function moverCandidato(candidatoId: string, etapa: EtapaPipeline): Promise<Candidato> {

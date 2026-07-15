@@ -15,6 +15,10 @@ import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { CandidatoCard } from "@/components/features/vacantes/CandidatoCard"
 import { CandidatoModal } from "@/components/features/vacantes/CandidatoModal"
+import { EliminarVacanteButton } from "@/components/features/vacantes/EliminarVacanteButton"
+import { InformacionPuestoSection } from "@/components/features/vacantes/InformacionPuestoSection"
+import { PublicacionSection } from "@/components/features/vacantes/PublicacionSection"
+import { VacanteImagenes } from "@/components/features/vacantes/VacanteImagenes"
 import { ApiError, getSession } from "@/services/api"
 import { useCanWrite } from "@/hooks/useCanWrite"
 import {
@@ -462,6 +466,7 @@ export default function VacanteDetailPage() {
                     Agregar candidato
                   </Button>
                 )}
+                {canWrite && <EliminarVacanteButton vacanteId={id} titulo={vacante.titulo} />}
               </div>
             }
           />
@@ -476,23 +481,15 @@ export default function VacanteDetailPage() {
               </span>
             </div>
             {vacante.descripcion && (
-              <p className="mb-4 text-sm text-foreground">{vacante.descripcion}</p>
-            )}
-            {vacante.requisitos.length > 0 && (
-              <div>
-                <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Requisitos
-                </h3>
-                <ul className="list-inside list-disc space-y-1">
-                  {vacante.requisitos.map((req, i) => (
-                    <li key={i} className="text-sm text-foreground">
-                      {req}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              <p className="text-sm text-foreground">{vacante.descripcion}</p>
             )}
           </div>
+
+          <InformacionPuestoSection vacante={vacante} canWrite={canWrite} onSaved={setVacante} />
+
+          <PublicacionSection vacante={vacante} canWrite={canWrite} onSaved={setVacante} />
+
+          <VacanteImagenes vacanteId={id} />
 
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-base font-semibold text-foreground">Pipeline de selección</h2>

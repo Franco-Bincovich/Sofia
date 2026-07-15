@@ -8,6 +8,9 @@ from uuid import UUID
 from repositories.candidato_repo import CandidatoRepo
 from repositories.vacante_repo import VacanteRepo
 from schemas.vacante import CandidatoCreate, CandidatoResponse, VacanteCreate, VacanteResponse, VacanteUpdate
+from services.adjunto_service import AdjuntoService
+from services.audit_service import AuditService
+from services.cv_service import CvService
 from utils.errors import AppError
 from utils.logger import logger
 
@@ -16,9 +19,12 @@ _ESTADOS = {"nueva", "en_proceso", "con_candidatos", "cerrada"}
 
 
 class VacanteService:
-    def __init__(self, repo: Optional[VacanteRepo] = None, candidato_repo: Optional[CandidatoRepo] = None) -> None:
+    def __init__(self, repo: Optional[VacanteRepo] = None, candidato_repo: Optional[CandidatoRepo] = None, cv_service: Optional[CvService] = None, adjunto_service: Optional[AdjuntoService] = None, audit: Optional[AuditService] = None) -> None:
         self._repo = repo or VacanteRepo()
         self._candidato_repo = candidato_repo or CandidatoRepo()
+        self._cv = cv_service or CvService()
+        self._adjuntos = adjunto_service or AdjuntoService()
+        self._audit = audit or AuditService()
 
     def get_vacantes(self, estado: Optional[str] = None, empresa_id: Optional[UUID] = None) -> List[VacanteResponse]:
         """
@@ -85,53 +91,37 @@ class VacanteService:
         return vacante
 
     def get_candidatos(self, vacante_id: UUID, empresa_id: Optional[UUID] = None) -> List[CandidatoResponse]:
-        """
-        Retorna todos los candidatos de una vacante ordenados por fecha de postulación.
-
-        Args:
-            vacante_id: UUID de la vacante.
-            empresa_id: Si se provee, valida que la vacante pertenezca a esa empresa.
-
-        Raises:
-            AppError: VACANTE_NOT_FOUND (404) si la vacante no existe o no pertenece a la empresa.
-        """
+        """Candidatos de una vacante por fecha. Raises VACANTE_NOT_FOUND (404) si no existe/otra empresa."""
         if not self._repo.find_by_id(str(vacante_id), empresa_id):
             raise AppError("Vacante no encontrada", "VACANTE_NOT_FOUND", 404)
         return self._candidato_repo.find_candidatos(str(vacante_id), empresa_id)
 
-    def add_candidato(self, vacante_id: UUID, data: CandidatoCreate, empresa_id: Optional[UUID] = None) -> CandidatoResponse:
-        """
-        Agrega un candidato a la vacante en etapa 'postulado'.
-        El empresa_id del candidato se hereda de la vacante — no se solicita al usuario.
-
-        Args:
-            vacante_id: UUID de la vacante a la que se postula.
-            data: Datos del candidato validados por Pydantic.
-            empresa_id: Si se provee, valida que la vacante pertenezca a esa empresa.
-
-        Raises:
-            AppError: VACANTE_NOT_FOUND (404) si la vacante no existe o no pertenece a la empresa.
-        """
+    def add_candidato(
+        self, vacante_id: UUID, data: CandidatoCreate, empresa_id: Optional[UUID] = None,
+        cv_content: Optional[bytes] = None, cv_filename: Optional[str] = None,
+        cv_content_type: Optional[str] = None,
+    ) -> CandidatoResponse:
+        """Agrega un candidato (etapa 'postulado') con CV opcional; empresa_id se hereda de la vacante.
+        CV validado antes de crear; si la subida falla tras crear, conserva el candidato sin CV (no revert).
+        Raises: VACANTE_NOT_FOUND (404), INVALID_CV_FORMAT (400), CV_TOO_LARGE (413)."""
         vacante = self._repo.find_by_id(str(vacante_id), empresa_id)
         if not vacante:
             raise AppError("Vacante no encontrada", "VACANTE_NOT_FOUND", 404)
+        if cv_content is not None:
+            self._cv.validar(cv_content, cv_filename or "cv", cv_content_type)
         candidato = self._candidato_repo.save_candidato(str(vacante_id), data, vacante.empresa_id or "")
+        if cv_content is not None:
+            try:
+                path = self._cv.subir(vacante.empresa_id, candidato.id, cv_content, cv_filename or "cv", cv_content_type)
+                self._candidato_repo.set_cv(candidato.id, path)
+                candidato.cv_storage_path = path
+            except Exception as exc:  # storage falló: no perder el candidato ya creado
+                logger.error("CV no adjuntado tras crear candidato", extra={"candidato_id": candidato.id, "error": str(exc)})
         logger.info("Candidato agregado", extra={"vacante_id": str(vacante_id), "candidato_id": candidato.id})
         return candidato
 
     def mover_candidato(self, candidato_id: UUID, etapa: str, empresa_id: Optional[UUID] = None) -> CandidatoResponse:
-        """
-        Mueve un candidato a una nueva etapa del pipeline.
-
-        Args:
-            candidato_id: UUID del candidato a mover.
-            etapa: Nueva etapa del pipeline.
-            empresa_id: Si se provee, restringe el UPDATE a candidatos de esa empresa.
-
-        Raises:
-            AppError: ETAPA_INVALIDA (400) si la etapa no está en el enum.
-            AppError: CANDIDATO_NOT_FOUND (404) si el candidato no existe.
-        """
+        """Mueve un candidato de etapa. Raises ETAPA_INVALIDA (400), CANDIDATO_NOT_FOUND (404)."""
         if etapa not in _ETAPAS:
             raise AppError(f"Etapa inválida. Permitidas: {', '.join(_ETAPAS)}", "ETAPA_INVALIDA", 400)
         candidato = self._candidato_repo.update_etapa_candidato(str(candidato_id), etapa, empresa_id)
@@ -139,3 +129,21 @@ class VacanteService:
             raise AppError("Candidato no encontrado", "CANDIDATO_NOT_FOUND", 404)
         logger.info("Candidato movido", extra={"candidato_id": str(candidato_id), "etapa": etapa})
         return candidato
+
+    def delete_vacante(self, id: UUID, empresa_id: Optional[UUID] = None, rol: Optional[str] = None, usuario_id: Optional[str] = None) -> None:
+        """Elimina la vacante. Orden estricto: (1) congela el nombre en sus candidatos (sobreviven
+        vía FK SET NULL, migración 071), (2) borra físicamente + soft-delete sus imágenes, (3) borra
+        la fila. Raises VACANTE_NOT_FOUND (404)."""
+        vac = self._repo.find_by_id(str(id), empresa_id)
+        if not vac:
+            raise AppError("Vacante no encontrada", "VACANTE_NOT_FOUND", 404)
+        texto = f"{vac.titulo} — {vac.area_nombre}" if vac.area_nombre else vac.titulo
+        self._candidato_repo.congelar_busqueda(str(id), texto, empresa_id)  # ANTES de borrar la vacante
+        self._adjuntos.eliminar_todos_por_entidad("vacante", str(id), empresa_id, rol, usuario_id)
+        self._repo.delete(str(id), empresa_id)
+        self._audit.registrar(
+            usuario_id=usuario_id, entidad="vacante", registro_id=str(id), accion="DELETE",
+            evento="baja_vacante", empresa_id=vac.empresa_id,
+            datos_anteriores={"titulo": vac.titulo}, datos_nuevos=None,
+        )
+        logger.info("Vacante eliminada", extra={"vacante_id": str(id)})

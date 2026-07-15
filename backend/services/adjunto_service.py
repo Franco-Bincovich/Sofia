@@ -33,6 +33,7 @@ _ENTIDAD_SECCION = {
     "ausencia": Seccion.AUSENCIAS,
     "evaluacion": Seccion.EVALUACIONES,
     "offboarding": Seccion.OFFBOARDING,
+    "vacante": Seccion.VACANTES,
 }
 
 
@@ -99,6 +100,20 @@ class AdjuntoService:
         res = supabase_admin.storage.from_(adj.bucket).create_signed_url(path=adj.storage_path, expires_in=3600)
         return res["signedURL"]
 
+    def marcar_principal(
+        self, id: str, principal: bool, empresa_id: Optional[UUID], rol: Optional[str]
+    ) -> Adjunto:
+        """Marca (o desmarca) un adjunto como principal de su entidad. Al marcar, desmarca los
+        hermanos para garantizar UNA sola principal por entidad. Raises ADJUNTO_NOT_FOUND (404),
+        FORBIDDEN (403)."""
+        adj = self._get_owned(id, empresa_id)
+        self._gate(rol, adj.entidad, Accion.WRITE)
+        if principal:
+            self._repo.desmarcar_principales(adj.entidad, adj.entidad_id)
+        self._repo.set_principal(id, principal)
+        logger.info("Adjunto principal", extra={"adjunto_id": id, "principal": principal})
+        return self._repo.find_by_id(id)  # type: ignore[return-value]
+
     def eliminar(self, id: str, empresa_id: Optional[UUID], rol: Optional[str], usuario_id: Optional[str]) -> None:
         """Soft delete (estado='eliminado') + audita baja_adjunto. NO borra el objeto de Storage.
         Raises ADJUNTO_NOT_FOUND (404), FORBIDDEN (403)."""
@@ -107,3 +122,20 @@ class AdjuntoService:
         self._repo.marcar_eliminado(id)
         self._audit.registrar(**payload_baja_adjunto(adj, usuario_id))
         logger.info("Adjunto eliminado", extra={"adjunto_id": id})
+
+    def eliminar_todos_por_entidad(
+        self, entidad: str, entidad_id: str, empresa_id: Optional[UUID],
+        rol: Optional[str], usuario_id: Optional[str],
+    ) -> None:
+        """Borra FÍSICAMENTE del Storage + soft-delete de TODOS los adjuntos activos de una entidad
+        (al eliminar la entidad dueña, ej. vacante). Si el remove físico falla → log y sigue: nunca
+        deja la fila colgada por un fallo de Storage. Raises FORBIDDEN (403)."""
+        self._gate(rol, entidad, Accion.WRITE)
+        for adj in self._repo.find_by_entidad(entidad, entidad_id, empresa_id):
+            if adj.storage_path:  # guard: nunca remove sobre key vacía; usa la key de la DB tal cual
+                try:
+                    supabase_admin.storage.from_(adj.bucket).remove([adj.storage_path])
+                except Exception as exc:  # storage falló: se conserva el flujo, objeto huérfano
+                    logger.error("Storage remove falló (adjunto)", extra={"adjunto_id": adj.id, "error": str(exc)})
+            self._repo.marcar_eliminado(adj.id)
+            self._audit.registrar(**payload_baja_adjunto(adj, usuario_id))
