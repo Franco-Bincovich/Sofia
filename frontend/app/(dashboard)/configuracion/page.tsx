@@ -12,7 +12,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { clearSession, getSession } from "@/services/api"
+import { getSession } from "@/services/api"
+import { logout } from "@/services/auth"
 import {
   disconnectIntegracion,
   fetchIntegraciones,
@@ -140,8 +141,8 @@ export default function ConfiguracionPage() {
     }
   }
 
-  const handleLogout = () => {
-    clearSession()
+  const handleLogout = async () => {
+    await logout() // revoca en Supabase y limpia la sesión local (best-effort)
     router.push("/login")
   }
 

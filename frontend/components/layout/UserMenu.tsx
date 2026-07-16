@@ -13,7 +13,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { clearSession, getSession } from "@/services/api"
+import { getSession } from "@/services/api"
+import { logout } from "@/services/auth"
 import { ROL_LABEL, type UserInfo } from "@/types/auth"
 
 /** Menú de usuario: lee el usuario real de la sesión y cablea el logout. */
@@ -25,8 +26,8 @@ export function UserMenu() {
     setUser(getSession()?.user ?? null)
   }, [])
 
-  function handleLogout() {
-    clearSession()
+  async function handleLogout() {
+    await logout() // revoca en Supabase y limpia la sesión local (best-effort)
     router.replace("/login")
   }
 

@@ -1,30 +1,16 @@
-import type { Session } from "@/types/auth"
 import { getEmpresaActivaId } from "@/services/empresaStore"
+import { conRefresh } from "@/services/authRefresh"
+import { API_BASE, getSession } from "@/services/session"
 
-export type { Session }
+// Re-exports: los consumidores siguen importando la sesión desde "@/services/api".
+export type { Session } from "@/services/session"
+export { API_BASE, clearSession, getSession, saveSession } from "@/services/session"
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
-
-// ── Session helpers ────────────────────────────────────────────────────────────
-
-export function getSession(): Session | null {
-  if (typeof window === "undefined") return null
-  const raw = localStorage.getItem("session")
-  if (!raw) return null
-  try {
-    return JSON.parse(raw) as Session
-  } catch {
-    return null
-  }
-}
-
-export function saveSession(session: Session): void {
-  localStorage.setItem("session", JSON.stringify(session))
-}
-
-export function clearSession(): void {
-  localStorage.removeItem("session")
-}
+// Rutas de auth que NO pasan por el interceptor: un 401 acá es credencial inválida o
+// refresh_token muerto, no un access_token vencido. Sin esta exclusión, un login con
+// contraseña incorrecta dispararía un refresh y un redirect a /login en vez de mostrar
+// el error al usuario.
+const RUTAS_SIN_REFRESH = ["/api/auth/login", "/api/auth/refresh"]
 
 // ── Request helpers ────────────────────────────────────────────────────────────
 
@@ -65,11 +51,14 @@ async function toApiError(res: Response): Promise<ApiError> {
 // ── Fetch wrapper ──────────────────────────────────────────────────────────────
 
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers: { ...authHeaders(), ...(init.headers as Record<string, string> | undefined) },
-  })
+  const construir = () =>
+    fetch(`${API_BASE}${path}`, {
+      ...init,
+      headers: { ...authHeaders(), ...(init.headers as Record<string, string> | undefined) },
+    })
+  const res = RUTAS_SIN_REFRESH.includes(path) ? await construir() : await conRefresh(construir)
   if (!res.ok) throw await toApiError(res)
+  if (res.status === 204) return undefined as T // logout responde 204 sin body
   return res.json() as Promise<T>
 }
 
@@ -96,9 +85,12 @@ export async function subirArchivo<T>(
  * campos). Omite Content-Type a propósito: el browser fija el boundary automáticamente.
  */
 export async function postMultipart<T>(path: string, form: FormData): Promise<T> {
-  const headers = authHeaders()
-  delete headers["Content-Type"] // el browser fija el boundary multipart
-  const res = await fetch(`${API_BASE}${path}`, { method: "POST", headers, body: form })
+  const construir = () => {
+    const headers = authHeaders()
+    delete headers["Content-Type"] // el browser fija el boundary multipart
+    return fetch(`${API_BASE}${path}`, { method: "POST", headers, body: form })
+  }
+  const res = await conRefresh(construir)
   if (!res.ok) throw await toApiError(res)
   return res.json() as Promise<T>
 }
@@ -116,9 +108,11 @@ export async function descargarArchivo(
   nombreBase: string,
   extraHeaders?: Record<string, string>,
 ): Promise<void> {
-  const res = await fetch(`${API_BASE}${path}?formato=${formato}`, {
-    headers: { ...authHeaders(), ...extraHeaders },
-  })
+  const construir = () =>
+    fetch(`${API_BASE}${path}?formato=${formato}`, {
+      headers: { ...authHeaders(), ...extraHeaders },
+    })
+  const res = await conRefresh(construir)
   if (!res.ok) throw await toApiError(res)
   const blob = await res.blob()
   const ext = EXPORT_EXT[formato] ?? formato

@@ -1,7 +1,7 @@
 """
 Middleware de autenticación JWT.
-Decodifica el token Supabase sin verificar firma (PyJWT) y expone
-el user_id, rol y empresa_id en request.state para los handlers.
+Verifica la firma del token de Supabase contra el JWKS público del proyecto (ES256)
+y expone el user_id, rol y empresa_id en request.state para los handlers.
 empresa_id proviene del header X-Empresa-Id (UUID) o queda None si viene "todas" o ausente.
 """
 import re
@@ -14,6 +14,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
+from config.settings import settings
 from integrations.supabase_client import supabase_admin
 from utils.logger import logger
 
@@ -25,6 +26,20 @@ PUBLIC_ROUTES = frozenset([
 ])
 _ASSESSMENT_FE_RE  = re.compile(r"^/assessment/[^/]+$")
 _ASSESSMENT_API_RE = re.compile(r"^/api/assessment/evaluacion/[^/]+(/submit)?$")
+
+# JWKS del proyecto: publica las claves públicas vigentes y las rota solo.
+# Se instancia UNA vez a nivel módulo. El __init__ de PyJWKClient no hace red (verificado):
+# el primer fetch ocurre en el primer get_signing_key_from_jwt, así que no penaliza el
+# cold start. Con cache_jwk_set/lifespan=300 (defaults) el set se refetchea como mucho
+# cada 5 min por proceso, nunca por request. timeout=5: fallar rápido si el JWKS no
+# responde, en vez de colgar el request los 30s del default.
+_JWKS_URL = f"{settings.supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json"
+_jwks_client = jwt.PyJWKClient(_JWKS_URL, timeout=5)
+
+# Solo ES256: el JWKS publica únicamente claves asimétricas. La Legacy HS256 es simétrica
+# y por definición no se publica, así que los tokens viejos HS256 no son verificables —
+# expiran solos y sus dueños vuelven a loguearse. Decisión tomada, no reabrir.
+_ALGORITHMS = ["ES256"]
 
 
 def _is_public(path: str) -> bool:
@@ -42,6 +57,43 @@ def _extract_token(request: Request) -> Optional[str]:
     return None
 
 
+def _verificar_token(token: str, path: str) -> Optional[str]:
+    """Verifica firma y expiración del JWT contra el JWKS; retorna el claim `sub`.
+
+    No exige audiencia (verify_aud=False): Supabase emite aud="authenticated", pero
+    fijarla acá dejaría a todos afuera si alguna vez cambia. La firma ES256 ya ata el
+    token a este proyecto. La expiración SÍ se verifica: es el default de PyJWT al
+    verificar firma y no se desactiva.
+
+    Fail-closed: cualquier fallo (firma inválida, token expirado, kid ausente del JWKS,
+    JWKS inaccesible) retorna None y el caller responde 401 genérico. El motivo real se
+    loguea solo del lado servidor — nunca se expone al cliente, para no dar señal sobre
+    por qué falló.
+
+    Args:
+        token: JWT crudo extraído del header Authorization.
+        path: Ruta del request, solo para trazabilidad en el log.
+
+    Returns:
+        El `sub` (UUID del usuario) si el token es válido; None si no lo es.
+    """
+    try:
+        signing_key = _jwks_client.get_signing_key_from_jwt(token)
+        payload = jwt.decode(
+            token,
+            signing_key.key,
+            algorithms=_ALGORITHMS,
+            options={"verify_aud": False},
+        )
+        return payload.get("sub")
+    except Exception as exc:
+        logger.warning(
+            "Token JWT rechazado",
+            extra={"path": path, "motivo": type(exc).__name__},
+        )
+        return None
+
+
 class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
         if request.method == "OPTIONS":
@@ -56,14 +108,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 content={"error": True, "message": "No autorizado", "code": "MISSING_TOKEN"},
             )
 
-        try:
-            payload = jwt.decode(token, options={"verify_signature": False})
-            user_id = payload.get("sub")
-        except Exception:
-            user_id = None
+        user_id = _verificar_token(token, request.url.path)
 
         if not user_id:
-            logger.warning("Token JWT sin sub", extra={"path": request.url.path})
             return JSONResponse(
                 status_code=401,
                 content={"error": True, "message": "No autorizado", "code": "INVALID_TOKEN"},
