@@ -1,10 +1,11 @@
 """
-Tests del enganche del bloqueo por período en ausencias, vacaciones y costos (nueva semántica).
+Tests del enganche del bloqueo por período en ausencias, vacaciones y costos (overlap).
 
 Repos fake + FakePeriodos + FakeOwnership inyectados por constructor. El bloqueo aplica SOLO a
-mandos_medios cuando HOY cae dentro de un período cerrado (las fechas del registro no influyen).
-admin_rrhh / gerencia_lectura nunca se bloquean; costos (admin, rol=None) tampoco. Períodos
-relativos a hoy (deterministas). Un mando gestiona a _EMP vía el FakeOwnership (subordinado).
+mandos_medios cuando las FECHAS DEL REGISTRO se solapan con un período cerrado (la fecha de carga
+no influye). admin_rrhh / gerencia_lectura nunca se bloquean; costos (admin, rol=None) tampoco.
+Períodos y registros son fechas ABSOLUTAS fijas → deterministas para siempre.
+Un mando gestiona a _EMP vía el FakeOwnership (subordinado).
 """
 import os
 
@@ -19,7 +20,7 @@ _TEST_ENV: dict[str, str] = {
 for _k, _v in _TEST_ENV.items():
     os.environ.setdefault(_k, _v)
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from uuid import uuid4
 
 import pytest
@@ -35,24 +36,19 @@ from utils.errors import AppError
 
 _EMP = uuid4()
 _TIPO = uuid4()
-_FECHA_REG = date(2026, 8, 15)  # fecha del registro (arbitraria): ya NO influye en el bloqueo
-_FUERA = date(2026, 4, 15)      # otra fecha de registro arbitraria
+# Fechas absolutas: lo que decide es registro↔período, no período↔hoy.
+_PERIODO = (date(2026, 3, 1), date(2026, 3, 31))      # marzo 2026 cerrado
+_REG_DENTRO = (date(2026, 3, 10), date(2026, 3, 12))  # solapa _PERIODO
+_REG_FUERA = (date(2026, 8, 10), date(2026, 8, 12))   # no solapa _PERIODO
 
 
 def _periodo(modulo=None, desde=None, hasta=None) -> PeriodoResponse:
-    """Período CERRADO. Por defecto cubre HOY (bloquea a un mando); pasar desde/hasta para variar."""
-    hoy = date.today()
+    """Período CERRADO. Por defecto marzo 2026 (_PERIODO); pasar desde/hasta para variar."""
     return PeriodoResponse(
         id="p1", empresa_id="e1", modulo=modulo,
-        desde=desde or hoy - timedelta(days=1), hasta=hasta or hoy + timedelta(days=1),
+        desde=desde or _PERIODO[0], hasta=hasta or _PERIODO[1],
         estado="cerrado", cerrado_por="u1", cerrado_at=datetime(2026, 3, 1, 9, 0),
     )
-
-
-def _periodo_pasado(modulo=None) -> PeriodoResponse:
-    """Período CERRADO en el pasado (no cubre hoy → no bloquea ni a un mando)."""
-    hoy = date.today()
-    return _periodo(modulo=modulo, desde=hoy - timedelta(days=10), hasta=hoy - timedelta(days=5))
 
 
 class _FakeAudit:
@@ -101,10 +97,10 @@ class _FakeAusRepo:
 
     def save(self, *a, **k):
         self.saved = True
-        return _ausencia(_FUERA, _FUERA)
+        return _ausencia(*_REG_FUERA)
 
     def update(self, id, empresa_id, payload):
-        return _ausencia(_FUERA, _FUERA)
+        return _ausencia(*_REG_FUERA)
 
     def delete(self, id, empresa_id=None):
         self.deleted = True
@@ -114,39 +110,49 @@ class _FakeAusRepo:
 # ── Ausencias ────────────────────────────────────────────────────────────────
 
 def test_ausencia_crear_en_periodo_cerrado_409():
-    # mando + período que cubre hoy → 409, aunque la fecha del registro (_FUERA) esté fuera del período
+    # mando + registro cuyas fechas solapan el período cerrado → 409
     svc = AusenciasService(repo=_FakeAusRepo(), audit=_FakeAudit(), periodo_repo=_FakePeriodos([_periodo()]), ownership_repo=_FakeOwnership())
     with pytest.raises(AppError) as e:
-        svc.create(AusenciaCreate(empleado_id=_EMP, tipo_id=_TIPO, fecha_desde=_FUERA, fecha_hasta=_FUERA), "u1", rol="mandos_medios")
+        svc.create(AusenciaCreate(empleado_id=_EMP, tipo_id=_TIPO, fecha_desde=_REG_DENTRO[0], fecha_hasta=_REG_DENTRO[1]), "u1", rol="mandos_medios")
     assert e.value.code == "PERIODO_CERRADO" and e.value.status_code == 409
 
 
 def test_ausencia_crear_fuera_ok():
-    # mando + período que NO cubre hoy (pasado) → no bloquea
+    # mando + registro fuera del período (agosto vs marzo) → no bloquea
     repo = _FakeAusRepo()
-    svc = AusenciasService(repo=repo, audit=_FakeAudit(), periodo_repo=_FakePeriodos([_periodo_pasado()]), ownership_repo=_FakeOwnership())
-    svc.create(AusenciaCreate(empleado_id=_EMP, tipo_id=_TIPO, fecha_desde=_FECHA_REG, fecha_hasta=_FECHA_REG), "u1", rol="mandos_medios")
+    svc = AusenciasService(repo=repo, audit=_FakeAudit(), periodo_repo=_FakePeriodos([_periodo()]), ownership_repo=_FakeOwnership())
+    svc.create(AusenciaCreate(empleado_id=_EMP, tipo_id=_TIPO, fecha_desde=_REG_FUERA[0], fecha_hasta=_REG_FUERA[1]), "u1", rol="mandos_medios")
     assert repo.saved is True
 
 
 def test_ausencia_crear_admin_no_bloquea():
-    # rol NO-mando: admin_rrhh no se bloquea aunque el período cubra hoy (early return por rol)
+    # rol NO-mando: el registro SOLAPA (un mando recibiría 409), pero admin_rrhh no se bloquea.
     repo = _FakeAusRepo()
     svc = AusenciasService(repo=repo, audit=_FakeAudit(), periodo_repo=_FakePeriodos([_periodo()]))
-    svc.create(AusenciaCreate(empleado_id=_EMP, tipo_id=_TIPO, fecha_desde=_FECHA_REG, fecha_hasta=_FECHA_REG), "u1", rol="admin_rrhh")
+    svc.create(AusenciaCreate(empleado_id=_EMP, tipo_id=_TIPO, fecha_desde=_REG_DENTRO[0], fecha_hasta=_REG_DENTRO[1]), "u1", rol="admin_rrhh")
     assert repo.saved is True
 
 
 def test_ausencia_editar_en_periodo_cerrado_409():
-    repo = _FakeAusRepo(existing=_ausencia(_FECHA_REG, _FECHA_REG))
+    # SACAR de un período cerrado: el registro existente solapa → no se puede editar (1ª llamada)
+    repo = _FakeAusRepo(existing=_ausencia(*_REG_DENTRO))
     svc = AusenciasService(repo=repo, audit=_FakeAudit(), periodo_repo=_FakePeriodos([_periodo()]), ownership_repo=_FakeOwnership())
     with pytest.raises(AppError) as e:
         svc.update(uuid4(), AusenciaUpdate(motivo="x"), rol="mandos_medios")
     assert e.value.code == "PERIODO_CERRADO"
 
 
+def test_ausencia_editar_metiendo_en_periodo_cerrado_409():
+    # METER en un período cerrado: el registro está fuera, pero la edición lo mueve DENTRO (2ª llamada)
+    repo = _FakeAusRepo(existing=_ausencia(*_REG_FUERA))
+    svc = AusenciasService(repo=repo, audit=_FakeAudit(), periodo_repo=_FakePeriodos([_periodo()]), ownership_repo=_FakeOwnership())
+    with pytest.raises(AppError) as e:
+        svc.update(uuid4(), AusenciaUpdate(fecha_desde=_REG_DENTRO[0], fecha_hasta=_REG_DENTRO[1]), rol="mandos_medios")
+    assert e.value.code == "PERIODO_CERRADO"
+
+
 def test_ausencia_borrar_en_periodo_cerrado_409():
-    repo = _FakeAusRepo(existing=_ausencia(_FECHA_REG, _FECHA_REG))
+    repo = _FakeAusRepo(existing=_ausencia(*_REG_DENTRO))
     svc = AusenciasService(repo=repo, audit=_FakeAudit(), periodo_repo=_FakePeriodos([_periodo()]), ownership_repo=_FakeOwnership())
     with pytest.raises(AppError) as e:
         svc.delete(uuid4(), rol="mandos_medios")
@@ -164,23 +170,23 @@ class _FakeVacRepo:
 
     def save(self, *a, **k):
         return SolicitudVacacionesResponse(
-            id="v1", empresa_id="e1", empleado_id=str(_EMP), fecha_desde=_FUERA, fecha_hasta=_FUERA,
+            id="v1", empresa_id="e1", empleado_id=str(_EMP), fecha_desde=_REG_FUERA[0], fecha_hasta=_REG_FUERA[1],
             dias=1, tipo="vacaciones", cancelada=False, estado="planificada", created_at=datetime(2026, 1, 1, 9, 0),
         )
 
 
 def test_vacacion_crear_en_periodo_cerrado_409():
-    # mando + período que cubre hoy → 409 (la fecha del registro no importa)
+    # mando + registro cuyas fechas solapan el período cerrado → 409
     svc = VacacionesService(repo=_FakeVacRepo(), audit=_FakeAudit(), periodo_repo=_FakePeriodos([_periodo()]), ownership_repo=_FakeOwnership())
     with pytest.raises(AppError) as e:
-        svc.create(SolicitudVacacionesCreate(empleado_id=_EMP, fecha_desde=_FUERA, fecha_hasta=_FUERA), "u1", rol="mandos_medios")
+        svc.create(SolicitudVacacionesCreate(empleado_id=_EMP, fecha_desde=_REG_DENTRO[0], fecha_hasta=_REG_DENTRO[1]), "u1", rol="mandos_medios")
     assert e.value.code == "PERIODO_CERRADO"
 
 
 def test_vacacion_crear_fuera_ok():
-    # mando + período que NO cubre hoy (pasado) → no bloquea
-    svc = VacacionesService(repo=_FakeVacRepo(), audit=_FakeAudit(), periodo_repo=_FakePeriodos([_periodo_pasado()]), ownership_repo=_FakeOwnership())
-    out = svc.create(SolicitudVacacionesCreate(empleado_id=_EMP, fecha_desde=_FECHA_REG, fecha_hasta=_FECHA_REG), "u1", rol="mandos_medios")
+    # mando + registro fuera del período → no bloquea
+    svc = VacacionesService(repo=_FakeVacRepo(), audit=_FakeAudit(), periodo_repo=_FakePeriodos([_periodo()]), ownership_repo=_FakeOwnership())
+    out = svc.create(SolicitudVacacionesCreate(empleado_id=_EMP, fecha_desde=_REG_FUERA[0], fecha_hasta=_REG_FUERA[1]), "u1", rol="mandos_medios")
     assert out.id == "v1"
 
 
@@ -195,7 +201,8 @@ class _FakeNominaRepo:
 
 
 def test_nomina_no_bloquea_con_periodo_cerrado():
-    # Costos lo opera admin (rol=None en el enganche) → nunca bloquea, aunque el período cubra hoy.
+    # El mes 3/2026 expande a [01/03, 31/03] y solapa EXACTO el período cerrado; igual no bloquea
+    # porque el enganche pasa rol=None (costos lo opera admin) → early return por rol.
     svc = CostoService(nomina_repo=_FakeNominaRepo(), audit=_FakeAudit(), periodo_repo=_FakePeriodos([_periodo()]))
     data = NominaCreate(empleado_id=str(_EMP), mes=3, anio=2026, monto_bruto=100.0, monto_neto=80.0)
     out = svc.cargar_nomina(data, empresa_id="e1", usuario_id="u1")

@@ -1,9 +1,11 @@
 """
-Tests del bloqueo por período (nueva semántica).
+Tests del bloqueo por período (semántica de overlap).
 
 Repo fake + AuditService fake (sin DB). verificar_periodo_abierto bloquea SOLO a mandos_medios
-cuando HOY (date.today()) cae dentro de un período cerrado; cualquier otro rol no bloquea nunca.
-Las fechas del registro ya NO influyen. Períodos construidos relativos a hoy (deterministas).
+cuando el RANGO DE FECHAS DEL REGISTRO se solapa con un período cerrado; cualquier otro rol no
+bloquea nunca. La fecha de carga (hoy) NO influye: los períodos y los registros son fechas
+ABSOLUTAS fijas, así que los tests son deterministas para siempre (sin relatividad a hoy).
+Extremos inclusivos: tocar un borde del período ya es solaparse.
 Service: cerrar crea + audita, rechaza rango inválido; reabrir audita y libera (find_cerrados vacío).
 """
 import os
@@ -19,7 +21,7 @@ _TEST_ENV: dict[str, str] = {
 for _k, _v in _TEST_ENV.items():
     os.environ.setdefault(_k, _v)
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from uuid import uuid4
 
 import pytest
@@ -30,17 +32,16 @@ from services.periodo_service import PeriodoService
 from utils.errors import AppError
 
 _EMP = uuid4()
-_HOY = date.today()
-# Rangos relativos a hoy → deterministas sin importar cuándo corran los tests.
-_CUBRE_HOY = dict(desde=_HOY - timedelta(days=1), hasta=_HOY + timedelta(days=1))
-_PASADO = dict(desde=_HOY - timedelta(days=10), hasta=_HOY - timedelta(days=5))
-_FUTURO = dict(desde=_HOY + timedelta(days=5), hasta=_HOY + timedelta(days=10))
+# Fechas absolutas: lo que decide es registro↔período, no período↔hoy.
+_PERIODO = (date(2026, 3, 1), date(2026, 3, 31))      # marzo 2026 cerrado
+_REG_DENTRO = (date(2026, 3, 10), date(2026, 3, 12))  # solapa _PERIODO
+_REG_FUERA = (date(2026, 8, 10), date(2026, 8, 12))   # no solapa _PERIODO
 
 
 def _periodo(**over) -> PeriodoResponse:
     base = dict(
         id="p1", empresa_id="e1", modulo=None,
-        desde=_HOY - timedelta(days=1), hasta=_HOY + timedelta(days=1),  # por defecto cubre hoy
+        desde=_PERIODO[0], hasta=_PERIODO[1],  # por defecto, marzo 2026 cerrado
         estado="cerrado", cerrado_por="u1", cerrado_at=datetime(2026, 3, 1, 9, 0),
         reabierto_por=None, reabierto_at=None,
     )
@@ -76,69 +77,91 @@ class _FakeRepo:
         self.reabierto = id
 
 
-# ── verificar_periodo_abierto (mando + hoy dentro del período cerrado) ────────
+# ── verificar_periodo_abierto (mando + registro que solapa el período cerrado) ────
 
 def test_bloquea_fecha_dentro():
-    # mando + período cerrado que cubre hoy → bloquea
+    # fecha simple dentro del período cerrado → bloquea (fecha se normaliza a [fecha, fecha])
     repo = _FakeRepo([_periodo()])
     with pytest.raises(AppError) as e:
-        verificar_periodo_abierto(_EMP, "ausencias", "mandos_medios", repo=repo)
+        verificar_periodo_abierto(_EMP, "ausencias", "mandos_medios", fecha=date(2026, 3, 15), repo=repo)
     assert e.value.code == "PERIODO_CERRADO" and e.value.status_code == 409
 
 
 def test_bloquea_rango_solapado():
-    # borde: hoy == hasta del período → sigue bloqueando (límite inclusivo)
-    repo = _FakeRepo([_periodo(desde=_HOY - timedelta(days=3), hasta=_HOY)])
+    # rango que entra parcialmente al período (cruza el borde inicial) → bloquea
+    repo = _FakeRepo([_periodo()])
     with pytest.raises(AppError) as e:
-        verificar_periodo_abierto(_EMP, "ausencias", "mandos_medios", repo=repo)
+        verificar_periodo_abierto(_EMP, "ausencias", "mandos_medios", desde=date(2026, 2, 25), hasta=date(2026, 3, 2), repo=repo)
     assert e.value.code == "PERIODO_CERRADO"
 
 
+def test_bloquea_borde_inicial_inclusivo():
+    # hasta == p.desde: el registro solo toca el primer día del período → bloquea (extremo inclusivo)
+    repo = _FakeRepo([_periodo()])
+    with pytest.raises(AppError) as e:
+        verificar_periodo_abierto(_EMP, "ausencias", "mandos_medios", desde=date(2026, 2, 1), hasta=_PERIODO[0], repo=repo)
+    assert e.value.code == "PERIODO_CERRADO"
+
+
+def test_bloquea_borde_final_inclusivo():
+    # desde == p.hasta: el registro solo toca el último día del período → bloquea (extremo inclusivo)
+    repo = _FakeRepo([_periodo()])
+    with pytest.raises(AppError) as e:
+        verificar_periodo_abierto(_EMP, "ausencias", "mandos_medios", desde=_PERIODO[1], hasta=date(2026, 4, 9), repo=repo)
+    assert e.value.code == "PERIODO_CERRADO"
+
+
+def test_no_bloquea_justo_antes_del_borde():
+    # hasta == p.desde - 1 día → NO solapa (control off-by-one del borde inclusivo)
+    repo = _FakeRepo([_periodo()])
+    verificar_periodo_abierto(_EMP, "ausencias", "mandos_medios", desde=date(2026, 2, 1), hasta=date(2026, 2, 28), repo=repo)
+
+
 def test_no_bloquea_fecha_fuera():
-    # mando + período en el pasado (hoy fuera) → no bloquea
-    repo = _FakeRepo([_periodo(**_PASADO)])
-    verificar_periodo_abierto(_EMP, "ausencias", "mandos_medios", repo=repo)
+    # fecha simple fuera del período (agosto vs marzo) → no bloquea POR overlap, no por falta de fecha
+    repo = _FakeRepo([_periodo()])
+    verificar_periodo_abierto(_EMP, "ausencias", "mandos_medios", fecha=date(2026, 8, 15), repo=repo)
 
 
 def test_no_bloquea_rango_fuera():
-    # mando + período en el futuro (hoy fuera) → no bloquea
-    repo = _FakeRepo([_periodo(**_FUTURO)])
-    verificar_periodo_abierto(_EMP, "ausencias", "mandos_medios", repo=repo)
+    # rango completo fuera del período → no bloquea POR overlap
+    repo = _FakeRepo([_periodo()])
+    verificar_periodo_abierto(_EMP, "ausencias", "mandos_medios", desde=_REG_FUERA[0], hasta=_REG_FUERA[1], repo=repo)
 
 
 def test_rol_no_mando_no_bloquea():
-    # CORAZÓN de la nueva lógica: un rol NO-mando no se bloquea aunque hoy caiga en el período.
+    # CORAZÓN del scoping por rol: el registro SOLAPA (un mando recibiría 409), pero estos roles no.
     repo = _FakeRepo([_periodo()])
-    verificar_periodo_abierto(_EMP, "ausencias", "admin_rrhh", repo=repo)
-    verificar_periodo_abierto(_EMP, "ausencias", "gerencia_lectura", repo=repo)
-    verificar_periodo_abierto(_EMP, "ausencias", None, repo=repo)
+    verificar_periodo_abierto(_EMP, "ausencias", "admin_rrhh", desde=_REG_DENTRO[0], hasta=_REG_DENTRO[1], repo=repo)
+    verificar_periodo_abierto(_EMP, "ausencias", "gerencia_lectura", desde=_REG_DENTRO[0], hasta=_REG_DENTRO[1], repo=repo)
+    verificar_periodo_abierto(_EMP, "ausencias", None, desde=_REG_DENTRO[0], hasta=_REG_DENTRO[1], repo=repo)
 
 
 def test_modulo_especifico_no_afecta_otro_modulo():
     repo = _FakeRepo([_periodo(modulo="ausencias")])
-    # cierre de 'ausencias' vigente hoy no bloquea una vacación
-    verificar_periodo_abierto(_EMP, "vacaciones", "mandos_medios", repo=repo)
-    # pero sí bloquea una ausencia
+    # cierre de 'ausencias' no bloquea una vacación que solapa
+    verificar_periodo_abierto(_EMP, "vacaciones", "mandos_medios", desde=_REG_DENTRO[0], hasta=_REG_DENTRO[1], repo=repo)
+    # pero sí bloquea una ausencia que solapa
     with pytest.raises(AppError):
-        verificar_periodo_abierto(_EMP, "ausencias", "mandos_medios", repo=repo)
+        verificar_periodo_abierto(_EMP, "ausencias", "mandos_medios", desde=_REG_DENTRO[0], hasta=_REG_DENTRO[1], repo=repo)
 
 
 def test_periodo_global_bloquea_cualquier_modulo():
     repo = _FakeRepo([_periodo(modulo=None)])
     with pytest.raises(AppError):
-        verificar_periodo_abierto(_EMP, "vacaciones", "mandos_medios", repo=repo)
+        verificar_periodo_abierto(_EMP, "vacaciones", "mandos_medios", desde=_REG_DENTRO[0], hasta=_REG_DENTRO[1], repo=repo)
 
 
 def test_sin_empresa_no_evalua():
-    # empresa None → no evalúa, aunque sea mando y el período cubra hoy
+    # empresa None → no evalúa, aunque sea mando y el registro solape el período
     repo = _FakeRepo([_periodo()])
-    verificar_periodo_abierto(None, "ausencias", "mandos_medios", repo=repo)
+    verificar_periodo_abierto(None, "ausencias", "mandos_medios", desde=_REG_DENTRO[0], hasta=_REG_DENTRO[1], repo=repo)
 
 
 def test_reabrir_libera():
-    # tras reabrir, no hay cerrados → un mando ya no se bloquea
+    # sin períodos cerrados no hay bloqueo, aunque el registro caiga donde estaba el cierre
     repo = _FakeRepo([])
-    verificar_periodo_abierto(_EMP, "ausencias", "mandos_medios", repo=repo)
+    verificar_periodo_abierto(_EMP, "ausencias", "mandos_medios", desde=_REG_DENTRO[0], hasta=_REG_DENTRO[1], repo=repo)
 
 
 # ── PeriodoService ───────────────────────────────────────────────────────────

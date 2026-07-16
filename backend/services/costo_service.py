@@ -3,6 +3,8 @@ Servicio de Costos de Personal. Lógica de negocio del módulo de Costos.
 Flujo: router → service → repository → DB
 CRÍTICO: todo cálculo de totales y agregaciones filtra por empresa_id cuando se provee.
 """
+from calendar import monthrange
+from datetime import date
 from typing import List, Optional
 from uuid import UUID
 
@@ -98,7 +100,7 @@ class CostoService:
             AppError: NOMINA_SAVE_ERROR (500) si la DB falla; PERIODO_CERRADO (409) si el mes está cerrado.
         """
         # Costos lo opera admin_rrhh (nunca mandos_medios), por lo que el bloqueo por período no aplica.
-        verificar_periodo_abierto(empresa_id, "costos", None, repo=self._periodos)
+        verificar_periodo_abierto(empresa_id, "costos", None, desde=date(data.anio, data.mes, 1), hasta=date(data.anio, data.mes, monthrange(data.anio, data.mes)[1]), repo=self._periodos)
         # Best-effort para el diff de auditoría: leé la nómina previa (mismo empleado/mes/anio)
         # ANTES del upsert. Sin previo → primera carga (alta). Falla de lectura → prior=None
         # (el audit es un extra, no debe romper la carga). No toca el repo ni el upsert.

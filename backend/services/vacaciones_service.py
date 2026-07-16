@@ -87,7 +87,7 @@ class VacacionesService:
         empresa_id = self._repo.find_empresa_for_empleado(str(data.empleado_id))
         if not empresa_id:
             raise AppError("Empleado no encontrado", "EMPLEADO_NOT_FOUND", 404)
-        verificar_periodo_abierto(empresa_id, "vacaciones", rol, repo=self._periodos)
+        verificar_periodo_abierto(empresa_id, "vacaciones", rol, desde=data.fecha_desde, hasta=data.fecha_hasta, repo=self._periodos)
 
         overlapping = self._repo.find_overlapping(
             str(data.empleado_id), data.fecha_desde, data.fecha_hasta, data.tipo
@@ -126,7 +126,7 @@ class VacacionesService:
         row = self._repo.find_by_id(str(id), empresa_id)
         if not row or not puede_gestionar_empleado(usuario_id, rol, row.empleado_id, self._ownership):
             raise AppError("Solicitud de vacaciones no encontrada", "VACACION_NOT_FOUND", 404)
-        verificar_periodo_abierto(row.empresa_id, "vacaciones", rol, repo=self._periodos)
+        verificar_periodo_abierto(row.empresa_id, "vacaciones", rol, desde=row.fecha_desde, hasta=row.fecha_hasta, repo=self._periodos)
         if row.cancelada:
             raise AppError("La solicitud ya está cancelada", "YA_CANCELADA", 422)
         updated = self._repo.cancel(str(id), empresa_id)

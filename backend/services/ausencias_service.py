@@ -80,7 +80,7 @@ class AusenciasService:
         empresa_id = self._repo.find_empresa_for_empleado(str(data.empleado_id))
         if not empresa_id:
             raise AppError("Empleado no encontrado", "EMPLEADO_NOT_FOUND", 404)
-        verificar_periodo_abierto(empresa_id, "ausencias", rol, repo=self._periodos)
+        verificar_periodo_abierto(empresa_id, "ausencias", rol, desde=data.fecha_desde, hasta=data.fecha_hasta, repo=self._periodos)
         dias = (data.fecha_hasta - data.fecha_desde).days + 1
         row = self._repo.save(
             str(data.empleado_id), empresa_id, str(data.tipo_id),
@@ -103,8 +103,9 @@ class AusenciasService:
         existing = self._repo.find_by_id(str(id), empresa_id)
         if not existing or not puede_gestionar_empleado(usuario_id, rol, existing.empleado_id, self._ownership):
             raise AppError("Ausencia no encontrada", "AUSENCIA_NOT_FOUND", 404)
-        # Bloqueo por período: un mando no puede editar mientras hoy caiga en un período cerrado.
-        verificar_periodo_abierto(existing.empresa_id, "ausencias", rol, repo=self._periodos)
+        # Bloqueo por período: no se puede sacar de un período cerrado (fechas viejas) ni meter en uno (nuevas).
+        verificar_periodo_abierto(existing.empresa_id, "ausencias", rol, desde=existing.fecha_desde, hasta=existing.fecha_hasta, repo=self._periodos)
+        verificar_periodo_abierto(existing.empresa_id, "ausencias", rol, desde=data.fecha_desde or existing.fecha_desde, hasta=data.fecha_hasta or existing.fecha_hasta, repo=self._periodos)
         payload: dict = {}
         if data.tipo_id is not None:
             payload["tipo_id"] = str(data.tipo_id)
@@ -140,7 +141,7 @@ class AusenciasService:
         prior = self._repo.find_by_id(str(id), empresa_id)
         if not prior or not puede_gestionar_empleado(usuario_id, rol, prior.empleado_id, self._ownership):
             raise AppError("Ausencia no encontrada", "AUSENCIA_NOT_FOUND", 404)
-        verificar_periodo_abierto(prior.empresa_id, "ausencias", rol, repo=self._periodos)
+        verificar_periodo_abierto(prior.empresa_id, "ausencias", rol, desde=prior.fecha_desde, hasta=prior.fecha_hasta, repo=self._periodos)
         if not self._repo.delete(str(id), empresa_id):
             raise AppError("Ausencia no encontrada", "AUSENCIA_NOT_FOUND", 404)
         self._audit.registrar(**payload_baja_ausencia(prior, usuario_id, prior.empresa_id))

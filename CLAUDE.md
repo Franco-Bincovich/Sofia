@@ -258,6 +258,10 @@ El mapa "T19–T25" era una simplificación; el plan real tiene 16 ítems. Pendi
 - Bloque `_TEST_ENV` (setup de env vars) duplicado en varios archivos de test. Candidato a `conftest.py` central. Cosmético.
 - `tests/test_escrituras_ownership.py` en **257** (sobre el "otros" 200). **Aceptable por precedente** (`test_usuarios.py` 314); los archivos de test no se sujetan estrictamente al límite en este repo. Recortar si molesta.
 
+### Bloqueo por período (overlap)
+- `monthrange` en `costo_service.cargar_nomina` es **código muerto** mientras costos pase `rol=None` al enganche: la guarda `rol != "mandos_medios"` retorna antes de evaluar el rango. La expansión mes→[día 1, último día] **no la cubre ningún test** (`test_nomina_no_bloquea_con_periodo_cerrado` pasa por la guarda de rol, no por el overlap). Si costos llega a pasar un rol real, esa expansión entra en juego sin red.
+- La guarda "sin fecha → no evalúa" de `verificar_periodo_abierto` no tiene test propio. Riesgo: un call site que olvide pasar fechas queda sin bloqueo y en silencio (fue exactamente el modo de falla de la semántica vieja).
+
 ### Otras (heredadas)
 - Rate-limiter de BCRA no implementado (otro proyecto — no aplica a Sofia).
 - `permisos.ts` es espejo manual de `permisos.py` — riesgo de divergencia.
