@@ -9,7 +9,7 @@ Este documento cubre lo que construimos **ahora**: el cimiento multiempresa + lo
 
 - **Frontend:** Next.js 15 (App Router) + TypeScript + Tailwind + Shadcn/ui. Cliente HTTP en `services/api.ts` (`apiFetch`, JWT desde `localStorage`). Tokens de diseño en `styles/design-system.ts`. Fuente Inter.
 - **Backend:** Python 3.11 + FastAPI. Capas `router → service → repository`. Auth por `AuthMiddleware` (deja `request.state.user = {id, rol}`). Cliente `supabase_admin` (service key, **bypassea RLS**). Errores con `AppError {error, message, code}`. Schemas Pydantic `Base → Create → Update → Response → ListResponse`. Routers finos con prefijo `/api/<modulo>`.
-- **DB:** Supabase (PostgreSQL). Migraciones SQL numeradas en `migrations/` (+ `000_run_all.sql`). RLS activa con helper `get_current_user_rol()`. Triggers `fn_auditoria()` (auditoría automática) y `set_updated_at()`. Buckets: `documentos`, `cvs`, `avatars`, `reportes`.
+- **DB:** Supabase (PostgreSQL). Migraciones SQL numeradas en `migrations/` (historial de cambios, no bootstrap); la reconstrucción de la base se hace desde `backend/db/schema.sql` (ver `backend/db/README.md`). El consolidado `000_run_all.sql` está **deprecado** (guard que aborta). RLS activa con helper `get_current_user_rol()`. Triggers `fn_auditoria()` (auditoría automática) y `set_updated_at()`. Buckets: `documentos`, `cvs`, `avatars`, `reportes`.
 
 ## 1. Reglas transversales (aplican a TODO lo nuevo de esta fase)
 

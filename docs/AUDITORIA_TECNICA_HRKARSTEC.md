@@ -1039,7 +1039,7 @@ export const BREAKPOINTS = { mobile: 768, tablet: 1024, desktop: 1280 } as const
 
 **SÍ existe carpeta de migraciones**: `Sofia/backend/migrations/` con 35 archivos SQL numerados (`001_` a `035_`).
 
-El archivo maestro `000_run_all.sql` concatena todos en orden y puede ejecutarse de una sola vez en el SQL Editor de Supabase para provisionar desde cero.
+El consolidado `000_run_all.sql` está **DEPRECADO** y tiene un guard que aborta su ejecución: quedó desactualizado y se conserva solo como historial. La reconstrucción desde cero se hace corriendo `backend/db/schema.sql` contra una base vacía (ver `backend/db/README.md`).
 
 **No hay herramienta de migración automática** (ni Alembic, ni supabase CLI migrations). Las migraciones son SQL puro ejecutado manualmente. El control de versión es solo por nombre de archivo.
 
