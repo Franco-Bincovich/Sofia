@@ -5,21 +5,37 @@ Alta de usuarios: el rol viaja en el request pero se valida contra ROLES_VALIDOS
 (fuente de verdad en utils/permisos.py) — un rol fuera de la lista es 422, nunca crea.
 La contraseña temporal se devuelve UNA sola vez en la respuesta y no se persiste en claro.
 """
+import re
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from utils.permisos import ROLES_VALIDOS
+
+# Formato de email validado a mano en vez de EmailStr: EmailStr exige el paquete
+# email_validator, que no está en requirements.txt — sin él pydantic falla en tiempo
+# de import y el backend no arranca en un entorno limpio. El regex es deliberadamente
+# laxo (estructura, no RFC 5322): la validez real de una casilla solo la prueba un
+# envío. No agregar email_validator para "mejorarlo".
+_EMAIL_RE = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 
 
 class CrearUsuarioRequest(BaseModel):
     nombre: str = Field(..., min_length=1, max_length=100)
     apellido: str = Field(..., min_length=1, max_length=100)
-    email: EmailStr
+    email: str = Field(..., min_length=3, max_length=254)  # 254 = tope RFC 5321
     username: str = Field(..., min_length=3, max_length=50)
     rol: str  # validado contra ROLES_VALIDOS (fuente de verdad); rol inválido → 422
     empleado_id: Optional[UUID] = None  # opcional: vincula el user a su registro de empleado
+
+    @field_validator("email")
+    @classmethod
+    def _email_valido(cls, v: str) -> str:
+        v = v.strip()
+        if not _EMAIL_RE.fullmatch(v):
+            raise ValueError("Email inválido. Debe tener el formato usuario@dominio.com")
+        return v
 
     @field_validator("rol")
     @classmethod
