@@ -20,6 +20,7 @@ Sofia es el repositorio interno del producto **HR Karstec**: plataforma de gesti
 - **DB**: Supabase (PostgreSQL + Auth + Storage), con RLS.
 - **IA**: Anthropic Claude Sonnet.
 - **Deploy**: Vercel (frontend + backend).
+- **Auth**: `AuthMiddleware` verifica la **firma del JWT de Supabase contra el JWKS público del proyecto (ES256)**, fail-closed (cualquier fallo → 401 genérico); expone `user_id`, `rol` y `empresa_id` (del header `X-Empresa-Id`) en `request.state`. El JWKS se cachea por proceso. Refresh automático + logout real. Endpoint `GET /health` (sin auth) devuelve `{status, env}`.
 
 ## Estructura (backend)
 ```
@@ -32,16 +33,17 @@ backend/
 ├── integrations/        ← wrappers externos (supabase_client, anthropic)
 ├── schemas/             ← Pydantic in/out
 ├── utils/               ← helpers (permisos.py, errors.py, logger.py)
-├── migrations/          ← SQL versionado (van por 063)
+├── migrations/          ← SQL versionado (van por 074; la base se reconstruye desde db/schema.sql, no desde el consolidado)
 └── tests/
 ```
 
-**Migraciones recientes (059–063):**
+**Migraciones recientes (059–074):**
 - **059** `empleados_roles` — columna `roles TEXT[]` (unifica `cargo`+`rol` en un multi-valor).
 - **060** `empleados_legajo_ampliado` — 17 columnas del legajo real, todas nullable/texto libre salvo dos: `tipo_documento, sexo, telefono_alternativo, domicilio, estudios, ubicacion, turno, horas_contrato (INTEGER), organismo, gerencia, sector, seniority, perfil, categoria, modalidad_contratacion, referido, es_lider (BOOLEAN DEFAULT FALSE)`.
 - **061** `adjuntos` — tabla genérica de adjuntos (archivos ligados a múltiples entidades, sobre Supabase Storage).
 - **062** `periodos_cerrados` — tabla de bloqueo por período (congela fechas ya liquidadas/reportadas).
 - **063** `add_must_change_password` — columna `users.must_change_password BOOLEAN NOT NULL DEFAULT FALSE` (fuerza cambio de contraseña temporal en el primer login).
+- **064** `empleados_campos_nomina` · **065** `tipo_contrato_texto_libre` · **066** `create_cesiones` (módulo de cesiones de empleados) · **067** `vacantes_campos_publicacion` · **068** `adjuntos_es_principal` · **069** `vacantes_info_puesto` · **070** `vacantes_requisitos_texto` · **071** `candidatos_sobreviven_vacante` · **072** `drop_fk_compuesta_candidatos_vacante` · **073** `drop_unique_huerfano_vacantes` (72/73 corrigen drift de producción) · **074** `retrofit_empresa_id_dni_empleados` (versiona el retrofit multiempresa + DNI que ya vivía en prod).
 
 ## Convenciones de código
 - Seguir ORDEN-Y-LEGIBILIDAD.md, SEGURIDAD-PENTEST.md, BASES-DE-DESARROLLO.md y UX-UI.md de la agencia.
@@ -78,7 +80,7 @@ Tres roles, definidos en `utils/permisos.py`:
 - **mandos_medios** — lectura + escritura solo en VACACIONES y AUSENCIAS; sin acceso al resto.
 - Rol desconocido / None → **fail-closed** (sin acceso).
 
-Núcleo: `puede(rol, seccion, accion) -> bool` (función pura, sin ramas especiales por sección — la regla general resuelve todo), `require_permission(seccion, accion)` dependency factory que lanza `AppError(..., "FORBIDDEN", 403)`. Enum `Seccion` con 25 valores. `MANDOS_MEDIOS_SECCIONES = frozenset({VACACIONES, AUSENCIAS})`. 142 endpoints gateados inline (no router-level). Espejo frontend en `frontend/services/permisos.ts` (`puede`, `RUTA_SECCION`, `RUTAS_ORDENADAS`, `seccionDeRuta`). Sidebar filtra NAV_ITEMS por permiso, AuthGuard gatea por ruta, `useCanWrite`/`<Can>` ocultan botones de escritura.
+Núcleo: `puede(rol, seccion, accion) -> bool` (función pura, sin ramas especiales por sección — la regla general resuelve todo), `require_permission(seccion, accion)` dependency factory que lanza `AppError(..., "FORBIDDEN", 403)`. Enum `Seccion` con 26 valores. `MANDOS_MEDIOS_SECCIONES = frozenset({VACACIONES, AUSENCIAS})`. ~168 gates `Depends(require_permission(...))` inline (no router-level). Espejo frontend en `frontend/services/permisos.ts` (`puede`, `seccionDeRuta`, `primeraRutaPermitida`, `getRol`). Sidebar filtra `NAV_GROUPS` por permiso, AuthGuard gatea por ruta, el hook `useCanWrite` oculta botones de escritura.
 
 **Decisión de producto (T17 NO APLICA):** todo usuario, sin importar rol, accede a TODAS las empresas. No existe "usuario limitado a ciertas empresas". El comportamiento de empresa activa (`empresa_id=None` consolidado, o empresa puntual vía header `X-Empresa-Id`) es correcto y definitivo. No reabrir.
 
@@ -92,7 +94,7 @@ Sistema de auditoría con captura **app-level** (no triggers DB). Backend (commi
 - Los triggers DB viejos (`fn_auditoria` + ~21 triggers) fueron **dropeados** en 058: registraban `usuario_id` NULL bajo service_key. La captura es ahora app-level.
 - `AuditService.registrar(*, usuario_id, entidad, registro_id, accion, evento, empresa_id, datos_anteriores, datos_nuevos)` — keyword-only, síncrono, **TRAGA todo error** (auditar nunca rompe la operación de negocio). `_jsonable()` convierte UUID/date. `_diff()` arma diff por campos cambiados.
 - `audit_repo` (insert + listar con filtros/paginación + joins manuales users/empresas). `audit_service` inyectado por constructor en cada service instrumentado (`audit: Optional[AuditService] = None`).
-- Payloads canónicos en `services/_audit_payloads.py` (vacaciones/ausencias/offboarding) y `services/_audit_payloads_rrhh.py` (empleados/costos/empresa). Funciones puras, 1 línea por evento en cada service.
+- Payloads canónicos en `services/_audit_payloads.py` (vacaciones/ausencias/offboarding), `services/_audit_payloads_rrhh.py` (empleados/costos/empresa), `services/_audit_payloads_cesion.py` (cesiones) y `services/_audit_payloads_ev.py` (evaluaciones). Funciones puras, 1 línea por evento en cada service.
 
 **Eventos instrumentados (21):** alta/update/baja_empleado · cancelacion_vacacion · alta/update/baja_ausencia · inicio_offboarding · devolucion_activo · carga_nomina · set_presupuesto · alta_empresa · toggle_empresa_activa · alta_adjunto/baja_adjunto (B4) · cierre_periodo/reapertura_periodo (B3) · importacion_empleados (T18.6) · alta_usuario/baja_usuario/cambio_password (ABM usuarios). Todos vía `registrar(**payload_...)` con payloads canónicos en `_audit_payloads.py` (vacaciones/ausencias/offboarding) y `_audit_payloads_rrhh.py` (el resto).
 - Diff por campos relevantes (no row completo). Read-before solo donde aporta: `empleado.update`, `empleado.deactivate` (subset), `ausencias.delete`. `vacaciones.cancel`/`ausencias.update` ya leían prior (diff gratis). Nómina/presupuesto: solo `datos_nuevos`. `empresa.toggle` audita solo el toggle dedicado (el PUT genérico NO audita).
@@ -101,15 +103,17 @@ Sistema de auditoría con captura **app-level** (no triggers DB). Backend (commi
 
 ---
 
-## Importación CSV de empleados (T18.6 — COMPLETO)
-Flujo full-stack de importación CSV que hace **alta masiva + update masivo** por DNI (upsert). Estructura: modal de pasos → `/preview` (valida) → `/confirmar` (inserta) → reporte de resultado.
+## Importación CSV (T18.6 — COMPLETO)
+Importación masiva por CSV, con **dedup por DNI** (crea si es nuevo, actualiza si ya existe). Hoy vive en **dos flujos separados**, ambos gateados con `Seccion.IMPORTACION + Accion.WRITE` (solo admin_rrhh). Nombres antiguos (`csv_service.py`, `empleado_import_repo.py`, `empleado_import_service.py`, `_csv_empleados_utils.py`, `ImportarCSVModal.tsx`) **ya no existen** — se reharmaron al naming `nomina_*` que sigue.
 
-- **Match por DNI** por empresa (`UNIQUE (empresa_id, dni)`): DNI existe en la empresa → update; no existe → alta. La empresa destino sale del **selector del modal**, no del header.
-- **Validación exhaustiva en el preview (enfoque B1):** requeridos, tipo_contrato (`{efectivo, plazo_fijo, contratado, pasantia}` — coincide con el CHECK vivo), modalidad, fecha, email formato, área, + **duplicados contra DB** (email_corporativo UNIQUE **global** → chequeo sin filtro de empresa; legajo UNIQUE por empresa) + **duplicados intra-CSV** (email/dni/legajo repetidos en el mismo archivo). Chequeo **dirigido con `.in_(valores_del_csv)`**, nunca full-table.
-- **email duplicado = error, no update** (el match de negocio es el DNI; el email es identidad global).
-- **Confirmar robusto:** `EmpleadoImportService.confirmar` (router→service→repo) re-chequea la carrera antes del INSERT, inserta los válidos, reporta los que fallan (`ConfirmarError {fila, error}`), envuelve el batch en try/except → `AppError` tipado (nunca 500 opaco). Batch eficiente: 1 INSERT altas + 1 UPSERT updates (no por-fila). Audita el lote con **un evento único** (`importacion_empleados`).
-- **UI:** `components/features/empleados/import/` (UploadStep, PreviewStep, ConfirmStep, ResultStep) + orquestador `ImportarCSVModal.tsx`. El **ResultStep** muestra "Se procesaron N (X altas, Y actualizaciones)" + lista de errores con motivo + botón "Descargar errores" (CSV). La recarga de la lista ocurre al **cerrar el resultado**, no al confirmar.
-- Backend: `csv_service.py` (orquestador delgado) + `_csv_empleados_utils.py` (validación pura) + `empleado_import_repo.py` (batch + loaders en `_empleado_import_utils.py`) + `empleado_import_service.py`. `routers/importacion.py` gateado con `Seccion.IMPORTACION + Accion.WRITE` (solo admin_rrhh).
+**Flujo 1 — Nómina de empleados (alta/update de empleados por CSV).**
+- Backend: `routers/importacion_nomina_empleados.py` (un POST `importar`, single-shot — sin preview/confirmar) → `services/nomina_empleados_service.py::NominaEmpleadosImportService.importar` + `services/_nomina_empleados_transforms.py` (parseo puro) + `schemas/importacion_nomina_empleados.py` (`build_create`/`build_update`, `FilaConFaltantes`, `FilaNoCargada`, `ImportacionNominaEmpleadosResult`).
+- CSV real: 27 columnas, separador `;`, encoding `latin1`. Idempotente y tolerante: **dedup por DNI**, no aborta ante error de fila y clasifica cada fila en **3 grupos** — cargadas OK · cargadas con faltantes (email) · no cargadas (falta obligatorio o falló la creación). Reusa Empresa/Area/EmpleadoService (validaciones + audit). **Un evento de auditoría por lote** (`importacion_empleados`).
+- UI: `components/features/empleados/ImportarNominaModal.tsx` + `components/features/empleados/NominaResultView.tsx` (resultado con los 3 grupos), montado en `empleados/page.tsx`.
+
+**Flujo 2 — Nómina de costos (importa salarios/nómina mensual).**
+- Backend: `routers/importacion_nomina.py` (`/nomina/preview` valida + `/nomina/confirmar` inserta) → `services/nomina_csv_service.py::parse_nomina_csv` + `repositories/nomina_import_repo.py::NominaImportRepo` + `schemas/importacion.py` (`FilaNominaPreview`, `ConfirmarError`, `ImportacionNominaPreview/ConfirmarResponse`). Resuelve DNI→empleado y detecta duplicados por `(anio, mes)`.
+- UI: `components/features/costos/ImportarNominaCSVModal.tsx`, montado en `costos/page.tsx`.
 
 ---
 
@@ -119,7 +123,7 @@ Unificación de los campos `cargo` + `rol` (029) en un único campo **`roles TEX
 - **Modelo:** columna `roles TEXT[]` (migración 059). Principal = `roles[0]`. CHECK `array_length(roles,1) >= 1` (garantía a nivel datos, el backend usa service_key). Texto libre con autocompletado **compartido entre empresas** (`SELECT DISTINCT` aplanado en Python, vía `empleado_roles_repo.get_roles_conocidos`); al menos 1 obligatorio, resto opcional.
 - **Decisiones de producto pendientes de las pruebas:** "peso del principal" y "suma vs reemplaza" (un `TEXT[]` soporta ambas; se define al probar). Multi-valor en el CSV (delimitador `|`) diferido hasta tener un Excel de ejemplo.
 - **Estado por sub-sesión:** S1 (migración+modelo) ✅ · S2 (lecturas → `roles[0]` con fallback `?? cargo`) ✅ · S3 (form: componente `RolesInput` chips + endpoint `roles-conocidos`) ✅ · S4 (audit: `_CAMPOS_EMPLEADO` cargo→roles, diff de listas legible en el modal) ✅ · S5 (import: columna CSV `rol`, construye `roles:[valor]`, compat un valor) ✅ · **S6 (limpieza) PENDIENTE** — va DESPUÉS de la prueba funcional.
-- **S6 pendiente:** DROP COLUMN `cargo`/`rol` · corregir `000_run_all.sql` + demo `035` · quitar los fallbacks `?? cargo` de S2 · (futuro) parseo multi-valor del CSV.
+- **S6 pendiente:** DROP COLUMN `cargo`/`rol` · reflejar el drop en `db/schema.sql` (fuente de reconstrucción; `000_run_all.sql` está deprecado) · quitar los fallbacks `?? cargo` de S2 · (futuro) parseo multi-valor del CSV.
 - **⚠️ Despliegue:** la migración 059 deja `roles NOT NULL`. En producción, **059 + S3 + S5 van JUNTAS** — correr 059 sola rompe alta/import de empleados (las lecturas siguen OK). Los datos viejos (`cargo` + `rol`) se preservaron como lista inicial en el backfill.
 
 ---
@@ -168,16 +172,26 @@ Los **4 sub-módulos** proyectan **columnas legibles sin UUIDs crudos** (nombres
 
 ---
 
+## Otros módulos en el código (referencia rápida)
+Módulos que existen y funcionan pero no tenían sección propia acá:
+- **Selección — Vacantes + Candidatos:** `routers/vacantes.py` + `routers/candidatos.py` (+ `_candidato_form.py`, formulario público sin auth), `services/vacante_service.py` (vacantes con pipeline de candidatos por etapa), `candidato_service.py`, `cv_service.py`. Integraciones de publicación/ingreso de candidatos: `zernio_service.py`, `gmail_service.py` (crear candidato desde email) y datos de LinkedIn. Frontend en `app/(dashboard)/vacantes/` y `candidatos/`.
+- **Cesiones** (migración **066**): entidad hija de empleado — 0..N "cesiones" (momentos en que estuvo cedido/trabajando en otra empresa + fecha de reingreso reconocida + nombre de empresa externa, texto libre). `routers/cesiones.py` → `cesion_service.py` → `cesion_repo.py`, gateado por `Seccion.EMPLEADOS`, audita alta/update/baja. Vive en la ficha del empleado (`components/features/empleados/ficha/CesionesSection.tsx` + `CesionModal.tsx`).
+
+## Staging de migración a AWS (`migracionAWS/`)
+Carpeta **aislada** de staging para la migración de Supabase a **AWS (asyncpg/RDS + S3)**. El código nuevo se arma acá **sin tocar `backend/` en producción** hasta que se ejecute la migración. Contiene archivos `*_NEW.py` (auth, repos-molde, `postgres_client`, `token_service`) + migraciones 075/076 + docs (`MIGRACION_A_RDS.md`, `README_AUTH.md`). **No** forma parte del árbol activo del backend. Mapa completo en `migracionAWS/MIGRACION_A_RDS.md`.
+
+---
+
 ## Estado actual del proyecto
 
-### Entrega 1 — COMPLETA (63h, 15 tareas). Pusheada.
+### Entrega 1 — COMPLETA (63h, 15 tareas).
 
 ### Entrega 2 — EN CURSO
-- **T16** (roles funcionales) ✅ completa y pusheada.
+- **T16** (roles funcionales) ✅ completa.
 - **T17** (validación X-Empresa-Id) ❌ NO APLICA (decisión de producto).
-- **T18** (audit log app-level) ✅ completa. Backend `92d5edf` + UI `8646a9b`. Sin pushear.
-- **T18.6** (importación CSV de empleados) ✅ completa. Sin pushear.
-- **Campo Roles multi-valor** (S1–S5 ✅, S6 limpieza pendiente tras pruebas). Reemplazó la parte cargo→rol del legajo ampliado. Sin pushear.
+- **T18** (audit log app-level) ✅ completa.
+- **T18.6** (importación CSV — dos flujos: nómina de empleados + nómina de costos) ✅ completa.
+- **Campo Roles multi-valor** (S1–S5 ✅, S6 limpieza pendiente tras pruebas). Reemplazó la parte cargo→rol del legajo ampliado.
 - **ABM usuarios (Pieza 1)** ✅ COMPLETO — crear/listar/eliminar + **selector de rol** + cambio de contraseña (backend + UI, forzado y voluntario) + audit. Ver sección dedicada arriba.
 - **Ownership de mandos_medios (Pieza 2)** ✅ COMPLETO app-level (listados + export + 5 escrituras). Falta RLS. Ver sección dedicada.
 - **Export estandarizado** ✅ COMPLETO — 4 sub-módulos con columnas legibles sin UUIDs; `inventario_items` ahora exporta. Ver sección dedicada.
@@ -225,11 +239,11 @@ El mapa "T19–T25" era una simplificación; el plan real tiene 16 ítems. Pendi
 ## Deuda técnica conocida
 
 ### Líneas (archivos over-limit)
-**Backend:** `reporte_export_service` 332, `reporte_generators` 249, `integracion_service` 201, `empleado_repo` **174** (era "~155"; medido con `.Count` — el filtro `es_lider` del ABM sumó, pero ya venía over-limit), `csv_service` 171, `reporte_anual` 154, `ev_instancias_repo` 146, `costo_repo` 135, `assessment_repo` 130, `ev_plantillas_repo` 129, `nomina_repo` 107, `proyectos_repo` 104, `ausencias_repo` 101. (`_audit_payloads_rrhh` en **175/200** — helper "otros", aún bajo límite pero creciendo con cada evento nuevo.)
-**Frontend (límite 150):** `sucesion/page.tsx` 861, `costos/page.tsx` 608, `vacantes/[id]/page.tsx` 573, `reportes/page.tsx` 531, `onboarding/page.tsx` 405, `onboarding/templates/[id]/page.tsx` 393, `configuracion/page.tsx` 374, `empleados/page.tsx` 299, `empleados/[id]/page.tsx` 289, `vacaciones/page.tsx` 286, `ausencias/page.tsx` 285, `offboarding/page.tsx` 268, `areas/page.tsx` 253, `empresas/[id]/page.tsx` 224, `vacantes/page.tsx` 213, `empresas/page.tsx` 194, `objetivos/page.tsx` 167, `components/features/inventario/ItemsTab.tsx` **152** (deuda **pre-existente**; el botón de export se agregó neto-cero, no la empeoró — candidato a refactor propio).
+**Backend** (medido con `.Count`): `reporte_generators` 249, `integracion_service` 201, `empleado_repo` **174**, `reporte_anual` 154 · repos: `ev_instancias_repo` 146, `ev_plantillas_repo` 129, `nomina_repo` 107, `proyectos_repo` 104. (`costo_repo` 135 y `assessment_repo` 130 figuran over-limit pero son **archivos legacy sin callers** — candidatos a borrar, no a refactorizar.) `_audit_payloads_rrhh` en **186/200** — helper "otros", bajo límite pero creciendo con cada evento nuevo. Nota: `reporte_export_service` ya **no** está over-limit (40 líneas reales; sigue wired en `routers/reportes.py`).
+**Frontend (límite 150, ~46 archivos over-limit; medido con `.Count`):** peores — `sucesion/page.tsx` 869, `costos/page.tsx` 618, `vacantes/[id]/page.tsx` 577, `reportes/page.tsx` 539, `onboarding/templates/[id]/page.tsx` 412, `onboarding/page.tsx` 410, `configuracion/page.tsx` 390, `costos/ImportarNominaCSVModal.tsx` 377, `evaluaciones/PlantillasTab.tsx` 336, `vacaciones/page.tsx` 304, `ausencias/page.tsx` 301, `empleados/page.tsx` 299, `evaluaciones/CiclosTab.tsx` 297, `offboarding/page.tsx` 292, `costos/NominaModal.tsx` 287, `evaluaciones/EvaluacionesTab.tsx` 286, `areas/page.tsx` 261, `empresas/[id]/page.tsx` 230, `vacantes/page.tsx` 217, `empresas/page.tsx` 204 · + ~26 más entre 152 y 268 (incl. `ui/dropdown-menu.tsx` 268, `evaluacion/[token]/page.tsx` 258, `vacantes/VacanteModal.tsx` 251, `layout/AIPanel.tsx` 249, `inventario/ItemsTab.tsx` 152). **Resueltos:** `empleados/[id]/page.tsx` (289 → 131 tras el refactor de la ficha), `objetivos/page.tsx` (167 → 149, bajo límite).
 - **Services cerca del límite 150 (margen ≤4, verificado `.Count`):** `ausencias_service.py` **148** (+ownership escrituras), `ev_instancias_service.py` **146**. `vacaciones_service.py` bajó a **139** al extraer `get_saldo` a `services/_vacaciones_saldo.py` (división forzada por sumar ownership). El próximo cambio a ausencias/ev_instancias exige dividir primero.
 - División = tarea de refactor propia (diagnóstico → implementación archivo por archivo, peores primero). NO mezclar con features. El `Pagination.tsx` de T18 sirve para refactorizar los listados over-limit.
-- ✅ **`Sidebar.tsx` resuelto**: se dividió en acordeón (secciones colapsables) → `Sidebar.tsx` (135), `NavGroup.tsx` (56), `NavItem.tsx` (35), `ThemeToggle.tsx` (24), `EmpresaSelector.tsx` (68) + `nav-config.ts` (66, define `NAV_GROUPS`). Todos bajo 150 (medido con `.Count`).
+- ✅ **`Sidebar.tsx` resuelto**: se dividió en acordeón (secciones colapsables) → `Sidebar.tsx` (144), `NavGroup.tsx` (56), `NavItem.tsx` (35), `ThemeToggle.tsx` (24), `EmpresaSelector.tsx` (68) + `nav-config.ts` (66, define `NAV_GROUPS`). Todos bajo 150 (medido con `.Count`).
 
 ### Routers cerca del límite (RE-MEDIDO con `.Count`)
 - `routers/ausencias.py` (79) y `routers/inventario_items.py` (79) — margen 1. `routers/empleados.py` (74), `routers/vacaciones.py` (73), `routers/empresa.py` (64) — con margen. **La antigua nota de "vacaciones/ausencias/empresa en 80/80 margen cero" quedó DESACTUALIZADA** (re-medido: ninguno está en 80).
@@ -238,17 +252,16 @@ El mapa "T19–T25" era una simplificación; el plan real tiene 16 ítems. Pendi
 - `auditoria.tabla` es columna legacy (= `entidad` internamente). Drop column o drop NOT NULL = deuda futura.
 - `ip`/`user_agent` quedan NULL. Poblar desde el middleware si se necesita (exigiría pasar datos del request al service).
 - Retención/particionado del audit: diferido. Revisar cuando el volumen lo justifique.
-- `000_run_all.sql` reintroduce los triggers viejos de auditoría si se re-bootstrapea desde cero (líneas ~1137-1216, 2469, 2550). Misma clase de deuda que 057. Corregir el agregado si se regenera.
+- ✅ **`000_run_all.sql` ya no es riesgo**: el consolidado está **DEPRECADO con guard que aborta** ("NO EJECUTAR"); la reconstrucción de la base se hace desde `db/schema.sql`. La vieja deuda de "reintroduce los triggers viejos de auditoría al re-bootstrapear" quedó neutralizada.
 - Evento de audit **usuarios**: `alta_usuario`, `baja_usuario`, `cambio_password` YA implementados (ABM usuarios, Pieza 1). Sin datos sensibles en el payload (nunca la contraseña).
 - Importación CSV: si se audita, evento único por lote — NO fila por fila.
 
 ### Importación CSV (T18.6)
-- `empleado_import_repo.py` quedó en **99/100** (al filo). Si una tarea futura le suma algo, dividir primero (mover loaders dirigidos a `_empleado_import_utils.py`).
-- `empleado_repo.find_by_dni` (y posiblemente `find_by_legajo`) podrían haber quedado **sin callers** tras borrar `update_empleado_por_dni` en 18.6d. Verificar y limpiar en una pasada futura.
-- `ImportarCSVModal.tsx` se dividió en `import/` (UploadStep, PreviewStep, ConfirmStep, ResultStep) — orquestador en 139.
+- Los archivos viejos (`empleado_import_repo.py`, `_empleado_import_utils.py`, `ImportarCSVModal.tsx` con `import/` UploadStep/PreviewStep/ConfirmStep/ResultStep) **fueron reemplazados** por el naming `nomina_*` (ver sección "Importación CSV" arriba). Ya no existen.
+- `empleado_repo.find_by_dni` y `find_by_legajo` están **VIVOS** (la vieja duda de "sin callers" quedó descartada): `find_by_dni` lo usan `nomina_csv_service.py` y `nomina_empleados_service.py`; `find_by_legajo` lo usa `_empleados_utils.py`.
 
 ### Campo Roles (S1–S5)
-- `EmpleadoModal.tsx` en **402 líneas** (ya estaba en 385 antes, +17 por S3). Muy over-limit (2.7x). Candidato a dividir: extraer los `<select>`, EMPTY/TEXT_FIELDS y `validate` a subcomponentes. Refactor propio, no mezclar con feature.
+- ✅ **`EmpleadoModal.tsx` resuelto**: se dividió en `components/features/empleados/modal/` (`DatosPersonalesFields`, `DatosLaboralesFields`, `OrganizacionSelects`, `TextFields`, `AutocompleteFields`/`AutocompleteInput`, `_constants.ts`, `form-utils.ts`, `useEmpleadoFormData.ts`); el orquestador `EmpleadoModal.tsx` quedó en **150** (en el límite, ya no 402).
 - ⚠️ **Compactación de routers — RE-MEDIDO, ya NO urgente**: los conteos viejos (vacaciones/ausencias/empresa en 80/80) estaban desactualizados. Medido con `.Count`: `ausencias.py` 79, `inventario_items.py` 79, `empleados.py` 74, `vacaciones.py` 73, `empresa.py` 64. Ninguno en el límite. Ver "Routers cerca del límite" abajo.
 - ⚠️ **Conteos de líneas históricos posiblemente subestimados**: hasta A4, Claude Code midió con `Measure-Object -Line` (descarta líneas en blanco); el límite cuenta líneas reales (`.Count`). Caso detectado: `page.tsx` reportada en 142/146 estaba realmente en 164 (over-limit) — corregida a 127 real en A4. **Al hacer la compactación de routers, re-medir TODO con `.Count`** y no fiarse de los números viejos. Los componentes nuevos (reportados 34–96) probablemente sigan OK; los que estaban al filo (routers, `EmpleadoModal` 402) podrían estar peor.
 - `roles-conocidos` aplana en Python (PostgREST no expone `unnest` sin RPC). OK por volumen; migrar a RPC/vista materializada si crece.
@@ -265,11 +278,12 @@ El mapa "T19–T25" era una simplificación; el plan real tiene 16 ítems. Pendi
 ### Otras (heredadas)
 - Rate-limiter de BCRA no implementado (otro proyecto — no aplica a Sofia).
 - `permisos.ts` es espejo manual de `permisos.py` — riesgo de divergencia.
-- `middleware/auth.py:86-94` acepta UUID de empresa inexistente sin verificar contra tabla `empresas` (higiene de input, baja prioridad).
+- `middleware/auth.py` (manejo del header `X-Empresa-Id`, ~líneas 133-141) acepta cualquier UUID **con formato válido** sin verificar que la empresa exista en la tabla `empresas` (higiene de input, baja prioridad).
 
 ---
 
 ## Git
 - Operar siempre desde `RRHH/Sofia/`.
-- Estado actual: **26 commits ahead** de origin sin pushear. Los más recientes: `7820508` export inventario_items (columnas legibles + botón), `14b8a7f` ownership escrituras vacaciones/ausencias (**cierra Pieza 2**), `db8008d` export vacaciones (columnas + filtro área/empleado), `e977a5d` ownership listados + export, `1757472` base ownership (`find_by_user_id` + `ids_empleados_visibles`). Antes: cambio de contraseña UI (`510e9ae`), ABM usuarios selector de rol (`9db3ded`/`5fd6355`), organigrama cards (`8be1c8b`). Push cuando Franco decida. **Nota despliegue:** la migración 059 (campo Roles) + S3 + S5 van juntas a producción; la 063 (`must_change_password`) ya está aplicada en prod (versionada retroactivamente).
+- **Commits los hace Franco manualmente** (nunca Claude Code). Commits y push están desacoplados: no hay push a GitHub hasta que Franco lo decida. Preferir commits por sub-sesión sobre commits por tarea entera.
 - Formato de commits: convencional (`feat:`, `fix:`, `refactor:`, `chore:`, `docs:`, `test:`).
+- **Nota de despliegue (estable):** la migración 059 (campo Roles) + S3 + S5 van **juntas** a producción — correr 059 sola rompe alta/import de empleados. Producción puede driftear de las migraciones versionadas (varias migraciones recientes, ej. 072–074, versionan retroactivamente cambios que ya vivían en prod) — verificar siempre contra el schema vivo.
