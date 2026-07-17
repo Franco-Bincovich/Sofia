@@ -1,10 +1,38 @@
 -- ============================================================
--- HR Karstec — Schema completo de base de datos
--- Ejecutar este archivo en el SQL Editor de Supabase para
--- provisionar todas las tablas, funciones, triggers y policies
--- en un único paso.
--- Orden: 001 → 024 (respeta dependencias entre tablas)
+-- HR Karstec — 000_run_all.sql — DEPRECADO. NO EJECUTAR.
 -- ============================================================
+--
+-- Este consolidado NO se ejecuta: el guard de abajo aborta la
+-- transacción antes de que corra una sola sentencia.
+--
+-- Declaraba cubrir el orden 001 → 024, pero las migraciones van
+-- por 074: quedó ~50 migraciones desactualizado y ya no describe
+-- la base real. Además reintroduce triggers de auditoría que
+-- fueron dropeados (la captura hoy es app-level).
+--
+-- La fuente de verdad de reconstrucción es backend/db/schema.sql
+-- (ver backend/db/README.md). Correr ese archivo contra una base
+-- vacía reconstruye el schema completo.
+--
+-- Se conserva únicamente como historial. No actualizarlo, no
+-- ejecutarlo, no tomarlo como referencia del schema vigente.
+--
+-- El guard son tres piezas, no solo el RAISE:
+--   \set ON_ERROR_STOP on  → psql corta al primer error (sin
+--                            esto, psql sigue con el resto del
+--                            archivo y termina con exit code 0).
+--   BEGIN; (sin COMMIT)    → cualquier cliente: el RAISE aborta
+--                            la transacción y nada se persiste.
+--   DO ... RAISE EXCEPTION → el aborto propiamente dicho.
+-- ============================================================
+
+\set ON_ERROR_STOP on
+BEGIN;
+
+DO $$
+BEGIN
+    RAISE EXCEPTION 'DEPRECADO: no ejecutar 000_run_all.sql. La fuente de verdad de reconstruccion es backend/db/schema.sql (ver backend/db/README.md). Este consolidado quedo desactualizado y se conserva solo como historial.';
+END $$;
 
 
 -- ============================================================
