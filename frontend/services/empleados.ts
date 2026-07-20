@@ -1,7 +1,7 @@
 import type {
   Empleado, EmpleadoCreate, EmpleadoListResponse, EmpleadoSeleccionable, EmpleadoUpdate,
 } from "@/types/empleado"
-import { apiFetch } from "@/services/api"
+import { apiFetch, descargarArchivo, type FormatoExport } from "@/services/api"
 
 export async function fetchEmpleados(
   page: number,
@@ -9,14 +9,32 @@ export async function fetchEmpleados(
   search?: string,
   estado?: string,
   empresaIdOverride?: string,
+  areaId?: string,
 ): Promise<EmpleadoListResponse> {
   const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) })
   if (search) params.set("search", search)
   if (estado) params.set("estado", estado)
+  if (areaId) params.set("area_id", areaId)
   return apiFetch<EmpleadoListResponse>(
     `/api/empleados?${params}`,
     empresaIdOverride ? { headers: { "X-Empresa-Id": empresaIdOverride } } : {},
   )
+}
+
+/** Exporta el listado de empleados (pdf/excel/csv/word) con los filtros activos aplicados. */
+export function exportarEmpleados(
+  formato: FormatoExport,
+  empresaIdOverride?: string,
+  search?: string,
+  estado?: string,
+  areaId?: string,
+): Promise<void> {
+  const headers = empresaIdOverride ? { "X-Empresa-Id": empresaIdOverride } : undefined
+  return descargarArchivo("/api/empleados/exportar", formato, "empleados", headers, {
+    search,
+    estado,
+    area_id: areaId,
+  })
 }
 
 export async function fetchEmpleado(id: string): Promise<Empleado> {
