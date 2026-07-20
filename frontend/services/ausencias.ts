@@ -24,11 +24,15 @@ export async function fetchAusencias(
   empresaIdOverride?: string,
   areaId?: string,
   tipoId?: string,
+  empleadoId?: string,
+  page = 1,
+  pageSize = 20,
 ): Promise<AusenciaListResponse> {
-  const params = new URLSearchParams()
+  const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) })
   if (areaId) params.set("area_id", areaId)
+  if (empleadoId) params.set("empleado_id", empleadoId)
   if (tipoId) params.set("tipo_id", tipoId)
-  const query = params.size ? `?${params}` : ""
+  const query = `?${params}`
   return apiFetch<AusenciaListResponse>(
     `/api/ausencias${query}`,
     empresaIdOverride ? { headers: { "X-Empresa-Id": empresaIdOverride } } : {},
@@ -74,8 +78,18 @@ export async function deleteAusencia(id: string): Promise<void> {
   await apiFetch<{ ok: boolean }>(`/api/ausencias/${id}`, { method: "DELETE" })
 }
 
-/** Exporta el listado de ausencias (pdf/excel/csv/word) vía el motor central. */
-export function exportarAusencias(formato: FormatoExport, empresaIdOverride?: string): Promise<void> {
+/** Exporta el listado de ausencias (pdf/excel/csv/word) con los filtros activos aplicados. */
+export function exportarAusencias(
+  formato: FormatoExport,
+  empresaIdOverride?: string,
+  areaId?: string,
+  tipoId?: string,
+  empleadoId?: string,
+): Promise<void> {
   const headers = empresaIdOverride ? { "X-Empresa-Id": empresaIdOverride } : undefined
-  return descargarArchivo("/api/ausencias/exportar", formato, "ausencias", headers)
+  return descargarArchivo("/api/ausencias/exportar", formato, "ausencias", headers, {
+    area_id: areaId,
+    empleado_id: empleadoId,
+    tipo_id: tipoId,
+  })
 }

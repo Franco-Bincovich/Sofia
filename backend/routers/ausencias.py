@@ -6,10 +6,8 @@ from fastapi.responses import Response
 
 from schemas.ausencias import (
     AusenciaCreate, AusenciaListResponse, AusenciaResponse, AusenciaUpdate,
-    TipoAusenciaCreate, TipoAusenciaListResponse, TipoAusenciaResponse,
 )
 from services.ausencias_service import AusenciasService
-from services.tipos_ausencia_service import TiposAusenciaService
 from utils.empresa import get_empresa_id
 from utils.permisos import Accion, Seccion, require_permission
 
@@ -18,19 +16,6 @@ SECCION = Seccion.AUSENCIAS
 
 
 def _svc() -> AusenciasService: return AusenciasService()
-def _tipos_svc() -> TiposAusenciaService: return TiposAusenciaService()
-
-
-# ── Tipos de ausencia (catálogo global) ────────────────────────────────────────
-
-@router.get("/tipos", response_model=TipoAusenciaListResponse, dependencies=[Depends(require_permission(SECCION, Accion.READ))])
-async def list_tipos(service: TiposAusenciaService = Depends(_tipos_svc)) -> TipoAusenciaListResponse:
-    return service.get_tipos()
-
-
-@router.post("/tipos", response_model=TipoAusenciaResponse, status_code=201, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
-async def create_tipo(body: TipoAusenciaCreate, service: TiposAusenciaService = Depends(_tipos_svc)) -> TipoAusenciaResponse:
-    return service.create_tipo(body)
 
 
 # ── Ausencias ──────────────────────────────────────────────────────────────────
@@ -39,17 +24,18 @@ async def create_tipo(body: TipoAusenciaCreate, service: TiposAusenciaService = 
 async def list_ausencias(
     request: Request,
     area_id: Optional[UUID] = Query(None),
+    empleado_id: Optional[UUID] = Query(None),
     tipo_id: Optional[UUID] = Query(None),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     service: AusenciasService = Depends(_svc),
 ) -> AusenciaListResponse:
-    return service.get_all(request.state.user.get("id"), request.state.user.get("rol"), get_empresa_id(request), area_id, tipo_id, page, page_size)
+    return service.get_all(request.state.user.get("id"), request.state.user.get("rol"), get_empresa_id(request), area_id, empleado_id, tipo_id, page, page_size)
 
 
 @router.get("/exportar", dependencies=[Depends(require_permission(SECCION, Accion.READ))])
-async def exportar_ausencias(request: Request, formato: Literal["pdf", "excel", "csv", "word"] = Query("excel"), service: AusenciasService = Depends(_svc)) -> Response:
-    d = service.exportar(request.state.user.get("id"), request.state.user.get("rol"), get_empresa_id(request), formato)
+async def exportar_ausencias(request: Request, formato: Literal["pdf", "excel", "csv", "word"] = Query("excel"), area_id: Optional[UUID] = Query(None), empleado_id: Optional[UUID] = Query(None), tipo_id: Optional[UUID] = Query(None), service: AusenciasService = Depends(_svc)) -> Response:
+    d = service.exportar(request.state.user.get("id"), request.state.user.get("rol"), get_empresa_id(request), formato, area_id, empleado_id, tipo_id)
     return Response(content=d.content, media_type=d.media_type, headers={"Content-Disposition": f'attachment; filename="{d.filename}"'})
 
 
