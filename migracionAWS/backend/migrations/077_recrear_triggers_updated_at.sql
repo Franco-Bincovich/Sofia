@@ -1,0 +1,219 @@
+-- 077_recrear_triggers_updated_at.sql
+--
+-- Recrea la función set_updated_at() + los 36 triggers trg_*_updated_at en la
+-- base nueva (RDS). El snapshot db/schema.sql se generó del catálogo y capturó
+-- tablas/columnas/constraints/índices/defaults, pero 0 funciones y 0 triggers,
+-- así que updated_at se pobla en el alta (por el DEFAULT now()) pero NO se
+-- actualizaría en UPDATE — corrupción silenciosa. Este script lo cierra.
+--
+-- Decisión (ver MIGRACION_A_RDS.md §3 hallazgo 5 y §5): se RECREAN los triggers
+-- en RDS, NO se mueve updated_at a la capa de aplicación. Es un solo script SQL
+-- y es a prueba de olvidos; dejarlo en la app depende de que nadie se olvide en
+-- ninguna de las ~332 queries que se reescriben, y un olvido = dato congelado
+-- en silencio.
+--
+-- Correr UNA vez contra la base limpia, DESPUÉS de db/schema.sql.
+-- Idempotente: CREATE OR REPLACE + DROP TRIGGER IF EXISTS.
+--
+-- Definición y nombres extraídos 1:1 de las migraciones 001–066 (función
+-- genérica definida en 001_create_users.sql). NO recrea los triggers de
+-- auditoría (dropeados a propósito en 058; la captura hoy es app-level).
+
+-- Función genérica para mantener updated_at; usada por triggers de múltiples tablas.
+CREATE OR REPLACE FUNCTION public.set_updated_at()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$;
+
+-- 36 triggers, un trigger por tabla con columna updated_at.
+-- (horas_proyecto, adjuntos, periodos_cerrados NO llevan: son inmutables / sin updated_at.)
+
+DROP TRIGGER IF EXISTS trg_users_updated_at ON public.users;
+CREATE TRIGGER trg_users_updated_at
+    BEFORE UPDATE ON public.users
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_areas_updated_at ON public.areas;
+CREATE TRIGGER trg_areas_updated_at
+    BEFORE UPDATE ON public.areas
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_empleados_updated_at ON public.empleados;
+CREATE TRIGGER trg_empleados_updated_at
+    BEFORE UPDATE ON public.empleados
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_vacantes_updated_at ON public.vacantes;
+CREATE TRIGGER trg_vacantes_updated_at
+    BEFORE UPDATE ON public.vacantes
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_candidatos_updated_at ON public.candidatos;
+CREATE TRIGGER trg_candidatos_updated_at
+    BEFORE UPDATE ON public.candidatos
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_onboarding_templates_updated_at ON public.onboarding_templates;
+CREATE TRIGGER trg_onboarding_templates_updated_at
+    BEFORE UPDATE ON public.onboarding_templates
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_onboarding_instancias_updated_at ON public.onboarding_instancias;
+CREATE TRIGGER trg_onboarding_instancias_updated_at
+    BEFORE UPDATE ON public.onboarding_instancias
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_onboarding_progreso_updated_at ON public.onboarding_progreso;
+CREATE TRIGGER trg_onboarding_progreso_updated_at
+    BEFORE UPDATE ON public.onboarding_progreso
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_offboarding_instancias_updated_at ON public.offboarding_instancias;
+CREATE TRIGGER trg_offboarding_instancias_updated_at
+    BEFORE UPDATE ON public.offboarding_instancias
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_offboarding_activos_updated_at ON public.offboarding_activos;
+CREATE TRIGGER trg_offboarding_activos_updated_at
+    BEFORE UPDATE ON public.offboarding_activos
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_costos_nomina_updated_at ON public.costos_nomina;
+CREATE TRIGGER trg_costos_nomina_updated_at
+    BEFORE UPDATE ON public.costos_nomina
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_presupuesto_areas_updated_at ON public.presupuesto_areas;
+CREATE TRIGGER trg_presupuesto_areas_updated_at
+    BEFORE UPDATE ON public.presupuesto_areas
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_sucesion_posiciones_updated_at ON public.sucesion_posiciones;
+CREATE TRIGGER trg_sucesion_posiciones_updated_at
+    BEFORE UPDATE ON public.sucesion_posiciones
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_planes_carrera_updated_at ON public.planes_carrera;
+CREATE TRIGGER trg_planes_carrera_updated_at
+    BEFORE UPDATE ON public.planes_carrera
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_planes_carrera_hitos_updated_at ON public.planes_carrera_hitos;
+CREATE TRIGGER trg_planes_carrera_hitos_updated_at
+    BEFORE UPDATE ON public.planes_carrera_hitos
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_assessment_campanas_updated_at ON public.assessment_campanas;
+CREATE TRIGGER trg_assessment_campanas_updated_at
+    BEFORE UPDATE ON public.assessment_campanas
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_assessment_resultados_updated_at ON public.assessment_resultados;
+CREATE TRIGGER trg_assessment_resultados_updated_at
+    BEFORE UPDATE ON public.assessment_resultados
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_notificaciones_config_updated_at ON public.notificaciones_config;
+CREATE TRIGGER trg_notificaciones_config_updated_at
+    BEFORE UPDATE ON public.notificaciones_config
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_configuracion_empresa_updated_at ON public.configuracion_empresa;
+CREATE TRIGGER trg_configuracion_empresa_updated_at
+    BEFORE UPDATE ON public.configuracion_empresa
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_empresas_updated_at ON public.empresas;
+CREATE TRIGGER trg_empresas_updated_at
+    BEFORE UPDATE ON public.empresas
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_sv_updated_at ON public.solicitudes_vacaciones;
+CREATE TRIGGER trg_sv_updated_at
+    BEFORE UPDATE ON public.solicitudes_vacaciones
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_ta_updated_at ON public.tipos_ausencia;
+CREATE TRIGGER trg_ta_updated_at
+    BEFORE UPDATE ON public.tipos_ausencia
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_sa_updated_at ON public.solicitudes_ausencia;
+CREATE TRIGGER trg_sa_updated_at
+    BEFORE UPDATE ON public.solicitudes_ausencia
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_cap_updated_at ON public.capacitaciones;
+CREATE TRIGGER trg_cap_updated_at
+    BEFORE UPDATE ON public.capacitaciones
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_ec_updated_at ON public.empleado_capacitacion;
+CREATE TRIGGER trg_ec_updated_at
+    BEFORE UPDATE ON public.empleado_capacitacion
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_evp_updated_at ON public.ev_plantillas;
+CREATE TRIGGER trg_evp_updated_at
+    BEFORE UPDATE ON public.ev_plantillas
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_evcrit_updated_at ON public.ev_criterios;
+CREATE TRIGGER trg_evcrit_updated_at
+    BEFORE UPDATE ON public.ev_criterios
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_evciclo_updated_at ON public.ev_ciclos;
+CREATE TRIGGER trg_evciclo_updated_at
+    BEFORE UPDATE ON public.ev_ciclos
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_evinst_updated_at ON public.ev_instancias;
+CREATE TRIGGER trg_evinst_updated_at
+    BEFORE UPDATE ON public.ev_instancias
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_evres_updated_at ON public.ev_resultados;
+CREATE TRIGGER trg_evres_updated_at
+    BEFORE UPDATE ON public.ev_resultados
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_inv_items_updated_at ON public.inventario_items;
+CREATE TRIGGER trg_inv_items_updated_at
+    BEFORE UPDATE ON public.inventario_items
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_inv_asig_updated_at ON public.inventario_asignaciones;
+CREATE TRIGGER trg_inv_asig_updated_at
+    BEFORE UPDATE ON public.inventario_asignaciones
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_obj_updated_at ON public.objetivos;
+CREATE TRIGGER trg_obj_updated_at
+    BEFORE UPDATE ON public.objetivos
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_proyectos_updated_at ON public.proyectos;
+CREATE TRIGGER trg_proyectos_updated_at
+    BEFORE UPDATE ON public.proyectos
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_pa_updated_at ON public.proyecto_asignaciones;
+CREATE TRIGGER trg_pa_updated_at
+    BEFORE UPDATE ON public.proyecto_asignaciones
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_cesiones_updated_at ON public.cesiones;
+CREATE TRIGGER trg_cesiones_updated_at
+    BEFORE UPDATE ON public.cesiones
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- Verificación (opcional): debe devolver 36.
+-- SELECT count(*) FROM pg_trigger t
+--   JOIN pg_proc p ON p.oid = t.tgfoid
+--   WHERE p.proname = 'set_updated_at' AND NOT t.tgisinternal;

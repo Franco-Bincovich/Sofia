@@ -22,6 +22,7 @@ migracionAWS/
     ├── middleware/auth_NEW.py                  ← middleware JWT propio (reemplaza JWKS de Supabase)
     ├── migrations/075_add_password_hash.sql    ← password_hash en users (+ FK/DEFAULT comentados)
     ├── migrations/076_create_refresh_tokens.sql
+    ├── migrations/077_recrear_triggers_updated_at.sql ← función set_updated_at() + 36 triggers (DDL listo)
     ├── README_AUTH.md                          ← orden de activación del auth propio
     ├── repositories/empleado_repo_NEW.py       ← REPO-MOLDE (copiar para los 43 restantes)
     ├── repositories/empleado_lookup_repo_NEW.py ← satélite del molde (lookups + bajas)
@@ -110,8 +111,15 @@ separados. Es el punto más delicado de toda la migración.
 capturó tablas/columnas/constraints/índices/defaults, pero **0 funciones y 0 triggers**. En prod
 siguen vivos `set_updated_at()` + **36 triggers `trg_*_updated_at`** (la migración 058 dropeó solo
 los de auditoría, no estos). Sin ellos: `updated_at` se puebla en el alta (por el `DEFAULT now()`)
-pero **no se actualiza en UPDATE** — corrupción silenciosa. Recrearlos en el rebuild, o mover
-`updated_at = now()` a la capa de aplicación.
+pero **no se actualiza en UPDATE** — corrupción silenciosa.
+
+**DECISIÓN (cerrada): se RECREAN los 36 triggers en RDS. NO se mueve `updated_at` a la capa de
+aplicación.** Es un solo script SQL y es **a prueba de olvidos**: dejarlo en la app dependería de
+que nadie se olvide en **ninguna** de las ~332 queries que se reescriben, y un solo olvido = dato
+congelado en silencio (el mismo modo de falla que se quiere evitar). El DDL ya está listo en
+**`migracionAWS/backend/migrations/077_recrear_triggers_updated_at.sql`** — recrea la función
+`set_updated_at()` (definición 1:1 de 001) + los 36 triggers `trg_*_updated_at`, con nombres
+extraídos de las migraciones 001–066. Correrlo en el rebuild, **después** de `db/schema.sql`.
 
 ---
 
@@ -162,14 +170,19 @@ con rutas relativas.
   (47 tablas, 310 constraints, 220 índices). Correrlo contra una base limpia; **NO** correr las
   74 migraciones encima (son historial — auditadas: sin migraciones vacías, sin números repetidos
   ni huecos 001–074, sin tablas auto-anuladas, sin credenciales).
-- **Tres notas al reconstruir:**
-  1. **Recrear los triggers `updated_at`** (§3 hallazgo 5) — `schema.sql` no los trae.
-  2. **No hay RLS** en `schema.sql` (38 tablas con RLS + ~205 policies en prod, omitidas). Es
-     **decisión consciente**: en RDS la seguridad es **app-level** (el backend ya usaba service_key
-     que bypassa RLS, así que RLS era segunda línea, no la que gobierna). No "restaurarla" pensando
-     que falta. Las policies dependen de `auth.uid()` de Supabase, que en RDS no existe.
-  3. **Excluir `035_demo_data.sql`** del bootstrap — son datos de demo (591 líneas, 21 emails
-     sintéticos), no estructura, y no van a producción.
+- **Tres decisiones al reconstruir (cerradas, ver abajo):**
+  1. **Recrear los triggers `updated_at` — DECIDIDO** (§3 hallazgo 5). `schema.sql` no los trae;
+     se recrean en RDS (NO se mueve `updated_at` a la app). DDL listo en
+     `migracionAWS/backend/migrations/077_recrear_triggers_updated_at.sql` (función + 36 triggers).
+     Correrlo **después** de `db/schema.sql`.
+  2. **NO se implementa RLS en RDS — DECISIÓN EXPLÍCITA (no omisión).** `schema.sql` no trae RLS
+     (38 tablas con RLS + ~205 policies en prod, omitidas) y **así queda**: en RDS la seguridad es
+     **100% app-level** — ownership (`services/ownership.py`) + permisos por rol (`utils/permisos.py`),
+     que Sofia **ya tiene** y son la capa que gobierna. RLS en Supabase era **segunda línea** (el
+     backend siempre usó service_key, que la bypassa), no la que decide. Además las policies dependen
+     de `auth.uid()` de Supabase, que en RDS no existe. **No "restaurarla" pensando que falta.**
+  3. **NO cargar `035_demo_data.sql` — DECIDIDO: se excluye del bootstrap.** Son datos de demo
+     (591 líneas, 21 emails sintéticos), no estructura, y no van a producción.
 - Los triggers de auditoría **no** se recrean: fueron dropeados a propósito en 058 (la captura de
   auditoría hoy es app-level, vía `AuditService`).
 
@@ -190,7 +203,9 @@ Qué ya viene resuelto de fábrica en Sofia vs. qué te queda a vos:
 | `passlib`/bcrypt roto | ✅ `import bcrypt` directo en `auth_service_NEW` |
 | Auth propio (JWT + refresh + hash) | ✅ módulo `_NEW` (falta activarlo y reescribir `usuario_service`) |
 | FK a `auth.users` bloquea alta | ⚠️ SQL comentado en 075 — decidir y correr |
-| Triggers `updated_at` ausentes del schema | ⚠️ recrear en el rebuild |
+| Triggers `updated_at` ausentes del schema | ✅ decidido: recrear en RDS — DDL listo en migración 077 (correr tras `schema.sql`) |
+| RLS ausente del schema | ✅ decisión explícita: NO se implementa en RDS — seguridad 100% app-level (ownership + permisos por rol) |
+| `035_demo_data.sql` (datos de demo) | ✅ decidido: excluir del bootstrap |
 | Storage → S3 (3 buckets) | ⬜ pendiente (casi 1:1 boto3) |
 | Migración de datos con verificación de conteos | ⬜ pendiente (script v2, sin `ON CONFLICT` silencioso) |
 | Cookies `Secure`/`SameSite` por entorno | ⬜ pendiente-infra (+ ojo CSRF del fallback a cookie) |
