@@ -44,7 +44,7 @@ class _FakeVacRepo:
     def __init__(self) -> None:
         self.calls: list = []
 
-    def find_all(self, empresa_id, empleado_ids, page, page_size):
+    def find_all(self, empresa_id, empleado_ids, page, page_size, estado=None, today=None):
         self.calls.append(empleado_ids)
         return [], 0
 

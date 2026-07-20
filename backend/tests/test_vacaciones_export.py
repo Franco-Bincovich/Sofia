@@ -24,7 +24,8 @@ for _k, _v in _TEST_ENV.items():
 from datetime import date, datetime
 
 from schemas.vacaciones import SolicitudVacacionesResponse
-from services._vacaciones_export import construir_filas_export, resolver_empleado_ids
+from services._ownership_filter import resolver_empleado_ids
+from services._vacaciones_export import construir_filas_export
 from services.vacaciones_service import VacacionesService
 
 _SELF, _S1, _S2 = "e-self", "s1", "s2"
@@ -119,7 +120,7 @@ class _FakeRepo:
         self.find_all_calls: list = []
         self.parcial_calls: list = []
 
-    def find_all(self, empresa_id, empleado_ids, page, page_size):
+    def find_all(self, empresa_id, empleado_ids, page, page_size, estado=None, today=None):
         self.find_all_calls.append(empleado_ids)
         return [], 0
 

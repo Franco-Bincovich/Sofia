@@ -1,8 +1,26 @@
 """Helpers internos del módulo de vacaciones. No importar desde fuera de repositories/."""
-from typing import List
+from datetime import date
+from typing import List, Optional
 
 from integrations.supabase_client import supabase_admin
 from schemas.vacaciones import SolicitudVacacionesResponse
+
+
+def aplicar_filtro_estado(q, estado: Optional[str], today: Optional[date]):
+    """Traduce el estado DERIVADO al filtro SQL equivalente sobre cancelada + fecha_desde.
+
+    Espejo exacto de services._vacaciones_utils.derive_estado:
+      cancelada   → cancelada=True
+      planificada → cancelada=False AND fecha_desde > hoy
+      tomada      → cancelada=False AND fecha_desde <= hoy
+    estado vacío/desconocido (o today None) → sin filtro (idéntico a "todos").
+    """
+    if estado == "cancelada":
+        return q.eq("cancelada", True)
+    if estado in ("planificada", "tomada") and today is not None:
+        q = q.eq("cancelada", False)
+        return q.gt("fecha_desde", str(today)) if estado == "planificada" else q.lte("fecha_desde", str(today))
+    return q
 
 
 def build_responses(rows: List[dict]) -> List[SolicitudVacacionesResponse]:

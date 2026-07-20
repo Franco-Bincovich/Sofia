@@ -22,8 +22,9 @@ from schemas.vacaciones import (
     SolicitudVacacionesListResponse, SolicitudVacacionesResponse,
 )
 from services._audit_payloads import payload_cancelacion_vacacion
+from services._ownership_filter import resolver_empleado_ids
 from services._periodo_utils import verificar_periodo_abierto
-from services._vacaciones_export import construir_filas_export, resolver_empleado_ids
+from services._vacaciones_export import construir_filas_export
 from services._vacaciones_saldo import calcular_saldo
 from services._vacaciones_utils import derive_estado
 from services.audit_service import AuditService
@@ -40,15 +41,17 @@ class VacacionesService:
         self._periodos = periodo_repo or PeriodoRepo()
         self._ownership = ownership_repo or EmpleadoOwnershipRepo()
 
-    def get_all(self, user_id: str, rol: str, empresa_id: Optional[UUID] = None, area_id: Optional[UUID] = None, empleado_id: Optional[UUID] = None, page: int = 1, page_size: int = 20) -> SolicitudVacacionesListResponse:
-        """Página de solicitudes (estado derivado) filtrada por empresa/área/empleado y ownership. vacio → devuelve vacío sin consultar."""
+    def get_all(self, user_id: str, rol: str, empresa_id: Optional[UUID] = None, area_id: Optional[UUID] = None, empleado_id: Optional[UUID] = None, estado: Optional[str] = None, page: int = 1, page_size: int = 20) -> SolicitudVacacionesListResponse:
+        """Página de solicitudes (estado derivado) filtrada por empresa/área/empleado/estado y ownership. vacio → devuelve vacío sin consultar.
+        `today` se calcula una vez: mismo valor para el filtro server-side y para derive_estado (sin desalineación en los bordes)."""
+        today = date.today()
         empleado_ids, vacio = resolver_empleado_ids(user_id, rol, empresa_id, area_id, empleado_id, self._ownership)
-        rows, total = ([], 0) if vacio else self._repo.find_all(empresa_id, empleado_ids, page, page_size)
-        return SolicitudVacacionesListResponse(items=[derive_estado(r, date.today()) for r in rows], total=total)
+        rows, total = ([], 0) if vacio else self._repo.find_all(empresa_id, empleado_ids, page, page_size, estado, today)
+        return SolicitudVacacionesListResponse(items=[derive_estado(r, today) for r in rows], total=total)
 
-    def exportar(self, user_id: str, rol: str, empresa_id: Optional[UUID] = None, formato: str = "excel", area_id: Optional[UUID] = None, empleado_id: Optional[UUID] = None) -> Descarga:
-        """Exporta vacaciones (columnas legibles, sin UUIDs) respetando ownership; acotable por área/empleado."""
-        filas = construir_filas_export(self.get_all(user_id, rol, empresa_id, area_id, empleado_id, 1, 100000).items)
+    def exportar(self, user_id: str, rol: str, empresa_id: Optional[UUID] = None, formato: str = "excel", area_id: Optional[UUID] = None, empleado_id: Optional[UUID] = None, estado: Optional[str] = None) -> Descarga:
+        """Exporta vacaciones (columnas legibles, sin UUIDs) respetando ownership; acotable por área/empleado/estado (mismos filtros que el listado)."""
+        filas = construir_filas_export(self.get_all(user_id, rol, empresa_id, area_id, empleado_id, estado, 1, 100000).items)
         return build_export(nombre="Vacaciones", datos={"Vacaciones": filas}, filename_base="vacaciones", formato=formato)
 
     def get_by_empleado(self, empleado_id: UUID) -> SolicitudVacacionesListResponse:

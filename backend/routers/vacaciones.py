@@ -28,18 +28,20 @@ def _svc() -> VacacionesService:
 async def list_vacaciones(
     request: Request,
     area_id: Optional[UUID] = Query(None),
+    empleado_id: Optional[UUID] = Query(None),
+    estado: Optional[str] = Query(None),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     service: VacacionesService = Depends(_svc),
 ) -> SolicitudVacacionesListResponse:
     u = request.state.user
-    return service.get_all(u.get("id"), u.get("rol"), get_empresa_id(request), area_id, page=page, page_size=page_size)
+    return service.get_all(u.get("id"), u.get("rol"), get_empresa_id(request), area_id, empleado_id, estado, page, page_size)
 
 
 @router.get("/exportar", dependencies=[Depends(require_permission(SECCION, Accion.READ))])
-async def exportar_vacaciones(request: Request, formato: Literal["pdf", "excel", "csv", "word"] = Query("excel"), area_id: Optional[UUID] = Query(None), empleado_id: Optional[UUID] = Query(None), service: VacacionesService = Depends(_svc)) -> Response:
+async def exportar_vacaciones(request: Request, formato: Literal["pdf", "excel", "csv", "word"] = Query("excel"), area_id: Optional[UUID] = Query(None), empleado_id: Optional[UUID] = Query(None), estado: Optional[str] = Query(None), service: VacacionesService = Depends(_svc)) -> Response:
     u = request.state.user
-    d = service.exportar(u.get("id"), u.get("rol"), get_empresa_id(request), formato, area_id, empleado_id)
+    d = service.exportar(u.get("id"), u.get("rol"), get_empresa_id(request), formato, area_id, empleado_id, estado)
     return Response(content=d.content, media_type=d.media_type, headers={"Content-Disposition": f'attachment; filename="{d.filename}"'})
 
 
