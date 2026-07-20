@@ -1,10 +1,20 @@
 """
-Helper de filtrado de listados por ownership + área.
+Resolvers de filtrado de listados por ownership (base → + área → + empleado puntual).
 
-Combina en UNA sola lista de empleado_ids el criterio de ownership
-(services/ownership.py) y el filtro por área. Compartido por los listados de
-vacaciones y ausencias para no duplicar la intersección. El repo recibe una
-única lista (o None) — la lógica de combinación vive acá, no en el repo.
+Fuente ÚNICA compartida por vacaciones, ausencias y (Fase 2) el resto de los módulos
+con datos de empleados — para no duplicar la intersección. La lógica vive acá; el
+repo recibe una sola lista (o None).
+
+Contrato de la CAPA BASE (services/ownership.ids_empleados_visibles):
+    None  → sin restricción (admin/gerencia): ve todo.
+    []    → no ve ningún empleado (fail-closed).
+    [ids] → ve exactamente esos.
+
+⚠️ Contrato de la CAPA DE FILTRO (las funciones de este módulo) = (empleado_ids, vacio).
+El `None` significa DOS cosas OPUESTAS según `vacio` — mirarlo solo abre datos ajenos:
+    (None,  False) → sin restricción: el caller NO filtra por empleado, ve todo.
+    (None,  True)  → VACÍO / fail-closed: el caller NO debe consultar la tabla.
+    ([ids], False) → restringir EXACTO a esos empleados.
 """
 from typing import List, Optional, Tuple
 
@@ -15,15 +25,12 @@ def resolver_filtro_empleados(
     user_id: str, rol: str, empresa_id, area_id, repo,
 ) -> Tuple[Optional[List[str]], bool]:
     """
-    Resuelve la lista final de empleado_ids de un listado combinando ownership y área.
+    Ownership ∩ área. Retorna (empleado_ids, vacio) — contrato de la tupla en el
+    docstring del módulo (⚠️ el `None` depende de `vacio`).
 
-    Retorna (empleado_ids, vacio):
-        vacio=True        → el listado es vacío; el caller NO debe consultar la tabla.
-        empleado_ids=None → sin restricción por empleado (admin/gerencia sin área).
-        empleado_ids=[..] → restringir el listado a exactamente esos empleados.
-
-    Intersección: si el usuario está acotado por ownership Y además manda area_id,
-    devuelve solo los empleados presentes en ambos conjuntos (nunca la unión).
+    Traduce el `[]` del base a (None, True): el fail-closed pasa a viajar en `vacio`,
+    NO en la lista. Intersección: si hay ownership Y area_id, devuelve solo los de
+    AMBOS conjuntos (nunca la unión).
 
     Args:
         user_id: UUID (str) del usuario logueado.
@@ -47,3 +54,27 @@ def resolver_filtro_empleados(
         return visibles, False                             # mando sin filtro de área
     inter = [i for i in visibles if i in set(area_ids)]    # intersección ownership ∩ área
     return (inter, False) if inter else (None, True)
+
+
+def resolver_empleado_ids(
+    user_id: str, rol: str, empresa_id, area_id, empleado_id, repo,
+) -> Tuple[Optional[List[str]], bool]:
+    """
+    Ownership ∩ área ∩ empleado puntual (superset de resolver_filtro_empleados).
+
+    Retorna (empleado_ids, vacio) con el MISMO contrato de la tupla (ver módulo). Con
+    empleado_id=None es IDÉNTICO a resolver_filtro_empleados. Si se provee, acota a ese
+    único empleado SOLO si cae dentro del alcance de ownership.
+
+    ⚠️ Un empleado_id FUERA del alcance del mando devuelve (None, True) = VACÍO
+    (fail-closed), NO el empleado filtrado. Es intencional (un mando no ve ni gestiona
+    ajenos); no lo "corrijas" pensando que es un bug.
+    """
+    empleado_ids, vacio = resolver_filtro_empleados(user_id, rol, empresa_id, area_id, repo)
+    if empleado_id and not vacio:
+        eid = str(empleado_id)
+        if empleado_ids is None or eid in empleado_ids:
+            empleado_ids = [eid]              # dentro del alcance → acotar a ese empleado
+        else:
+            empleado_ids, vacio = None, True  # fuera del alcance del mando → vacío
+    return empleado_ids, vacio
