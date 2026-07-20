@@ -28,7 +28,7 @@ function GrupoEmpresa({ empresaNombre, empleados, color, proyectoEmpresaId }: {
           <span className="shrink-0 text-[11px] text-muted-foreground">· {primero.rol}</span>
           {primero.total_proyectos > 1 && (
             <span className="ml-auto shrink-0 rounded-full px-2 py-px text-[9.5px] font-semibold"
-              style={MULTI_PROY}>
+              style={{ background: MULTI_PROY.bg, color: MULTI_PROY.text }}>
               {primero.total_proyectos} proy.
             </span>
           )}

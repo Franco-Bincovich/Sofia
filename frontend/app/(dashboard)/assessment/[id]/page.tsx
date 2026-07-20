@@ -66,21 +66,23 @@ export default function AssessmentDetailPage() {
   const router  = useRouter()
   const id      = params.id as string
 
-  // HIDDEN — módulo desactivado temporalmente; redirige sin renderizar el resto
-  useEffect(() => { router.replace("/dashboard") }, [router])
-  return null
-
-  // eslint-disable-next-line no-unreachable
   const [resultado, setResultado] = useState<ResultadoDetalle | null>(null)
   const [loading, setLoading]     = useState(true)
   const [error, setError]         = useState(false)
+  // Módulo desactivado a propósito (no es un bug): redirige a /dashboard y no renderiza.
+  // Es useState y NO const a propósito: un const colapsa a literal `false` por control-flow,
+  // TS re-marca el cuerpo inalcanzable, se pierde el narrowing de `resultado` y `next build` falla.
+  const [moduloActivo] = useState(false)
 
   useEffect(() => {
+    if (!moduloActivo) { router.replace("/dashboard"); return }
     fetchResultado(id)
       .then(setResultado)
       .catch(() => setError(true))
       .finally(() => setLoading(false))
-  }, [id])
+  }, [id, router, moduloActivo])
+
+  if (!moduloActivo) return null
 
   function back() { router.push("/assessment") }
 

@@ -35,7 +35,7 @@ function EmpleadoNodo({ emp, color, esExterno }: {
       )}
       {emp.total_proyectos > 1 && (
         <span className="ml-1 rounded-full px-2 py-px text-[9px] font-semibold"
-          style={MULTI_PROY}>
+          style={{ background: MULTI_PROY.bg, color: MULTI_PROY.text }}>
           {emp.total_proyectos} proy.
         </span>
       )}

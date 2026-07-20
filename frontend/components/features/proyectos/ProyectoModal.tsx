@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { fetchEmpresas } from "@/services/empresas"
 import type { Empresa } from "@/types/empresa"
-import type { Proyecto, ProyectoCreate, ProyectoUpdate } from "@/types/proyecto"
+import type { Proyecto, ProyectoCreate, ProyectoEstado, ProyectoUpdate } from "@/types/proyecto"
 
 type SavePayload = ProyectoCreate | ProyectoUpdate
 
@@ -27,7 +27,7 @@ export function ProyectoModal({ open, proyecto, onClose, onSave }: Props) {
   const [empresa_id, setEmpresaId]  = useState("")
   const [nombre, setNombre]         = useState("")
   const [descripcion, setDescripcion] = useState("")
-  const [estado, setEstado]         = useState<string>("activo")
+  const [estado, setEstado]         = useState<ProyectoEstado>("activo")
   const [fechaInicio, setFechaInicio] = useState("")
   const [fechaFin, setFechaFin]     = useState("")
   const [presupuesto, setPresupuesto] = useState("0")
@@ -91,7 +91,7 @@ export function ProyectoModal({ open, proyecto, onClose, onSave }: Props) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={LABEL_CLS}>Estado</label>
-              <select value={estado} onChange={(e) => setEstado(e.target.value)} className={INPUT_CLS}>
+              <select value={estado} onChange={(e) => setEstado(e.target.value as ProyectoEstado)} className={INPUT_CLS}>
                 {ESTADOS.map((s) => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
               </select>
             </div>
