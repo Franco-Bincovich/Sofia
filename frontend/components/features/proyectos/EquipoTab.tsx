@@ -7,8 +7,9 @@ import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { AsignacionModal } from "./AsignacionModal"
-import { fetchAsignaciones, createAsignacion, updateAsignacion, deleteAsignacion } from "@/services/proyectos"
-import type { Asignacion, AsignacionCreate, AsignacionUpdate } from "@/types/proyecto"
+import { AsignarEmpleadosModal } from "./AsignarEmpleadosModal"
+import { fetchAsignaciones, updateAsignacion, deleteAsignacion } from "@/services/proyectos"
+import type { Asignacion, AsignacionUpdate } from "@/types/proyecto"
 
 const ARS = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 })
 
@@ -21,7 +22,7 @@ interface Props {
 export function EquipoTab({ proyectoId, proyectoEmpresaId, canWrite }: Props) {
   const [asignaciones, setAsignaciones] = useState<Asignacion[]>([])
   const [loading, setLoading]           = useState(true)
-  const [modalOpen, setModalOpen]       = useState(false)
+  const [assignOpen, setAssignOpen]     = useState(false)
   const [editing, setEditing]           = useState<Asignacion | null>(null)
 
   const load = useCallback(async () => {
@@ -33,16 +34,11 @@ export function EquipoTab({ proyectoId, proyectoEmpresaId, canWrite }: Props) {
 
   useEffect(() => { load() }, [load])
 
-  async function handleSave(body: AsignacionCreate | AsignacionUpdate) {
-    try {
-      if (editing) { await updateAsignacion(proyectoId, editing.id, body as AsignacionUpdate); toast.success("Asignación actualizada") }
-      else { await createAsignacion(proyectoId, body as AsignacionCreate); toast.success("Empleado asignado") }
-      setModalOpen(false); setEditing(null); await load()
-    } catch (e: unknown) {
-      const msg = (e as { code?: string })?.code === "ASIGNACION_DUPLICADA"
-        ? "El empleado ya está en este proyecto." : "No se pudo guardar la asignación."
-      toast.error(msg)
-    }
+  async function handleEditSave(body: AsignacionUpdate) {
+    if (!editing) return
+    await updateAsignacion(proyectoId, editing.id, body)
+    toast.success("Asignación actualizada")
+    setEditing(null); await load()
   }
 
   async function handleDelete(asig: Asignacion) {
@@ -63,8 +59,8 @@ export function EquipoTab({ proyectoId, proyectoEmpresaId, canWrite }: Props) {
         <p className="text-sm text-muted-foreground">{asignaciones.length} empleado{asignaciones.length !== 1 ? "s" : ""} asignado{asignaciones.length !== 1 ? "s" : ""}</p>
         {canWrite && (
           <Button size="sm" className="min-h-[2.75rem] gap-1.5"
-            onClick={() => { setEditing(null); setModalOpen(true) }}>
-            <Plus className="size-4" /> Asignar empleado
+            onClick={() => setAssignOpen(true)}>
+            <Plus className="size-4" /> Asignar empleados
           </Button>
         )}
       </div>
@@ -94,7 +90,7 @@ export function EquipoTab({ proyectoId, proyectoEmpresaId, canWrite }: Props) {
                 {canWrite && (
                   <div className="flex shrink-0 gap-1">
                     <Button variant="ghost" size="icon" className="size-8"
-                      onClick={() => { setEditing(a); setModalOpen(true) }}>
+                      onClick={() => setEditing(a)}>
                       <Pencil className="size-3.5" />
                     </Button>
                     <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive"
@@ -109,8 +105,12 @@ export function EquipoTab({ proyectoId, proyectoEmpresaId, canWrite }: Props) {
         </div>
       )}
 
-      <AsignacionModal open={modalOpen} proyectoId={proyectoId} asignacion={editing}
-        onClose={() => { setModalOpen(false); setEditing(null) }} onSave={handleSave} />
+      <AsignarEmpleadosModal open={assignOpen} proyectoId={proyectoId}
+        onClose={() => setAssignOpen(false)}
+        onSuccess={() => { setAssignOpen(false); load() }} />
+
+      <AsignacionModal open={editing !== null} asignacion={editing}
+        onClose={() => setEditing(null)} onSave={handleEditSave} />
     </div>
   )
 }

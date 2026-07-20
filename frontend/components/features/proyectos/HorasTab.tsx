@@ -5,11 +5,13 @@ import { Plus, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
+import { Pagination } from "@/components/ui/Pagination"
 import { HoraModal } from "./HoraModal"
 import { fetchHoras, fetchAsignaciones, createHora, deleteHora } from "@/services/proyectos"
 import type { Asignacion, Hora, HoraCreate } from "@/types/proyecto"
 
 const ARS = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 })
+const PAGE_SIZE = 20
 
 function formatFecha(iso: string) {
   return new Date(iso + "T00:00:00").toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" })
@@ -26,15 +28,17 @@ export function HorasTab({ proyectoId, onRefresh, canWrite }: Props) {
   const [asignaciones, setAsignaciones] = useState<Asignacion[]>([])
   const [loading, setLoading]           = useState(true)
   const [modalOpen, setModalOpen]       = useState(false)
+  const [page, setPage]                 = useState(1)
+  const [total, setTotal]               = useState(0)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [h, a] = await Promise.all([fetchHoras(proyectoId), fetchAsignaciones(proyectoId)])
-      setHoras(h.items); setAsignaciones(a.items)
+      const [h, a] = await Promise.all([fetchHoras(proyectoId, page, PAGE_SIZE), fetchAsignaciones(proyectoId)])
+      setHoras(h.items); setTotal(h.total); setAsignaciones(a.items)
     } catch { toast.error("No se pudieron cargar las horas.") }
     finally { setLoading(false) }
-  }, [proyectoId])
+  }, [proyectoId, page])
 
   useEffect(() => { load() }, [load])
 
@@ -71,7 +75,7 @@ export function HorasTab({ proyectoId, onRefresh, canWrite }: Props) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          {horas.length} registro{horas.length !== 1 ? "s" : ""} · {totalHoras.toFixed(1)} h · {ARS.format(totalCosto)}
+          {total} registro{total !== 1 ? "s" : ""} en total · esta página: {totalHoras.toFixed(1)} h · {ARS.format(totalCosto)}
         </p>
         {canWrite && (
           <Button size="sm" className="min-h-[2.75rem] gap-1.5" onClick={() => setModalOpen(true)}>
@@ -112,6 +116,10 @@ export function HorasTab({ proyectoId, onRefresh, canWrite }: Props) {
             </div>
           ))}
         </div>
+      )}
+
+      {total > PAGE_SIZE && (
+        <Pagination page={page} total={total} pageSize={PAGE_SIZE} onPageChange={setPage} />
       )}
 
       <HoraModal open={modalOpen} proyectoId={proyectoId} asignaciones={asignaciones}

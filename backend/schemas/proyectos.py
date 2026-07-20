@@ -98,6 +98,25 @@ class AsignacionListResponse(BaseModel):
     total: int
 
 
+class AsignacionBulkCreate(BaseModel):
+    """Alta multi-selección: varios empleados con los MISMOS rol/valor_hora/fechas (compartidos)."""
+    empleado_ids: List[UUID]
+    rol: str
+    valor_hora: float = Field(default=0.0, ge=0)
+    fecha_desde: Optional[date] = None
+    fecha_hasta: Optional[date] = None
+
+
+class AsignacionBulkError(BaseModel):
+    empleado_id: UUID
+    motivo: str  # mensaje legible del AppError (ya asignado / inactivo / no encontrado)
+
+
+class AsignacionBulkResult(BaseModel):
+    asignados: List[AsignacionResponse]
+    errores: List[AsignacionBulkError]
+
+
 # ── Horas ──────────────────────────────────────────────────────────────────────
 
 class HoraCreate(BaseModel):

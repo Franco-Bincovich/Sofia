@@ -1,6 +1,7 @@
 import { apiFetch } from "./api"
 import type {
-  Asignacion, AsignacionCreate, AsignacionListResponse, AsignacionUpdate,
+  Asignacion, AsignacionBulkCreate, AsignacionBulkResult,
+  AsignacionCreate, AsignacionListResponse, AsignacionUpdate,
   Hora, HoraCreate, HoraListResponse,
   Proyecto, ProyectoCreate, ProyectoListResponse, ProyectoUpdate,
 } from "@/types/proyecto"
@@ -42,6 +43,13 @@ export function createAsignacion(proyectoId: string, body: AsignacionCreate): Pr
   })
 }
 
+/** Alta multi-selección: varios empleados en una sola llamada. Devuelve asignados + errores clasificados. */
+export function asignarBulk(proyectoId: string, body: AsignacionBulkCreate): Promise<AsignacionBulkResult> {
+  return apiFetch<AsignacionBulkResult>(`${BASE}/${proyectoId}/asignaciones/bulk`, {
+    method: "POST", body: JSON.stringify(body),
+  })
+}
+
 export function updateAsignacion(proyectoId: string, asigId: string, body: AsignacionUpdate): Promise<Asignacion> {
   return apiFetch<Asignacion>(`${BASE}/${proyectoId}/asignaciones/${asigId}`, {
     method: "PUT", body: JSON.stringify(body),
@@ -54,8 +62,8 @@ export function deleteAsignacion(proyectoId: string, asigId: string): Promise<vo
 
 // ── Horas ──────────────────────────────────────────────────────────────────────
 
-export function fetchHoras(proyectoId: string): Promise<HoraListResponse> {
-  return apiFetch<HoraListResponse>(`${BASE}/${proyectoId}/horas`)
+export function fetchHoras(proyectoId: string, page = 1, pageSize = 20): Promise<HoraListResponse> {
+  return apiFetch<HoraListResponse>(`${BASE}/${proyectoId}/horas?page=${page}&page_size=${pageSize}`)
 }
 
 export function createHora(proyectoId: string, body: HoraCreate): Promise<Hora> {

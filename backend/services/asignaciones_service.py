@@ -16,6 +16,7 @@ from repositories.proyecto_asignaciones_repo import (
 )
 from repositories.proyectos_repo import ProyectosRepo
 from schemas.proyectos import (
+    AsignacionBulkCreate, AsignacionBulkError, AsignacionBulkResult,
     AsignacionCreate, AsignacionListResponse, AsignacionResponse, AsignacionUpdate,
 )
 from utils.errors import AppError
@@ -40,9 +41,7 @@ class AsignacionesService:
 
     def asignar(self, proyecto_id: UUID, data: AsignacionCreate, empresa_id: Optional[UUID] = None) -> AsignacionResponse:
         """
-        Asigna un empleado al proyecto.
-        empleado_empresa_id se obtiene mirando empleados.empresa_id — nunca del proyecto.
-        Un empleado de empresa B puede asignarse a un proyecto de empresa A sin error.
+        Asigna un empleado al proyecto (alta individual). Valida el proyecto y delega en _asignar_uno.
 
         Raises:
             AppError: PROYECTO_NOT_FOUND (404), EMPLEADO_NOT_FOUND (404),
@@ -50,31 +49,47 @@ class AsignacionesService:
         """
         if not self._proyectos.find_by_id(str(proyecto_id), empresa_id):
             raise AppError("Proyecto no encontrado", "PROYECTO_NOT_FOUND", 404)
+        return self._asignar_uno(proyecto_id, data.empleado_id, data.rol, data.valor_hora, data.fecha_desde, data.fecha_hasta)
 
-        # Lookup de la empresa del empleado — este es el punto donde se permite el cruce multi-empresa
-        empleado_empresa_id = find_empresa_for_empleado(str(data.empleado_id))
+    def _asignar_uno(self, proyecto_id: UUID, empleado_id, rol, valor_hora, fecha_desde, fecha_hasta) -> AsignacionResponse:
+        """
+        Inserta UNA asignación (empresa del empleado por lookup — permite cruce multi-empresa).
+        NO valida el proyecto (lo hace el caller una sola vez). El duplicado lo detecta el UNIQUE
+        uq_proyecto_empleado, no un check previo.
+
+        Raises: EMPLEADO_NOT_FOUND (404), EMPLEADO_INACTIVO (422), ASIGNACION_DUPLICADA (409).
+        """
+        empleado_empresa_id = find_empresa_for_empleado(str(empleado_id))
         if not empleado_empresa_id:
             raise AppError("Empleado no encontrado", "EMPLEADO_NOT_FOUND", 404)
-
-        if get_estado_empleado(str(data.empleado_id)) == "baja":
+        if get_estado_empleado(str(empleado_id)) == "baja":
             raise AppError("No se puede asignar un empleado dado de baja", "EMPLEADO_INACTIVO", 422)
-
         try:
-            row = self._repo.save(
-                str(proyecto_id), str(data.empleado_id), empleado_empresa_id,
-                data.rol, data.valor_hora, data.fecha_desde, data.fecha_hasta,
-            )
+            row = self._repo.save(str(proyecto_id), str(empleado_id), empleado_empresa_id, rol, valor_hora, fecha_desde, fecha_hasta)
         except Exception as exc:
             if "uq_proyecto_empleado" in str(exc):
                 raise AppError("El empleado ya está asignado a este proyecto", "ASIGNACION_DUPLICADA", 409)
             raise AppError("Error al crear la asignación", "DB_ERROR", 500) from exc
-
-        logger.info("Empleado asignado al proyecto", extra={
-            "proyecto_id": str(proyecto_id),
-            "empleado_id": str(data.empleado_id),
-            "empleado_empresa": empleado_empresa_id,
-        })
+        logger.info("Empleado asignado al proyecto", extra={"proyecto_id": str(proyecto_id), "empleado_id": str(empleado_id)})
         return row
+
+    def asignar_bulk(self, proyecto_id: UUID, data: AsignacionBulkCreate, empresa_id: Optional[UUID] = None) -> AsignacionBulkResult:
+        """
+        Alta multi-selección: valida el proyecto UNA vez y asigna empleado por empleado.
+        Éxito parcial (patrón nómina): no aborta; clasifica en asignados / errores por empleado.
+
+        Raises: PROYECTO_NOT_FOUND (404) si el proyecto no existe o no es de la empresa.
+        """
+        if not self._proyectos.find_by_id(str(proyecto_id), empresa_id):
+            raise AppError("Proyecto no encontrado", "PROYECTO_NOT_FOUND", 404)
+        asignados, errores = [], []
+        for eid in data.empleado_ids:
+            try:
+                asignados.append(self._asignar_uno(proyecto_id, eid, data.rol, data.valor_hora, data.fecha_desde, data.fecha_hasta))
+            except AppError as exc:
+                errores.append(AsignacionBulkError(empleado_id=eid, motivo=exc.message))
+        logger.info("Asignación múltiple", extra={"proyecto_id": str(proyecto_id), "asignados": len(asignados), "errores": len(errores)})
+        return AsignacionBulkResult(asignados=asignados, errores=errores)
 
     def update(self, asignacion_id: UUID, data: AsignacionUpdate, empresa_id: Optional[UUID] = None) -> AsignacionResponse:
         """Actualiza rol, valor_hora o fechas de la asignación. Valida ownership: proyecto dueño debe coincidir con empresa_id."""

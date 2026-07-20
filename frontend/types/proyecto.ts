@@ -81,6 +81,19 @@ export interface AsignacionListResponse {
   total: number
 }
 
+export interface AsignacionBulkCreate {
+  empleado_ids: string[]
+  rol: string
+  valor_hora: number
+  fecha_desde?: string
+  fecha_hasta?: string
+}
+
+export interface AsignacionBulkResult {
+  asignados: Asignacion[]
+  errores: { empleado_id: string; motivo: string }[]
+}
+
 export interface Hora {
   id: string
   asignacion_id: string

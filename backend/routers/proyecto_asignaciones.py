@@ -7,6 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Request
 
 from schemas.proyectos import (
+    AsignacionBulkCreate, AsignacionBulkResult,
     AsignacionCreate, AsignacionListResponse, AsignacionResponse, AsignacionUpdate,
 )
 from services.asignaciones_service import AsignacionesService
@@ -35,6 +36,14 @@ async def asignar_empleado(
     service: AsignacionesService = Depends(_svc),
 ) -> AsignacionResponse:
     return service.asignar(proyecto_id, body, get_empresa_id(request))
+
+
+@router.post("/{proyecto_id}/asignaciones/bulk", response_model=AsignacionBulkResult, status_code=201, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
+async def asignar_bulk(
+    proyecto_id: UUID, request: Request, body: AsignacionBulkCreate,
+    service: AsignacionesService = Depends(_svc),
+) -> AsignacionBulkResult:
+    return service.asignar_bulk(proyecto_id, body, get_empresa_id(request))
 
 
 @router.put("/{proyecto_id}/asignaciones/{asig_id}", response_model=AsignacionResponse, dependencies=[Depends(require_permission(SECCION, Accion.WRITE))])
