@@ -102,7 +102,7 @@ export async function finalizarInstancia(id: string): Promise<InstanciaDetalle> 
 
 // ── Export (motor genérico: pdf/excel/csv/word) ───────────────────────────────
 
-export function exportarEvaluaciones(formato: FormatoExport, empresaIdOverride?: string): Promise<void> {
+export function exportarEvaluaciones(formato: FormatoExport, empresaIdOverride?: string, cicloId?: string, estado?: string): Promise<void> {
   const headers = empresaIdOverride ? { "X-Empresa-Id": empresaIdOverride } : undefined
-  return descargarArchivo(`${BASE}/instancias/exportar`, formato, "evaluaciones_desempeno", headers)
+  return descargarArchivo(`${BASE}/instancias/exportar`, formato, "evaluaciones_desempeno", headers, { ciclo_id: cicloId, estado })
 }

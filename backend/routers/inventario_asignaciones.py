@@ -44,9 +44,10 @@ async def asignar_item(
 async def exportar_asignaciones(
     request: Request,
     formato: Literal["pdf", "excel", "csv", "word"] = Query("excel"),
+    empleado_id: Optional[str] = Query(None),
     service: InventarioAsignacionesService = Depends(_svc),
 ) -> Response:
-    d = service.exportar(get_empresa_id(request), formato)
+    d = service.exportar(get_empresa_id(request), formato, empleado_id)
     return Response(content=d.content, media_type=d.media_type, headers={"Content-Disposition": f'attachment; filename="{d.filename}"'})
 
 

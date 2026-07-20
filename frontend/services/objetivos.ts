@@ -7,9 +7,9 @@ const BASE = "/api/objetivos"
 
 export type { FormatoExport }
 
-export function exportarObjetivos(formato: FormatoExport, empresaIdOverride?: string): Promise<void> {
+export function exportarObjetivos(formato: FormatoExport, empresaIdOverride?: string, estado?: string, responsableId?: string, prioridad?: string): Promise<void> {
   const headers = empresaIdOverride ? { "X-Empresa-Id": empresaIdOverride } : undefined
-  return descargarArchivo(`${BASE}/exportar`, formato, "objetivos", headers)
+  return descargarArchivo(`${BASE}/exportar`, formato, "objetivos", headers, { estado, responsable_id: responsableId, prioridad })
 }
 
 function override(id?: string): RequestInit {

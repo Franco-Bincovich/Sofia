@@ -112,7 +112,7 @@ export default function ObjetivosPage() {
           )}
         </div>
         <div className="flex gap-2">
-          <ExportMenu onExport={(f) => exportarObjetivos(f, !empresaActivaId && empresaFiltro ? empresaFiltro : undefined)} />
+          <ExportMenu onExport={(f) => exportarObjetivos(f, !empresaActivaId && empresaFiltro ? empresaFiltro : undefined, estadoFiltro || undefined, responsableFiltro || undefined, prioridadFiltro || undefined)} />
           {canWrite && (
             <Button className="min-h-11 gap-2" onClick={() => { setEditing(null); setModalOpen(true) }}>
               <Plus className="size-4" /> Nuevo objetivo

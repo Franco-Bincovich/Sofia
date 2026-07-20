@@ -96,7 +96,7 @@ export async function getCertificadoUrl(id: string): Promise<string> {
 // ── Export ────────────────────────────────────────────────────────────────────
 
 /** Exporta el listado de asignaciones de capacitación (pdf/excel/csv/word) vía el motor central. */
-export function exportarCapacitaciones(formato: FormatoExport, empresaIdOverride?: string): Promise<void> {
+export function exportarCapacitaciones(formato: FormatoExport, empresaIdOverride?: string, estado?: string, areaId?: string): Promise<void> {
   const headers = empresaIdOverride ? { "X-Empresa-Id": empresaIdOverride } : undefined
-  return descargarArchivo("/api/capacitaciones/asignaciones/exportar", formato, "capacitaciones", headers)
+  return descargarArchivo("/api/capacitaciones/asignaciones/exportar", formato, "capacitaciones", headers, { estado, area_id: areaId })
 }

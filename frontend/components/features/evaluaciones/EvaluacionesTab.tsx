@@ -213,7 +213,7 @@ export function EvaluacionesTab({ canWrite }: { canWrite: boolean }) {
           <option value="finalizada">Finalizada</option>
         </select>
         <div className="ml-auto">
-          <ExportMenu onExport={(f) => exportarEvaluaciones(f)} />
+          <ExportMenu onExport={(f) => exportarEvaluaciones(f, undefined, filtroCiclo || undefined, filtroEstado || undefined)} />
         </div>
       </div>
 

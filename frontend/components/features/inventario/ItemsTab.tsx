@@ -91,7 +91,7 @@ export function ItemsTab({ canWrite }: { canWrite: boolean }) {
           </select>
         </div>
         <div className="flex gap-2">
-          <ExportMenu onExport={(f) => exportarInventarioItems(f, !empresaActivaId && empresaFiltro ? empresaFiltro : undefined)} />
+          <ExportMenu onExport={(f) => exportarInventarioItems(f, !empresaActivaId && empresaFiltro ? empresaFiltro : undefined, estadoFiltro || undefined)} />
           {canWrite && <Button className="min-h-11" onClick={() => { setEditing(null); setModalOpen(true) }}><Plus className="size-4" /> Nuevo ítem</Button>}
         </div>
       </div>

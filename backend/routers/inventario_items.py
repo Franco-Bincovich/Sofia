@@ -32,8 +32,8 @@ async def list_items(
 
 
 @router.get("/exportar", dependencies=[Depends(require_permission(SECCION, Accion.READ))])
-async def exportar_items(request: Request, formato: Literal["pdf", "excel", "csv", "word"] = Query("excel"), service: InventarioItemsService = Depends(_svc)) -> Response:
-    d = service.exportar(get_empresa_id(request), formato)
+async def exportar_items(request: Request, formato: Literal["pdf", "excel", "csv", "word"] = Query("excel"), estado: Optional[str] = Query(None), service: InventarioItemsService = Depends(_svc)) -> Response:
+    d = service.exportar(get_empresa_id(request), formato, estado)
     return Response(content=d.content, media_type=d.media_type, headers={"Content-Disposition": f'attachment; filename="{d.filename}"'})
 
 

@@ -28,10 +28,10 @@ class InventarioItemsService:
         items = self._repo.find_all(empresa_id, estado)
         return ItemListResponse(items=items, total=len(items))
 
-    def exportar(self, empresa_id: Optional[UUID] = None, formato: str = "excel") -> Descarga:
-        """Exporta el catálogo de ítems (columnas legibles, sin UUIDs) al formato pedido.
-        None = consolidado (todas las empresas). El motor genérico no se toca."""
-        datos = {"Ítems": construir_filas_export(self._repo.find_all(empresa_id))}
+    def exportar(self, empresa_id: Optional[UUID] = None, formato: str = "excel", estado: Optional[str] = None) -> Descarga:
+        """Exporta el catálogo de ítems (columnas legibles, sin UUIDs) respetando el filtro
+        de estado. None = consolidado (todas las empresas). El motor genérico no se toca."""
+        datos = {"Ítems": construir_filas_export(self._repo.find_all(empresa_id, estado))}
         return build_export(nombre="Inventario de ítems", datos=datos, filename_base="inventario_items", formato=formato)
 
     def get_by_id(self, id: UUID, empresa_id: Optional[UUID] = None) -> ItemResponse:

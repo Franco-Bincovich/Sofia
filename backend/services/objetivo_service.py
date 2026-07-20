@@ -37,10 +37,10 @@ class ObjetivoService:
         items = self._repo.find_all(empresa_id, estado, responsable_id, prioridad)
         return ObjetivoListResponse(items=items, total=len(items))
 
-    def exportar(self, empresa_id: Optional[UUID] = None, formato: str = "excel") -> Descarga:
-        """Exporta los objetivos (columnas legibles, sin UUIDs) al formato pedido.
-        None = consolidado (todas las empresas). El motor genérico no se toca."""
-        datos = {"Objetivos": construir_filas_export(self._repo.find_all(empresa_id))}
+    def exportar(self, empresa_id: Optional[UUID] = None, formato: str = "excel", estado: Optional[str] = None, responsable_id: Optional[str] = None, prioridad: Optional[str] = None) -> Descarga:
+        """Exporta los objetivos (columnas legibles, sin UUIDs) respetando los filtros de estado,
+        responsable y prioridad. None = consolidado. El motor genérico no se toca."""
+        datos = {"Objetivos": construir_filas_export(self._repo.find_all(empresa_id, estado, responsable_id, prioridad))}
         return build_export(nombre="Objetivos", datos=datos, filename_base="objetivos", formato=formato)
 
     def get_by_id(self, id: UUID, empresa_id: Optional[UUID] = None) -> ObjetivoResponse:

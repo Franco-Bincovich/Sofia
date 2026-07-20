@@ -47,9 +47,9 @@ class EvInstanciasService:
         items = self._repo.find_all(empresa_id, ciclo_id, estado)
         return InstanciaListResponse(items=items, total=len(items))
 
-    def exportar(self, empresa_id: Optional[UUID] = None, formato: str = "excel") -> Descarga:
-        """Exporta la lista de instancias (columnas legibles, sin UUIDs) vía el motor genérico."""
-        datos = {"Evaluaciones": construir_filas_export(self._repo.find_all(empresa_id))}
+    def exportar(self, empresa_id: Optional[UUID] = None, formato: str = "excel", ciclo_id: Optional[UUID] = None, estado: Optional[str] = None) -> Descarga:
+        """Exporta la lista de instancias (columnas legibles, sin UUIDs) respetando ciclo/estado."""
+        datos = {"Evaluaciones": construir_filas_export(self._repo.find_all(empresa_id, ciclo_id, estado))}
         return build_export(nombre="Evaluaciones de desempeño", datos=datos, filename_base="evaluaciones_desempeno", formato=formato)
 
     def get_by_id(self, id: UUID, empresa_id: Optional[UUID] = None) -> InstanciaDetalleResponse:

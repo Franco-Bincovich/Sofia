@@ -107,9 +107,14 @@ export async function descargarArchivo(
   formato: string,
   nombreBase: string,
   extraHeaders?: Record<string, string>,
+  params?: Record<string, string | undefined>,
 ): Promise<void> {
+  const query = new URLSearchParams({ formato })
+  for (const [k, v] of Object.entries(params ?? {})) {
+    if (v) query.set(k, v)
+  }
   const construir = () =>
-    fetch(`${API_BASE}${path}?formato=${formato}`, {
+    fetch(`${API_BASE}${path}?${query}`, {
       headers: { ...authHeaders(), ...extraHeaders },
     })
   const res = await conRefresh(construir)

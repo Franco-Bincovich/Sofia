@@ -47,9 +47,10 @@ async def create_objetivo(
 async def exportar_objetivos(
     request: Request,
     formato: Literal["pdf", "excel", "csv", "word"] = Query("excel"),
+    estado: Optional[str] = Query(None), responsable_id: Optional[str] = Query(None), prioridad: Optional[str] = Query(None),
     service: ObjetivoService = Depends(_svc),
 ) -> Response:
-    d = service.exportar(get_empresa_id(request), formato)
+    d = service.exportar(get_empresa_id(request), formato, estado, responsable_id, prioridad)
     return Response(content=d.content, media_type=d.media_type, headers={"Content-Disposition": f'attachment; filename="{d.filename}"'})
 
 
