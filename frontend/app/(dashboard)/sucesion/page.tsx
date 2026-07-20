@@ -156,7 +156,6 @@ export default function SucesionPage() {
   // Analisis modal state
   const [analisisOpen, setAnalisisOpen]           = useState(false)
   const [analisisArea, setAnalisisArea]           = useState<string>("")
-  const [analisisPosicion, setAnalisisPosicion]   = useState("")
   const [analisisRes, setAnalisisRes]             = useState<EmpleadoAnalisis[]>([])
   const [analisisLoading, setAnalisisLoading]     = useState(false)
   const [analisisError, setAnalisisError]         = useState<string | null>(null)
@@ -291,7 +290,6 @@ export default function SucesionPage() {
 
   function openAnalisis() {
     setAnalisisArea(selectedArea)
-    setAnalisisPosicion("")
     setAnalisisRes([])
     setAnalisisError(null)
     setAnalisisRan(false)
@@ -306,7 +304,7 @@ export default function SucesionPage() {
     setAnalisisError(null)
     setAnalisisRan(false)
     try {
-      const data = await fetchAnalisisPosicion(analisisArea, analisisPosicion)
+      const data = await fetchAnalisisPosicion(analisisArea)
       setAnalisisRes(data)
       setAnalisisRan(true)
     } catch {
@@ -378,14 +376,14 @@ export default function SucesionPage() {
           <section className="rounded-xl border bg-card p-4 md:p-6">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <h2 className="text-base font-semibold text-foreground">Análisis por posición</h2>
+                <h2 className="text-base font-semibold text-foreground">Análisis por área</h2>
                 <p className="mt-0.5 text-sm text-muted-foreground">
-                  Encontrá los candidatos más compatibles para una posición en un área.
+                  Rankeá a los empleados activos de un área por su score de assessment.
                 </p>
               </div>
               <Button onClick={openAnalisis} className="min-h-11 shrink-0 gap-2">
                 <Search className="size-4" />
-                Analizar posición
+                Analizar área
               </Button>
             </div>
           </section>
@@ -776,11 +774,11 @@ export default function SucesionPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Modal: Analizar posición ───────────────────────────────────────── */}
+      {/* ── Modal: Analizar área ───────────────────────────────────────── */}
       <Dialog open={analisisOpen} onOpenChange={(o) => { if (!o) closeAnalisis() }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Analizar posición</DialogTitle>
+            <DialogTitle>Analizar área</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
@@ -797,18 +795,6 @@ export default function SucesionPage() {
                   <option key={a.id} value={a.id}>{a.nombre}</option>
                 ))}
               </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="analisis-posicion">
-                Posición buscada <span className="text-muted-foreground">(opcional)</span>
-              </Label>
-              <Input
-                id="analisis-posicion"
-                value={analisisPosicion}
-                onChange={(e) => setAnalisisPosicion(e.target.value)}
-                placeholder="Ej. Tech Lead, Gerente de Producto…"
-              />
             </div>
 
             {analisisError && <p className="text-xs text-destructive">{analisisError}</p>}

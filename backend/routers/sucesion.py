@@ -27,9 +27,9 @@ async def get_mapa_talento(request: Request, svc: SucesionService = Depends(_svc
 
 @router.get("/analisis", response_model=list[EmpleadoAnalisisResponse], dependencies=[Depends(require_permission(SECCION, Accion.READ))])
 async def get_analisis_posicion(
-    request: Request, area_id: UUID, posicion: str = "", svc: SucesionService = Depends(_svc),
+    request: Request, area_id: UUID, svc: SucesionService = Depends(_svc),
 ) -> list[EmpleadoAnalisisResponse]:
-    return svc.get_analisis_posicion(area_id, posicion, get_empresa_id(request))
+    return svc.get_analisis_posicion(area_id, get_empresa_id(request))
 
 
 @router.get("/planes", response_model=list[PlanCarreraResponse], dependencies=[Depends(require_permission(SECCION, Accion.READ))])

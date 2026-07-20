@@ -46,8 +46,7 @@ export async function completarHito(hitoId: string): Promise<void> {
 
 export async function fetchAnalisisPosicion(
   areaId: string,
-  posicion: string,
 ): Promise<EmpleadoAnalisis[]> {
-  const params = new URLSearchParams({ area_id: areaId, posicion })
+  const params = new URLSearchParams({ area_id: areaId })
   return apiFetch<EmpleadoAnalisis[]>(`/api/sucesion/analisis?${params}`)
 }

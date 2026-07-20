@@ -120,7 +120,7 @@ class SucesionService:
                     extra={"plan_id": str(plan_id), "readiness": readiness})
         return plan
 
-    def get_analisis_posicion(self, area_id: UUID, posicion: str, empresa_id: Optional[UUID] = None) -> list[EmpleadoAnalisisResponse]:
+    def get_analisis_posicion(self, area_id: UUID, empresa_id: Optional[UUID] = None) -> list[EmpleadoAnalisisResponse]:
         """
         Retorna empleados del área ordenados por su score de assessment.
         Los empleados sin assessment aparecen al final con score None.
