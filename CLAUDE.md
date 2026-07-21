@@ -82,13 +82,22 @@ export fiel a lo que se ve, y las tres páginas bajo el límite de líneas.
 - **2.5 Tests** — `tests/test_empleado_service.py` (10 tests: CRUD, whitelist de update,
   paginación, errores). Suite: **206 passed**.
 
+## ✅ EVALUACIONES — CERRADO (ver sección dedicada abajo)
+Módulo completo de punta a punta: modelo (078) · parser · matcheo (079) · import
+backend · UI de import · métricas · baja de la UI vieja de `ev_*`. Suite en **243**.
+**Falta correr las migraciones 078 y 079.**
+
 ## Pendiente
 
-1. **Evaluaciones** — Franco ya tiene los Excel. Falta **definir qué entra al sistema y
-   en qué formato** antes de tocar código. Conversación, no implementación.
-2. **Imports de vacaciones y ausencias** — bloqueado, falta el Excel de RRHH.
-3. **Reportes y KPIs** — definición pendiente de recuperar de conversaciones previas.
-4. **Deploy** — ver la sección de build más abajo.
+1. **Migraciones 078 y 079** — validadas contra Postgres real con rollback, sin correr.
+   Evaluaciones no funciona en producción hasta que se ejecuten.
+2. **Deploy** — ver la sección de build. El auto-deploy del front de Vercel no reacciona
+   desde el 6 de mayo; eso primero.
+3. **Imports de vacaciones y ausencias** — bloqueado, falta el Excel de RRHH.
+4. **Reportes y KPIs** — definición pendiente de recuperar de conversaciones previas.
+5. **Preguntas a RRHH** — DNI/legajo para el matcheo · los dos líderes sin nota final ·
+   Kolektor · y avisar que `manager_id` está vacío (rompe el ownership de mandos_medios
+   en producción).
 
 ---
 
@@ -409,6 +418,103 @@ Solo `main` y `origin/main`. `git log main..<otras>` vacío. Nada olvidado en ra
 
 ---
 
+## Evaluaciones de desempeño — resultados importados (COMPLETO, migraciones sin correr)
+
+**Qué es:** la sección `/evaluaciones` dejó de ser un motor para evaluar dentro del
+sistema y pasó a mostrar **métricas de resultados calculados afuera**, que se importan
+por CSV. **El sistema NO evalúa.**
+
+### ⚠️ Migraciones 078 y 079 PENDIENTES DE CORRER
+El DDL está validado contra el Postgres real con `BEGIN … ROLLBACK` (producción
+intacta), pero **nadie las ejecutó todavía**. El módulo no funciona hasta que se corran.
+
+### El modelo (078) — por qué no se reusó `ev_*`
+Las tablas `ev_*` **no sirven** para esto, y no es cosmético:
+- `ev_instancias` tiene `UNIQUE (ciclo_id, empleado_id)` — el dato real son hasta 6
+  filas por evaluado (una por tipo de evaluador).
+- `evaluador_id` es FK a `empleados`: una **persona**. El CSV trae un **tipo**
+  (`AUTOEVALUACION`, `PAR`, `COLABORADOR`…), sin identidad.
+- `puntaje_global` se **calcula** y se pisa al finalizar; la nota final viene ya
+  calculada de afuera.
+
+`ev_*` está **vacío en producción** (0 filas en las 5 tablas). Las tablas y el backend
+quedan; **la UI se borró** (los 3 tabs Plantillas/Ciclos/Evaluaciones + los huérfanos
+`evaluacionesService.ts` y `types/evaluaciones.ts`). Las tablas se limpian después del
+cutover a AWS, junto con las otras huérfanas.
+
+**Tablas nuevas:** `evaluacion_lotes` (período, UNIQUE por empresa+periodo) ·
+`evaluacion_evaluados` (uno por lote×persona, `empleado_id` y `nota_final` NULLABLE,
+`perfil` lider|general, + los datos crudos del CSV) · `evaluacion_resultados` (uno por
+evaluado×tipo×competencia). **079:** `evaluacion_equivalencias` (texto del CSV = empleado,
+confirmado a mano, para no repreguntar en el próximo ciclo).
+
+Las hijas **no llevan `empresa_id`** — se alcanza por `lote_id`. **Invariante: el
+matcheo resuelve el empleado SIEMPRE dentro de la empresa del lote, nunca global.** Es
+la única barandilla, no hay red a nivel DB.
+
+`competencia` va como **texto, no como catálogo**: el formato del archivo no cambia.
+
+### El formato de los archivos (no cambia — nos adaptamos nosotros)
+Dos CSV separados por `;`, **con encoding distinto entre sí** (notas finales vino
+UTF-16, desglose UTF-8). Números con espacios adelante.
+- **A · Notas finales:** 8 columnas, una fila por evaluado.
+- **B · Desglose:** 7 de identidad + `TIPO EVALUACION` + 15 competencias, una fila por
+  (evaluado × tipo de evaluador).
+
+**No traen DNI ni legajo.** Solo apellido y nombre.
+
+⚠️ **El decode viejo (`importacion_nomina.py:32-34`) cae a `latin-1`, que nunca falla:**
+un UTF-16 se decodifica a basura en silencio. El lector nuevo detecta BOM explícito y
+**falla con error claro** si no puede determinar el encoding.
+
+**Dos perfiles de competencias:** líder (14) y general (9, +`PROMEDIO PRODUCTIVIDAD`
+solo en `COLABORADOR`). El perfil se deriva de **las 5 competencias exclusivas de líder**
+presentes en el archivo (`VISION ESTRATEGICA`, `ORGANIZACION`, `CONDUCCION EQUIPOS`,
+`PLANIFICACION`, `COMUNICACION`) — **NO de `es_lider`**, que está 0/19. El tipo de
+evaluador queda como corroboración: si no coinciden, se reporta anomalía, no se corrige.
+
+### Matcheo
+Apellido + nombre normalizado (sin acentos), desempatado por superior inmediato contra
+`manager_id`. Tres estados: `resuelto` · `ambiguo` (a revisión humana con candidatos) ·
+`sin_candidato` (`empleado_id = null`, **es válido, no es error**).
+
+**Nada de matcheo difuso por similitud de texto.**
+
+🚨 **`manager_id` está 0/19 en producción** — el desempate por superior **no discrimina
+hoy**, todo cae en "no evaluable → resuelto". El código degrada bien y se activa solo
+cuando carguen jerarquía. **Esto excede evaluaciones: el ownership de `mandos_medios`
+depende de `manager_id`, así que hoy ningún mando ve a nadie.**
+
+Colisiones actuales: 0 por nombre+apellido en 19 empleados, pero ya hay 2 apellidos
+repetidos (Bustamante ×2, Zabala ×2). La unicidad es circunstancial.
+
+### Pipeline
+`preview` (parsea + resuelve, **no persiste**, avisa si el período se va a pisar) →
+revisión humana → `confirmar` (**no re-parsea ni re-resuelve**: persiste lo aprobado,
+pisa el período previo vía `delete_lote` + CASCADE, guarda solo las equivalencias
+marcadas a mano, **un evento de auditoría por lote**).
+
+### Métricas
+Agregados en **Python puro** (`_evaluacion_metricas.py`), no en SQL: PostgREST exigiría
+vistas/RPC nuevas y el volumen (~300 filas por lote) no lo justifica.
+
+⚠️ **Las competencias van en DOS tablas separadas (líder / general), cada una con su
+`n`.** Nunca en el mismo ranking: son 2 evaluaciones contra 21 y mezclarlas da un
+resultado falso. Los agregados **excluyen autoevaluaciones**. Sectores solo sobre los
+que tienen nota final. Celdas ausentes de la ficha = **"no aplica"**, no faltantes.
+
+La métrica más valiosa es la **brecha de autopercepción** (auto vs promedio de
+terceros); sale gratis del archivo y no la da ningún Excel.
+
+### Pendiente de RRHH
+1. ¿Pueden exportar **DNI o legajo**? Si sí, el matcheo es automático y sobra la
+   pantalla de revisión.
+2. Los **dos líderes sin nota final**: ¿es correcto o falta un archivo?
+3. **Kolektor**: ¿otra empresa del grupo o error de carga? (no existe en `empresas`, y
+   su único evaluado es el que no matchea).
+
+---
+
 ## ⚠️ Build de producción y estilo de código — LEER ANTES DE TOCAR NADA
 
 ### El repo NO está formateado con ruff, pese a su propio `pyproject.toml`
@@ -513,6 +619,21 @@ patrón.** De paso, la reestructura arregló una violación latente de Rules of 
 ### Bloqueo por período (overlap)
 - `monthrange` en `costo_service.cargar_nomina` es **código muerto** mientras costos pase `rol=None`: la guarda `rol != "mandos_medios"` retorna antes. La expansión mes→[día 1, último día] no la cubre ningún test.
 - La guarda "sin fecha → no evalúa" de `verificar_periodo_abierto` no tiene test propio. Un call site que olvide pasar fechas queda sin bloqueo y en silencio.
+
+### 🔁 Patrón recurrente — la misma lógica de filtro escrita dos veces
+Apareció **tres veces en un día**. Cada vez que un filtro se implementa en el front y
+también en el backend, las dos copias pueden divergir y el export deja de coincidir con
+lo que se ve en pantalla, sin que nadie se entere:
+1. `estadoFiltro` de vacaciones — filtraba en memoria y el export salía con todos los
+   estados. **Corregido** (pasó a server-side).
+2. `aplicar_filtro_estado` (`_vacaciones_utils.py`) es espejo de `derive_estado`. Si una
+   cambia y la otra no, el filtro deja de coincidir con lo mostrado. **Merece un test
+   que las compare.**
+3. Listado de resultados de evaluaciones: filtra client-side, exporta server-side.
+   Aceptable a ~30 filas; el endpoint ya acepta los filtros, así que pasarlo a
+   server-side es cablear, no rediseñar.
+
+**Regla:** si un filtro afecta al export, va server-side. Una sola implementación.
 
 ### Nuevas (Fase 1 y 2)
 - 🚨 **`fetchEmpleados` tiene 4 opcionales posicionales del mismo tipo** (`string |
