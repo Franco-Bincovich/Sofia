@@ -374,6 +374,46 @@ CREATE TABLE public.ev_resultados (
     created_at timestamp with time zone NOT NULL DEFAULT now(),
     updated_at timestamp with time zone NOT NULL DEFAULT now()
 );
+CREATE TABLE public.evaluacion_equivalencias (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    empresa_id uuid NOT NULL,
+    apellido_csv text NOT NULL,
+    nombre_csv text NOT NULL,
+    empleado_id uuid NOT NULL,
+    confirmado_por uuid,
+    created_at timestamp with time zone NOT NULL DEFAULT now()
+);
+CREATE TABLE public.evaluacion_evaluados (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    lote_id uuid NOT NULL,
+    empleado_id uuid,
+    nota_final numeric,
+    perfil text NOT NULL,
+    organismo text,
+    gerencia text,
+    sector text,
+    apellido_evaluado text NOT NULL,
+    nombre_evaluado text NOT NULL,
+    apellido_superior text,
+    nombre_superior text,
+    created_at timestamp with time zone NOT NULL DEFAULT now()
+);
+CREATE TABLE public.evaluacion_lotes (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    empresa_id uuid NOT NULL,
+    periodo text NOT NULL,
+    importado_por uuid,
+    created_at timestamp with time zone NOT NULL DEFAULT now()
+);
+CREATE TABLE public.evaluacion_resultados (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    evaluado_id uuid NOT NULL,
+    tipo_evaluador text NOT NULL,
+    competencia text NOT NULL,
+    orden integer NOT NULL,
+    nota numeric NOT NULL,
+    created_at timestamp with time zone NOT NULL DEFAULT now()
+);
 CREATE TABLE public.horas_proyecto (
     id uuid NOT NULL DEFAULT gen_random_uuid(),
     asignacion_id uuid NOT NULL,
@@ -753,6 +793,10 @@ ALTER TABLE public.ev_criterios ADD CONSTRAINT ev_criterios_pkey PRIMARY KEY (id
 ALTER TABLE public.ev_instancias ADD CONSTRAINT ev_instancias_pkey PRIMARY KEY (id);
 ALTER TABLE public.ev_plantillas ADD CONSTRAINT ev_plantillas_pkey PRIMARY KEY (id);
 ALTER TABLE public.ev_resultados ADD CONSTRAINT ev_resultados_pkey PRIMARY KEY (id);
+ALTER TABLE public.evaluacion_equivalencias ADD CONSTRAINT evaluacion_equivalencias_pkey PRIMARY KEY (id);
+ALTER TABLE public.evaluacion_evaluados ADD CONSTRAINT evaluacion_evaluados_pkey PRIMARY KEY (id);
+ALTER TABLE public.evaluacion_lotes ADD CONSTRAINT evaluacion_lotes_pkey PRIMARY KEY (id);
+ALTER TABLE public.evaluacion_resultados ADD CONSTRAINT evaluacion_resultados_pkey PRIMARY KEY (id);
 ALTER TABLE public.horas_proyecto ADD CONSTRAINT horas_proyecto_pkey PRIMARY KEY (id);
 ALTER TABLE public.inventario_asignaciones ADD CONSTRAINT inventario_asignaciones_pkey PRIMARY KEY (id);
 ALTER TABLE public.inventario_items ADD CONSTRAINT inventario_items_pkey PRIMARY KEY (id);
@@ -805,6 +849,10 @@ ALTER TABLE public.ev_instancias ADD CONSTRAINT ev_instancias_ciclo_id_empleado_
 ALTER TABLE public.ev_instancias ADD CONSTRAINT ev_instancias_id_empresa_id_key UNIQUE (id, empresa_id);
 ALTER TABLE public.ev_plantillas ADD CONSTRAINT ev_plantillas_id_empresa_id_key UNIQUE (id, empresa_id);
 ALTER TABLE public.ev_resultados ADD CONSTRAINT ev_resultados_instancia_id_criterio_id_key UNIQUE (instancia_id, criterio_id);
+ALTER TABLE public.evaluacion_equivalencias ADD CONSTRAINT evaluacion_equivalencias_empresa_nombre_key UNIQUE (empresa_id, apellido_csv, nombre_csv);
+ALTER TABLE public.evaluacion_evaluados ADD CONSTRAINT evaluacion_evaluados_lote_nombre_key UNIQUE (lote_id, apellido_evaluado, nombre_evaluado);
+ALTER TABLE public.evaluacion_lotes ADD CONSTRAINT evaluacion_lotes_empresa_periodo_key UNIQUE (empresa_id, periodo);
+ALTER TABLE public.evaluacion_resultados ADD CONSTRAINT evaluacion_resultados_eval_tipo_comp_key UNIQUE (evaluado_id, tipo_evaluador, competencia);
 ALTER TABLE public.inventario_items ADD CONSTRAINT inventario_items_id_empresa_id_key UNIQUE (id, empresa_id);
 ALTER TABLE public.notificaciones_config ADD CONSTRAINT notificaciones_config_user_id_tipo_evento_key UNIQUE (user_id, tipo_evento);
 ALTER TABLE public.offboarding_activos ADD CONSTRAINT offboarding_activos_id_empresa_uq UNIQUE (id, empresa_id);
@@ -860,6 +908,8 @@ ALTER TABLE public.ev_ciclos ADD CONSTRAINT ev_ciclos_estado_check CHECK ((estad
 ALTER TABLE public.ev_criterios ADD CONSTRAINT ev_criterios_peso_check CHECK ((peso > (0)::numeric));
 ALTER TABLE public.ev_instancias ADD CONSTRAINT ev_instancias_estado_check CHECK ((estado = ANY (ARRAY['borrador'::text, 'finalizada'::text])));
 ALTER TABLE public.ev_plantillas ADD CONSTRAINT ev_plantillas_tipo_escala_check CHECK ((tipo_escala = ANY (ARRAY['numerica'::text, 'cualitativa'::text])));
+ALTER TABLE public.evaluacion_evaluados ADD CONSTRAINT evaluacion_evaluados_perfil_check CHECK ((perfil = ANY (ARRAY['lider'::text, 'general'::text])));
+ALTER TABLE public.evaluacion_resultados ADD CONSTRAINT evaluacion_resultados_tipo_evaluador_check CHECK ((tipo_evaluador = ANY (ARRAY['AUTOEVALUACION'::text, 'AUTOEVALUACION_LIDER'::text, 'SUPERIOR_INMEDIATO'::text, 'PAR'::text, 'COLABORADOR'::text, 'LIBRES'::text])));
 ALTER TABLE public.horas_proyecto ADD CONSTRAINT horas_proyecto_horas_check CHECK ((horas > (0)::numeric));
 ALTER TABLE public.inventario_asignaciones ADD CONSTRAINT inventario_asignaciones_estado_devolucion_check CHECK (((estado_devolucion = ANY (ARRAY['ok'::text, 'con_daño'::text])) OR (estado_devolucion IS NULL)));
 ALTER TABLE public.inventario_items ADD CONSTRAINT inventario_items_estado_check CHECK ((estado = ANY (ARRAY['disponible'::text, 'asignado'::text, 'en_reparacion'::text, 'baja'::text])));
@@ -970,6 +1020,14 @@ ALTER TABLE public.ev_plantillas ADD CONSTRAINT ev_plantillas_empresa_id_fkey FO
 ALTER TABLE public.ev_resultados ADD CONSTRAINT ev_resultado_instancia_fk FOREIGN KEY (instancia_id, empresa_id) REFERENCES ev_instancias(id, empresa_id);
 ALTER TABLE public.ev_resultados ADD CONSTRAINT ev_resultados_criterio_id_fkey FOREIGN KEY (criterio_id) REFERENCES ev_criterios(id);
 ALTER TABLE public.ev_resultados ADD CONSTRAINT ev_resultados_empresa_id_fkey FOREIGN KEY (empresa_id) REFERENCES empresas(id);
+ALTER TABLE public.evaluacion_equivalencias ADD CONSTRAINT evaluacion_equivalencias_empresa_id_fkey FOREIGN KEY (empresa_id) REFERENCES empresas(id);
+ALTER TABLE public.evaluacion_equivalencias ADD CONSTRAINT evaluacion_equivalencias_empleado_id_fkey FOREIGN KEY (empleado_id) REFERENCES empleados(id) ON DELETE CASCADE;
+ALTER TABLE public.evaluacion_equivalencias ADD CONSTRAINT evaluacion_equivalencias_confirmado_por_fkey FOREIGN KEY (confirmado_por) REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE public.evaluacion_evaluados ADD CONSTRAINT evaluacion_evaluados_lote_id_fkey FOREIGN KEY (lote_id) REFERENCES evaluacion_lotes(id) ON DELETE CASCADE;
+ALTER TABLE public.evaluacion_evaluados ADD CONSTRAINT evaluacion_evaluados_empleado_id_fkey FOREIGN KEY (empleado_id) REFERENCES empleados(id) ON DELETE SET NULL;
+ALTER TABLE public.evaluacion_lotes ADD CONSTRAINT evaluacion_lotes_empresa_id_fkey FOREIGN KEY (empresa_id) REFERENCES empresas(id);
+ALTER TABLE public.evaluacion_lotes ADD CONSTRAINT evaluacion_lotes_importado_por_fkey FOREIGN KEY (importado_por) REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE public.evaluacion_resultados ADD CONSTRAINT evaluacion_resultados_evaluado_id_fkey FOREIGN KEY (evaluado_id) REFERENCES evaluacion_evaluados(id) ON DELETE CASCADE;
 ALTER TABLE public.horas_proyecto ADD CONSTRAINT horas_proyecto_asignacion_id_fkey FOREIGN KEY (asignacion_id) REFERENCES proyecto_asignaciones(id);
 ALTER TABLE public.horas_proyecto ADD CONSTRAINT horas_proyecto_cargado_por_fkey FOREIGN KEY (cargado_por) REFERENCES users(id);
 ALTER TABLE public.horas_proyecto ADD CONSTRAINT horas_proyecto_empleado_empresa_id_fkey FOREIGN KEY (empleado_empresa_id) REFERENCES empresas(id);
@@ -1097,6 +1155,7 @@ CREATE INDEX idx_empleados_estado ON public.empleados USING btree (estado);
 CREATE INDEX idx_empleados_manager ON public.empleados USING btree (manager_id);
 CREATE INDEX idx_empleados_potencial ON public.empleados USING btree (potencial);
 CREATE INDEX idx_empleados_user ON public.empleados USING btree (user_id);
+CREATE INDEX idx_evaluacion_evaluados_empleado ON public.evaluacion_evaluados USING btree (empleado_id);
 CREATE INDEX idx_evcicp_empresa ON public.ev_ciclos USING btree (empresa_id);
 CREATE INDEX idx_evcicp_estado ON public.ev_ciclos USING btree (estado);
 CREATE INDEX idx_evcicp_plantilla ON public.ev_ciclos USING btree (plantilla_id);
