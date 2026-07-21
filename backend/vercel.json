@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "vercel_app.py",
+      "use": "@vercel/python",
+      "config": { "maxDuration": 300 }
+    }
+  ],
+  "routes": [
+    { "src": "/health", "dest": "vercel_app.py" },
+    { "src": "/api/(.*)", "dest": "vercel_app.py" }
+  ]
+}
