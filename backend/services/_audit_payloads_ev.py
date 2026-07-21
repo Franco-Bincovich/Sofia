@@ -59,3 +59,21 @@ def payload_finalizar_evaluacion(instancia_id, prior, puntaje_global, empresa_id
         "datos_anteriores": {"estado": prior.estado},
         "datos_nuevos": {"estado": "finalizada", "puntaje_global": _jsonable(puntaje_global)},
     }
+
+
+def payload_importacion_evaluaciones(lote_id: str, periodo: str, empresa_id: str, evaluados: int,
+                                     resultados: int, equivalencias: int, piso: bool,
+                                     usuario_id: Optional[str]) -> dict:
+    """Evento de auditoría de un LOTE de import de resultados de evaluaciones (UN evento por lote,
+    nunca fila por fila). registro_id = UUID del lote (la columna es uuid; un sentinel de texto como
+    'lote_evaluaciones' rompe el insert y AuditService lo traga → evento perdido en silencio).
+    A diferencia de nómina, el lote es de UNA empresa (la del import), así que empresa_id va seteada."""
+    return {
+        "usuario_id": usuario_id, "entidad": "evaluacion", "registro_id": lote_id,
+        "accion": "INSERT", "evento": "importacion_evaluaciones", "empresa_id": empresa_id,
+        "datos_anteriores": None,
+        "datos_nuevos": {
+            "periodo": periodo, "evaluados": evaluados, "resultados": resultados,
+            "equivalencias_confirmadas": equivalencias, "piso_periodo_anterior": piso,
+        },
+    }
