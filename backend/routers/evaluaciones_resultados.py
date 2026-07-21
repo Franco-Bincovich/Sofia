@@ -1,0 +1,58 @@
+"""Router de reportes de resultados de evaluaciones (lectura + export). Gate EVALUACIONES + READ
+(admin + gerencia leen; mandos sin acceso). Todo cuelga de un lote; la empresa sale del header."""
+from typing import Literal, Optional
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import Response
+
+from schemas.evaluacion_reportes import EvaluadoListadoResponse, FichaResponse, MetricasResponse
+from schemas.evaluacion_resultados import LoteListResponse
+from services.evaluacion_reportes_service import EvaluacionReportesService
+from services.evaluacion_service import EvaluacionService
+from utils.empresa import get_empresa_id
+from utils.permisos import Accion, Seccion, require_permission
+
+router = APIRouter()
+_GATE = [Depends(require_permission(Seccion.EVALUACIONES, Accion.READ))]
+
+
+def _svc() -> EvaluacionReportesService:
+    return EvaluacionReportesService()
+
+
+@router.get("/lotes", response_model=LoteListResponse, dependencies=_GATE)
+async def listar_lotes(request: Request) -> LoteListResponse:
+    """Lotes (ciclos) de la empresa activa — para el selector."""
+    return EvaluacionService().listar_lotes(get_empresa_id(request))
+
+
+@router.get("/lotes/{lote_id}/metricas", response_model=MetricasResponse, dependencies=_GATE)
+async def metricas(lote_id: UUID, svc: EvaluacionReportesService = Depends(_svc)) -> MetricasResponse:
+    """Resumen + brecha + sectores + competencias del ciclo, en una pasada."""
+    return svc.metricas(lote_id)
+
+
+@router.get("/lotes/{lote_id}/evaluados", response_model=EvaluadoListadoResponse, dependencies=_GATE)
+async def evaluados(lote_id: UUID, svc: EvaluacionReportesService = Depends(_svc),
+                    sector: Optional[str] = Query(None), perfil: Optional[str] = Query(None),
+                    con_nota: Optional[str] = Query(None)) -> EvaluadoListadoResponse:
+    """Listado filtrable de evaluados del lote."""
+    return svc.listado(lote_id, sector, perfil, con_nota)
+
+
+@router.get("/lotes/{lote_id}/evaluados/export", dependencies=_GATE)
+async def exportar(lote_id: UUID, svc: EvaluacionReportesService = Depends(_svc),
+                   formato: Literal["pdf", "excel", "csv", "word"] = Query("excel"),
+                   sector: Optional[str] = Query(None), perfil: Optional[str] = Query(None),
+                   con_nota: Optional[str] = Query(None)) -> Response:
+    """Export del listado — mismos Query que /evaluados."""
+    d = svc.exportar(lote_id, formato, sector, perfil, con_nota)
+    return Response(content=d.content, media_type=d.media_type,
+                    headers={"Content-Disposition": f'attachment; filename="{d.filename}"'})
+
+
+@router.get("/lotes/{lote_id}/evaluados/{evaluado_id}/ficha", response_model=FichaResponse, dependencies=_GATE)
+async def ficha(lote_id: UUID, evaluado_id: UUID, svc: EvaluacionReportesService = Depends(_svc)) -> FichaResponse:
+    """Ficha individual: matriz competencia × tipo de evaluador + promedio de terceros."""
+    return svc.ficha(lote_id, evaluado_id)
