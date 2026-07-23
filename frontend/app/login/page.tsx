@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Building2, Eye, EyeOff, Loader2 } from "lucide-react"
 
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { login } from "@/services/auth"
-import { saveSession, ApiError } from "@/services/api"
+import { getSession, saveSession, ApiError } from "@/services/api"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,6 +41,12 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [serverError, setServerError] = useState("")
+
+  // Si ya hay sesión al montar, saltar el login. getSession lee de localStorage,
+  // así que el chequeo va en useEffect (no existe en SSR).
+  useEffect(() => {
+    if (getSession()) router.replace("/dashboard")
+  }, [router])
 
   function handleChange(field: keyof FormState) {
     return (e: React.ChangeEvent<HTMLInputElement>) => {
