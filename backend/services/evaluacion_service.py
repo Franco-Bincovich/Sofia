@@ -13,12 +13,17 @@ from schemas.evaluacion_resultados import (
     LoteCreate, LoteListResponse, LoteResponse,
     ResultadoCreate, ResultadoListResponse,
 )
+from services._audit_payloads_ev import payload_baja_lote_evaluaciones
+from services.audit_service import AuditService
 from utils.errors import AppError
+from utils.logger import logger
 
 
 class EvaluacionService:
-    def __init__(self, repo: Optional[EvaluacionRepo] = None) -> None:
+    def __init__(self, repo: Optional[EvaluacionRepo] = None,
+                 audit: Optional[AuditService] = None) -> None:
         self._repo = repo or EvaluacionRepo()
+        self._audit = audit or AuditService()
 
     # ── Escritura ──
     def crear_lote(self, data: LoteCreate) -> LoteResponse:
@@ -45,6 +50,31 @@ class EvaluacionService:
             "competencia": f.competencia, "orden": f.orden, "nota": f.nota,
         } for f in filas]
         return len(self._repo.crear_resultados(payload))
+
+    def delete_lote(self, lote_id: UUID, empresa_id: Optional[UUID],
+                    usuario_id: Optional[str] = None) -> None:
+        """Elimina una importación completa: el CASCADE de las FK se lleva evaluados y resultados.
+
+        Orden estricto: (1) exige empresa activa —en consolidado no se borra—, (2) carga el lote y
+        valida que sea de esa empresa, (3) toma el snapshot ANTES de borrar (después del CASCADE no
+        se puede reconstruir), (4) borra, (5) audita. Las equivalencias de nombres NO cascadean
+        (cuelgan de empresa_id) y sobreviven a propósito: son el aprendizaje del matcheo.
+
+        Raises: EMPRESA_REQUERIDA (400), LOTE_NOT_FOUND (404), DB_ERROR (500).
+        """
+        if empresa_id is None:
+            raise AppError("Seleccioná una empresa para eliminar", "EMPRESA_REQUERIDA", 400)
+        lote = self._repo.find_lote_by_id(str(lote_id))
+        if not lote or str(lote.empresa_id) != str(empresa_id):
+            # Mismo mensaje y code que "no existe": un lote de otra empresa no se confirma.
+            raise AppError("Importación no encontrada", "LOTE_NOT_FOUND", 404)
+        n_evaluados = len(self._repo.find_evaluados(str(lote_id)))
+        if not self._repo.delete_lote(str(lote_id)):
+            raise AppError("No se pudo eliminar la importación", "DB_ERROR", 500)
+        self._audit.registrar(**payload_baja_lote_evaluaciones(
+            str(lote_id), lote.periodo, str(lote.empresa_id), n_evaluados, usuario_id))
+        logger.info("Importación de evaluaciones eliminada",
+                    extra={"lote_id": str(lote_id), "periodo": lote.periodo})
 
     # ── Lectura ──
     def listar_lotes(self, empresa_id: Optional[UUID] = None) -> LoteListResponse:

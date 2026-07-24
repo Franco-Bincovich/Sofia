@@ -4,6 +4,10 @@ Tests del orquestador de import de evaluaciones (fase 4) — fakes, sin red.
 Cubre: preview con los 3 estados (resuelto/ambiguo/sin_candidato) y aviso de período
 existente, y confirmar con reimportación que pisa, guardado selectivo de equivalencias,
 evaluado sin candidato (empleado_id null) y el rechazo de un empleado de otra empresa.
+
+Incluye además la baja de un lote (EvaluacionService.delete_lote), que reusa el mismo
+_FakeRepo: borrado con snapshot auditado, aislamiento por empresa, consolidado rechazado
+y fallo del repo.
 """
 import os
 
@@ -28,6 +32,7 @@ from schemas.evaluacion_import_api import ConfirmarRequest, EvaluadoConfirm, Res
 from schemas.evaluacion_resultados import EvaluadoResponse, LoteResponse
 from services import _evaluacion_import_transforms as tx
 from services.evaluacion_import_orchestrator import EvaluacionImportOrchestrator
+from services.evaluacion_service import EvaluacionService
 from utils.errors import AppError
 
 EMPRESA = uuid4()
@@ -53,18 +58,22 @@ class _FakeSvc:
 
 
 class _FakeRepo:
-    def __init__(self, prior=None, evaluados_prior=0) -> None:
+    def __init__(self, prior=None, evaluados_prior=0, delete_ok=True) -> None:
         self.prior, self._n_prior, self.borrados = prior, evaluados_prior, []
+        self._delete_ok = delete_ok
 
     def find_lote_by_periodo(self, empresa_id, periodo):
         return self.prior
+
+    def find_lote_by_id(self, id):
+        return self.prior if self.prior and str(self.prior.id) == str(id) else None
 
     def find_evaluados(self, lote_id):
         return [object()] * self._n_prior
 
     def delete_lote(self, id):
         self.borrados.append(id)
-        return True
+        return self._delete_ok
 
 
 class _FakeMatcheo:
@@ -200,3 +209,55 @@ def test_confirmar_rechaza_empleado_de_otra_empresa():
     with pytest.raises(AppError) as exc:
         orch.confirmar(req)
     assert exc.value.code == "EMPLEADO_FUERA_DE_EMPRESA"
+
+
+# ── Baja de un lote (EvaluacionService.delete_lote) ───────────────────────────
+
+def _lote(empresa_id=None, periodo="Ciclo 2026") -> LoteResponse:
+    return LoteResponse(id=uuid4(), empresa_id=empresa_id or EMPRESA, periodo=periodo,
+                        importado_por=None, created_at=datetime.now(timezone.utc))
+
+
+def test_delete_lote_borra_y_audita_con_snapshot():
+    lote, usuario = _lote(), str(uuid4())
+    repo, audit = _FakeRepo(prior=lote, evaluados_prior=10), _FakeAudit()
+    EvaluacionService(repo=repo, audit=audit).delete_lote(lote.id, EMPRESA, usuario)
+    assert repo.borrados == [str(lote.id)]
+    assert len(audit.eventos) == 1
+    ev = audit.eventos[0]
+    assert ev["evento"] == "baja_lote_evaluaciones" and ev["accion"] == "DELETE"
+    assert ev["entidad"] == "evaluacion" and ev["registro_id"] == str(lote.id)
+    assert ev["empresa_id"] == str(EMPRESA) and ev["usuario_id"] == usuario
+    # El snapshot se toma ANTES del CASCADE: después no se puede reconstruir.
+    assert ev["datos_anteriores"] == {"periodo": "Ciclo 2026", "evaluados": 10}
+    assert ev["datos_nuevos"] is None
+
+
+def test_delete_lote_de_otra_empresa_es_404_indistinguible_de_inexistente():
+    ajeno = _lote(empresa_id=uuid4())  # existe, pero es de otra empresa
+    repo, audit = _FakeRepo(prior=ajeno), _FakeAudit()
+    with pytest.raises(AppError) as de_otra:
+        EvaluacionService(repo=repo, audit=audit).delete_lote(ajeno.id, EMPRESA)
+    with pytest.raises(AppError) as inexistente:
+        EvaluacionService(repo=_FakeRepo(), audit=_FakeAudit()).delete_lote(uuid4(), EMPRESA)
+    assert de_otra.value.code == inexistente.value.code == "LOTE_NOT_FOUND"
+    assert de_otra.value.message == inexistente.value.message
+    assert de_otra.value.status_code == 404
+    assert repo.borrados == [] and audit.eventos == []
+
+
+def test_delete_lote_sin_empresa_activa_rechaza():
+    repo, audit = _FakeRepo(prior=_lote()), _FakeAudit()
+    with pytest.raises(AppError) as exc:  # consolidado: X-Empresa-Id "todas" → None
+        EvaluacionService(repo=repo, audit=audit).delete_lote(uuid4(), None)
+    assert exc.value.code == "EMPRESA_REQUERIDA" and exc.value.status_code == 400
+    assert repo.borrados == [] and audit.eventos == []
+
+
+def test_delete_lote_falla_si_el_repo_no_borro():
+    lote = _lote()
+    repo, audit = _FakeRepo(prior=lote, evaluados_prior=3, delete_ok=False), _FakeAudit()
+    with pytest.raises(AppError) as exc:
+        EvaluacionService(repo=repo, audit=audit).delete_lote(lote.id, EMPRESA)
+    assert exc.value.code == "DB_ERROR" and exc.value.status_code == 500
+    assert audit.eventos == []  # no se audita un borrado que no ocurrió

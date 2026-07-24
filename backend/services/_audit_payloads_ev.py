@@ -77,3 +77,19 @@ def payload_importacion_evaluaciones(lote_id: str, periodo: str, empresa_id: str
             "equivalencias_confirmadas": equivalencias, "piso_periodo_anterior": piso,
         },
     }
+
+
+def payload_baja_lote_evaluaciones(lote_id: str, periodo: str, empresa_id: str, evaluados: int,
+                                   usuario_id: Optional[str]) -> dict:
+    """Evento de auditoría de la BAJA de un lote importado (UN evento por lote, espejo del alta).
+
+    El snapshot de datos_anteriores se toma ANTES de borrar: el CASCADE se lleva evaluados y
+    resultados, así que después del delete no hay forma de reconstruir qué se perdió. Mismo
+    registro_id que el alta (UUID del lote, nunca un sentinel de texto: la columna es uuid),
+    así el historial completo de una importación queda agrupado bajo el mismo registro."""
+    return {
+        "usuario_id": usuario_id, "entidad": "evaluacion", "registro_id": lote_id,
+        "accion": "DELETE", "evento": "baja_lote_evaluaciones", "empresa_id": empresa_id,
+        "datos_anteriores": {"periodo": periodo, "evaluados": evaluados},
+        "datos_nuevos": None,
+    }

@@ -1,6 +1,6 @@
 // Servicio de reportes de resultados de evaluaciones (lectura + export). El lote sale del
 // selector de ciclo; la empresa la resuelve el header (el lote ya la fija en el backend).
-import { apiFetch, descargarArchivo } from "@/services/api"
+import { apiFetch, API_BASE, ApiError, authHeaders, descargarArchivo } from "@/services/api"
 import type {
   EvaluadoListadoResponse, FichaResponse, LotesResponse, MetricasResponse,
 } from "@/types/evaluacionReportes"
@@ -15,6 +15,23 @@ export interface FiltrosEvaluados {
 
 export async function fetchLotesEvaluaciones(): Promise<LotesResponse> {
   return apiFetch<LotesResponse>(`${BASE}/lotes`)
+}
+
+/**
+ * Elimina la importación completa: el CASCADE se lleva evaluados y resultados. Las
+ * equivalencias de nombres sobreviven (cuelgan de la empresa, no del lote).
+ * fetch crudo en vez de apiFetch: el endpoint responde 204 sin body.
+ */
+export async function deleteLoteEvaluacion(loteId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}${BASE}/lotes/${loteId}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  })
+  if (!res.ok) {
+    let msg = "No se pudo eliminar la importación."
+    try { msg = ((await res.json()) as { message?: string }).message ?? msg } catch { /* sin body */ }
+    throw new ApiError(msg, "UNKNOWN", res.status)
+  }
 }
 
 export async function fetchMetricas(loteId: string): Promise<MetricasResponse> {

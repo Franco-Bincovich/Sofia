@@ -5,6 +5,7 @@ import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { PageHeader } from "@/components/layout/PageHeader"
+import { EliminarLoteButton } from "@/components/features/evaluaciones/EliminarLoteButton"
 import { ImportarEvaluacionesPanel } from "@/components/features/evaluaciones/importar/ImportarEvaluacionesPanel"
 import { MetricasPanel } from "@/components/features/evaluaciones/reportes/MetricasPanel"
 import { EvaluadosResultadosPanel } from "@/components/features/evaluaciones/resultados/EvaluadosResultadosPanel"
@@ -19,8 +20,9 @@ const SELECT_CLASS =
 
 export default function EvaluacionesPage() {
   const canWrite = useCanWrite() // write en evaluaciones = admin_rrhh
-  const { lotes, loteId, setLoteId, cargando } = useLotesEvaluaciones()
+  const { lotes, loteId, setLoteId, cargando, recargar } = useLotesEvaluaciones()
   const [tab, setTab] = useState<Tab>("metricas")
+  const loteActivo = lotes.find((l) => l.id === loteId)
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "metricas", label: "Métricas" },
@@ -57,7 +59,25 @@ export default function EvaluacionesPage() {
         ))}
       </div>
 
-      {tab === "importar" && canWrite && <ImportarEvaluacionesPanel />}
+      {tab === "importar" && canWrite && (
+        <div className="space-y-8">
+          <ImportarEvaluacionesPanel />
+          {loteActivo && (
+            <section className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+              <h3 className="text-sm font-semibold text-foreground">Eliminar una importación</h3>
+              <p className="mb-4 mt-1.5 text-sm text-muted-foreground">
+                Si subiste los archivos equivocados, podés borrar por completo la importación del
+                período <strong className="text-foreground">{loteActivo.periodo}</strong>.
+              </p>
+              <EliminarLoteButton
+                loteId={loteActivo.id}
+                periodo={loteActivo.periodo}
+                onEliminado={recargar}
+              />
+            </section>
+          )}
+        </div>
+      )}
       {tab !== "importar" && sinCiclos && (
         <EmptyState
           icon={<ClipboardList />}

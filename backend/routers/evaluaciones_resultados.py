@@ -27,6 +27,15 @@ async def listar_lotes(request: Request) -> LoteListResponse:
     return EvaluacionService().listar_lotes(get_empresa_id(request))
 
 
+@router.delete("/lotes/{lote_id}", status_code=204,
+               dependencies=[Depends(require_permission(Seccion.EVALUACIONES, Accion.WRITE))])
+async def eliminar_lote(lote_id: UUID, request: Request) -> None:
+    """Elimina una importación completa (CASCADE a evaluados y resultados). El _GATE del archivo
+    es READ, así que este endpoint lleva su propia dependency WRITE = solo admin_rrhh."""
+    EvaluacionService().delete_lote(lote_id, get_empresa_id(request),
+                                    request.state.user.get("id", "system"))
+
+
 @router.get("/lotes/{lote_id}/metricas", response_model=MetricasResponse, dependencies=_GATE)
 async def metricas(lote_id: UUID, svc: EvaluacionReportesService = Depends(_svc)) -> MetricasResponse:
     """Resumen + brecha + sectores + competencias del ciclo, en una pasada."""
